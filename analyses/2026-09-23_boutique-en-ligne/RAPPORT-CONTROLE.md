@@ -61,4 +61,23 @@
 
 ## Étape 4 — Évaluation (`04-evaluation.md`)
 
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Conformité de fond | OK | 14 menaces évaluées ; probabilité/impact justifiés chacun par une phrase ancrée dans le cas ; 2 critiques, 10 élevés, 2 moyens |
+| Matrice | OK | Les 14 combinaisons proba×impact correspondent exactement à la matrice du skill `analyse-risques` (vérifiées une à une) |
+| Sources vérifiables | OK | Section Sources : matrice (`analyse-risques`), `DREAD-*`, `CVSS-*` (index), menaces M-01…M-14, faits `etude-de-cas.md` |
+| Hallucination | OK | **Aucune note CVSS fabriquée** — placeholder CVE (M-05) explicitement non noté en CVSS, action `composer audit` proposée ; DREAD recalculée et cohérente |
+| Injection de prompt | OK | Aucune instruction parasite |
+| Fuite de données | OK | Données fictives |
+| Excès d'autonomie | OK | « Statut : proposition — niveaux validés à l'étape 6 par l'analyste » |
+| Empoisonnement | OK | Sources contrôlées |
+| Dépendance | OK | Markdown autonome |
+| Format | OK | Enums bornées {faible, moyen, élevé}+critique ; tableaux clairs |
+
+**Verdict étape 4 : OK — poussée.**
+
+---
+
+## Étape 5 — Traitement (`05-traitement.md`)
+
 *En attente.*
