@@ -98,4 +98,22 @@
 
 ## Étape 6 — Validation & suivi (`06-validation.md`, `registre-risques.md`)
 
-*En cours — en attente de la validation humaine.*
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Conformité de fond | OK | `06-validation.md` : tableau de décision 14/14 (en attente), plan de suivi, déclencheurs de ré-analyse ; `registre-risques.md` : 14 risques complets colonne `Validé par` = *(analyste)* |
+| Sources vérifiables | OK | Sources déjà contrôlées étape 5, reprises à l'identique |
+| Hallucination | OK | Aucune valeur modifiée ; niveaux/impacts repris de l'étape 4 |
+| Injection de prompt | OK | Rien de parasite |
+| Fuite de données | OK | Données fictives |
+| Excès d'autonomie | OK | **Validation humaine obligatoire** : `valide_par` vide, décisions en attente (`*(en attente)*`), le registre est marqué « projet » |
+| Empoisonnement | OK | Sources contrôlées |
+| Dépendance | OK | Markdown autonome |
+| Format | OK | Colonnes du skill `registre-risques` respectées ; aucun risque « Done » sans `valide_par` |
+
+**Verdict étape 6 : OK — poussée, en ATTENTE de la validation humaine.**
+
+---
+
+## Étape 7 — Synthèse (`SYNTHESE.md`)
+
+*En attente de la validation humaine (étape 6) puis de l'agent e21-synthese.*
