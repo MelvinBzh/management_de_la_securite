@@ -83,9 +83,9 @@ flowchart TB
 | `e21-validation-suivi` | subagent | Validation humaine, décisions, plan de suivi | `06-validation.md`, `registre-risques.md` |
 | `e21-synthese` | subagent | Reprend tout, recommande en expliquant pourquoi | `SYNTHESE.md` |
 | `e21-controle` | subagent | Garde-fous qualité : sources, injection, fuite, format | `RAPPORT-CONTROLE.md` |
-| `github-manager`, `machine-manager`, `research`… | subagent | Support : board/PR, état machine, veille | — |
+| `github-manager`, `research`, `security` | subagent | Support : board/PR, veille/knowledge_base, audit | — |
 
-Modes et permissions : `orchestrator` dispose des outils de workflow (`question`, `task`); les agents de chaîne sont en **lecture seule + écriture Markdown** (`edit` authorisé, `bash` refusé) ; `github-manager` et `machine-manager` seuls gèrent repo/board et système.
+Modes et permissions : `orchestrator` dispose des outils de workflow (`question`, `task`); les agents de chaîne sont en **lecture seule + écriture Markdown** (`edit` authorisé, `bash` refusé) ; `github-manager` seul gère repo/board.
 
 ## Skills (`.opencode/skills/<nom>/SKILL.md`)
 
@@ -97,7 +97,7 @@ Modes et permissions : `orchestrator` dispose des outils de workflow (`question`
 | `garde-fous-ia` | Les 6 risques IA (hallucination, injection, fuite, excès d'autonomie, empoisonnement, dépendance) |
 | `schemas-diagrammes` | Conventions Mermaid (diagrammes propres et homogènes) |
 | `ebios-rm`, `stride`, `linddun`, `pasta`, `mitre-attack`, `dread`, `cvss` | Grilles de menaces / notation |
-| `git-workflow`, `machine-state`, `new-project`, `mac-test` | Support (template) |
+| `git-workflow`, `machine-state`, `new-project` | Support (template, allégé) |
 
 ## Base de connaissances et sources
 

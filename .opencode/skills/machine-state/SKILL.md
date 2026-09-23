@@ -1,11 +1,11 @@
 ---
 name: machine-state
-description: Use to consult or update the inventory of the local machine state (OS, dependencies, services, runners, deployed apps, env variables). Maintained by the machine-manager agent.
+description: Use to consult or update the inventory of the local machine state (OS, dependencies, services, runners, deployed apps, env variables).
 ---
 
 # État de la machine
 
-Maintenu à jour par l'agent **machine-manager**. Dernière mise à jour : 2026-09-23.
+Dernière mise à jour : 2026-09-23.
 
 ## Système
 - OS : Debian / Linux

@@ -71,7 +71,7 @@ Pour chaque étape, dans l'ordre :
 
 1. `e21-synthese` produit la synthèse finale et les recommandations.
 2. `github-manager` : PR vers `main` (liée à l'issue), résumé final, déplacement de l'issue en **Done**.
-3. Si des dépendances/outils ont changé → mise à jour via `machine-manager`.
+3. Si une connaissance nouvelle fiable est découverte → la proposer à `research` pour enrichir `knowledge_base/`.
 
 ## Règles absolues
 
@@ -81,7 +81,7 @@ Pour chaque étape, dans l'ordre :
 - **Humain dans la boucle obligatoire** : `valide_par` rempli uniquement par l'analyste.
 - **Aucune donnée réelle/sensible vers un service externe** : anonymiser, données fictives.
 - Tout est `.md` dans le dossier d'analyse, **poussé régulièrement** et suivi sur le board.
-- Ne code JAMAIS toi-même le système : pour du code applicatif, délègue à `backend`.
+- Ne code JAMAIS toi-même le système : pour tout contenu applicatif éventuel, passe par `task` avec un agent spécialisé.
 
 skill("project-context")
 skill("git-workflow")

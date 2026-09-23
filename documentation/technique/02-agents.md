@@ -97,4 +97,4 @@ Règle : `REJET` = blocage, l'étape est rejouée ; l'agent de contrôle utilise
 
 ## Support
 
-`github-manager` (issues/board/PR), `machine-manager` (état machine), `security` (audit global + garde-fous perimeter).
+`github-manager` (issues/board/PR), `research` (complète `knowledge_base/`), `security` (audit global + garde-fous perimeter).

@@ -1,13 +1,14 @@
 # Management de la Sécurité
 
-Gestion de la sécurité du projet : suivi via GitHub Projects, issues, PRs et pipeline CI/CD orchestré par des agents opencode.
+Projet E21 « Des agents IA pour analyser les risques » : système multi-agents opencode (orchestrateur + chaîne d'analyse) qui assiste un analyste de risques, avec suivi via GitHub Projects.
 
 ## Structure
 
-- `.opencode/agents` — agents (orchestrateur, github-manager, security, backend, frontend, …)
-- `.opencode/skills` — skills (project-context, git-workflow, machine-state, …)
-- `documentation/` — documentation initiale et documents du projet
-- `.github/workflows` — pipeline CI/CD
+- `.opencode/agents` — agents (orchestrateur E21, chaîne `e21-*`, github-manager, research, security)
+- `.opencode/skills/*/SKILL.md` — skills (analyse-risques, frameworks STRIDE/LINDDUN/EBIOS-RM…, garde-fous-ia, registre, schémas)
+- `knowledge_base/` — sources à ID stable (références des menaces et contre-mesures)
+- `analyses/<date>_<cas>/` — dossier généré pour chaque analyse (registre + synthèse)
+- `documentation/` — documentation technique et documents du sujet
 
 ## Workflow
 
