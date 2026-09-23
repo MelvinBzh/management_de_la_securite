@@ -7,44 +7,48 @@
 
 | Décision | Choix | Pourquoi |
 |---|---|---|
-| Framework | **CrewAI** (Process séquentiel) | 5 rôles + orchestrateur, JSON validé à chaque étape, traces des échanges |
-| Modèle LLM | **Abstraction : Ollama local** en nominal, **API en secours** + **mode démo déterministe** | Machine : pas de modèle local (~1 Go RAM), pas de clé API → le prototype doit TOUJOURS tourner |
-| Sorties | **Pydantic strict**, JSON identique au sujet | Vérification « rien ne manque », champ `sources` + `valide_par` |
+| Plateforme du prototype | **Environnement opencode** (agents + skills `.opencode/`) — pas de site web | Le système ISE le prototype ; démontrable en direct, documents `.md` tracés |
+| Orchestrateur | `orchestrator.md` : **collecte tout en une passe**, puis lance la chaîne | Conforme au design demandé (bonnes questions d'abord, lance ensuite) |
+| Agents chaîne | 1 agent par étape des 6 étapes + analyse-existant + **expert méthodes** + **synthèse finale** + contrôle garde-fous | Chaque étape vérifiable, sources et niveaux justifiés |
+| Méthodes | Skill par framework : **STRIDE (défaut)**, EBIOS RM, LINDDUN, PASTA, ATT&CK, DREAD, CVSS | L'agent `e21-choix-methode` compare et justifie par le cas |
 | Cas d'étude | **A — Boutique en ligne** + **STRIDE** | Frontière de confiance « prestataire de paiement » idéale pour le DFD |
-| Garde-fous | Filtrage injection, sources vérifiées, anonymisation, lecture seule, logs JSONL | Critère « Sécurité du système d'agents » |
+| Sorties | Dossier `analyses/<AAAA-MM-JJ>_<cas>/` : `.md` + `.json` (registre), `valide_par` obligatoire | Traçabilité + suivi board |
+| Modèle LLM | **Interchangeable** : opencode (modèle DU) nominal, `mock/déterministe` en mode démo | Machine : pas de gros modèle local, pas de clé API → le prototype doit TOUJOURS tourner |
+| Garde-fous | Skill `garde-fous-ia` : hallucination, injection, fuite, excès d'autonomie, empoisonnement, dépendance + agent `e21-controle` | Critère « Sécurité du système d'agents » |
+| Suivi | Push régulier + issues + board #6 (Todo / In Progress / Review / Done) | Critère « gestion de projet » |
 
 ## Jalons du sujet → livrables
 
 1. **Cadrer** — description du cas, actifs attendus
-2. **Concevoir** — architecture + fiche/consigne de chaque agent
-3. **Prototyper** — chaîne fonctionnelle sur le cas A
-4. **Tester** — comparaison analyse manuelle + test injection de prompt
-5. **Restituer** — dossier + soutenance
+2. **Concevoir** — architecture + consigne de chaque agent/skill
+3. **Prototyper** — chaîne fonctionnelle sur le cas A (dans opencode)
+4. **Tester** — comparaison analyse manuelle + scénario d'injection de prompt
+5. **Restituer** — dossier + soutenance (45 min)
 
 ## Plan d'exécution (jour J-1)
 
 ### Matin
-- [ ] Init structure du repo `src/` + environnement (`venv`, `requirements.txt`)
-- [ ] `schemas.py` (Pydantic : Actif, Menace, Risque, Registre) — JSON du sujet champ pour champ
-- [ ] `knowledge_base/` (STRIDE, baseline de contre-mesures ISO 27002) — sources à ID stable
-- [ ] Engine LLM : interface `LlmProvider` — Ollama / API / **mock déterministe**
-- [ ] Agent 1 `Inventaire` + Agent 2 `Modèle`
+- [x] Skills par framework (`SKILL.md`) : analyse-risques, registre-risques, garde-fous-ia, schemas-diagrammes, STRIDE, LINDDUN, EBIOS RM, PASTA, ATT&CK, DREAD, CVSS
+- [x] Ordonnancement : `analyses/<date>_<cas>/` + fichier par étape
+- [x] `knowledge_base/` (STRIDE, baseline de contre-mesures ISO 27002) — sources à ID stable
+- [ ] Orchestrateur collecte le cas A (description, flux, prestataire de paiement) en une passe
+- [ ] Lancer la chaîne sur le cas A : analyse-existant → choix-méthode
 
 ### Mi-journée
-- [ ] Agent 3 `Menaces` + Agent 4 `Évaluation` (matrice probabilité×impact)
-- [ ] Agent 5 `Traitement` + orchestrateur séquentiel (CrewAI)
-- [ ] Validation humaine (rempli `valide_par`) + génération `registre_risques.json` + `rapport.md`
-- [ ] Logs JSONL des échanges inter-agents
+- [ ] menaces → évaluation (matrice probabilité×impact) → traitement (contre-mesures sourcées ISO 27002)
+- [ ] Contrôle `e21-controle` à chaque étape (sources vérifiables, pas d'injection/fuite)
+- [ ] Validation humaine (remplit `valide_par`) → `registre-risques.json` + registre final
+- [ ] Push régulier de la branche `analyses/…` + commentaires d'issue + board
 
 ### Après-midi
-- [ ] Garde-fous : filtrage entrées (séparation consignes/données), `anonymise()`, validation des sources
-- [ ] `test_injection.py` — scénario « document piégé » démontrable (jalon 4)
+- [ ] Garde-fous démontrés : scénario « document piégé » / injection de prompt (jalon 4)
 - [ ] Analyse manuelle de référence des risques (comparatif attendu par le correcteur)
-- [ ] Exécution complète sur cas A → registre final
+- [ ] `e21-synthese` : SYNTHESE.md avec recommandations expliquées (chaque action liée à un ID du registre)
+- [ ] Exécution complète sur cas A → registre final validé
 
 ### Soir
 - [ ] Dossier écrit (`documentation/`) : architecture, consignes, analyse critique, outils cités
-- [ ] Préparation soutenance : ce qui marche / ne marche pas, risques de notre système
+- [ ] Préparation soutenance : ce qui marche / ne marche pas, risques de notre système (skill `garde-fous-ia`)
 - [ ] Traces des échanges exportées + commit final
 
 ## Critères d'évaluation (points de vigilance)
