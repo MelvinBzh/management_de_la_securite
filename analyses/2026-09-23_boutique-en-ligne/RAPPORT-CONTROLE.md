@@ -43,4 +43,22 @@
 
 ## Étape 3 — Menaces (`03-menaces.md`)
 
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Conformité de fond | OK | 14 menaces (M-01…M-14), grille STRIDE appliquée par élément/aux frontières F1–F4 + LINDDUN limité aux actifs RGPD (A-05/A-06/A-11) ; tableau de couverture incidents/vulnérabilités documentés |
+| Sources vérifiables | OK | Tous les ID (`STRIDE-*`, `LINDDUN-*`, `ATT&CK-T1190`) présents dans l'index ; renvois `etude-de-cas.md`/`00-description.md`/`01-actifs.md` exacts |
+| Hallucination | OK | `CVE-2023-XXXX` reconnu comme placeholder de l'énoncé, **aucun numéro inventé** ; 3 techniques ATT&CK proposées (§ 6) explicitement marquées « hors index, non citées » |
+| Injection de prompt | OK | Aucune instruction parasite dans les descriptions de menaces |
+| Fuite de données | OK | Données fictives (Mélanie, Shopix) ; aucun e-mail/IP/nom réel |
+| Excès d'autonomie | OK | En-tête « Statut : proposition — aucun `valide_par` » |
+| Empoisonnement | OK | Les techniques ATT&CK hors index sont proposées (à research), pas injectées dans les sources |
+| Dépendance | OK | Markdown autonome |
+| Format | OK | Tableau une ligne par menace (ID/Actif/Catégorie/Description/CVE/Source) ; conventions M-0X respectées |
+
+**Verdict étape 3 : OK — poussée.** Suivi : proposer à `research` l'ajout de `ATT&CK-T1110`, `ATT&CK-T1078`, `ATT&CK-T1566` à l'index (phase clôture).
+
+---
+
+## Étape 4 — Évaluation (`04-evaluation.md`)
+
 *En attente.*
