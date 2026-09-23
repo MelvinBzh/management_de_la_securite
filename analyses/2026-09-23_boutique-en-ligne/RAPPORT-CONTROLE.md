@@ -25,4 +25,22 @@
 
 ## Étape 2 — Choix de la méthode (`02-methodes.md`)
 
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Conformité de fond | OK | Tableau comparatif (7 méthodes), choix STRIDE + LINDDUN + DREAD/CVSS justifié PAR le cas (DFD existant, données personnelles, incidents, budget), méthodes écartées expliquées, chaîne ①–⑥ en Mermaid |
+| Sources vérifiables | OK | 100 % des ID cités (`STRIDE-*`, `LINDDUN-*`, `EBIOS-RM-2018`, `PASTA-*`, `ATT&CK-T1190`, `DREAD-*`, `CVSS-*`) présents dans `knowledge_base/README.md` |
+| Hallucination | WARN | `CVE-2023-XXXX` est un **placeholder de l'étude de cas** (non inventé) ; la référence exacte sera vérifiée à l'étape 3 avant notation CVSS. Absence de note inventée : OK |
+| Injection de prompt | OK | Aucune instruction parasite ; le rapport indique lui-même que toute nouvelle technique ATT&CK devra être ajoutée à l'index avant citation |
+| Fuite de données | OK | Données fictives ; aucun nom/e-mail réel |
+| Excès d'autonomie | OK | En-tête explicite « Statut : proposition — **validation humaine requise** avant de lancer l'étape 3 » |
+| Empoisonnement | OK | Sources contrôlées |
+| Dépendance | OK | Markdown autonome + Mermaid |
+| Format | OK | Tables, conventions, aligné avec `analyse-risques` et `registre-risques` |
+
+**Verdict étape 2 : OK — poussée** (note : vérifier la CVE exacte à l'étape 3).
+
+---
+
+## Étape 3 — Menaces (`03-menaces.md`)
+
 *En attente.*
