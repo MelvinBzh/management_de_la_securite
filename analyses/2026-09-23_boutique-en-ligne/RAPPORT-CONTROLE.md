@@ -80,4 +80,22 @@
 
 ## Étape 5 — Traitement (`05-traitement.md`)
 
-*En attente.*
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Conformité de fond | OK | 14 risques traités (2 critiques en priorité), 4 réponses possibles appliquées (réduire dominant, + transférer pour R-05/R-09), résiduel estimé jamais nul |
+| Sources vérifiables | OK | Tous les ID `ISO27002-A*`, `STRIDE-*`, `LINDDUN-*`, `ATT&CK-T1190`, `ANSSI-*` contrôlés ligne à ligne contre `knowledge_base/README.md` (A8.5.2, A6.2, A6.2.3, A8.2.3, A8.3.2, A8.4, A8.4.2, A8.8, A8.9, A8.11, A8.14, A8.15, A8.16, A8.24, A8.26, A8.28, A8.29, A5.4, A5.36, A7.2 — tous présents) |
+| Hallucination | OK | Aucun ID inventé ; le renvoi « CVE réelle à confirmer » est conservé, pas de numéro fabriqué |
+| Injection de prompt | OK | Aucune instruction parasite |
+| Fuite de données | OK | Données fictives ; les exports .csv traités sont ceux du cas |
+| Excès d'autonomie | OK | En-tête « Statut : projet de registre — aucune décision finale » + avertissement en pied de fichier ; `valide_par: null` sur les 14 entrées JSON |
+| Empoisonnement | OK | Sources contrôlées |
+| Dépendance | OK | Markdown + JSON autonomes |
+| Format | OK | Tableau conforme (ID/Actif/Menace/Proba·Impact·Niveau/Traitement/Contre-mesures/Sources/Résiduel) ; JSON conforme au skill `registre-risques` |
+
+**Verdict étape 5 : OK — poussée.** Prêt pour la validation humaine (étape 6).
+
+---
+
+## Étape 6 — Validation & suivi (`06-validation.md`, `registre-risques.md`)
+
+*En cours — en attente de la validation humaine.*
