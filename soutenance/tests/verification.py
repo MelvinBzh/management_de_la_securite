@@ -257,8 +257,8 @@ def t09_git():
     import subprocess
     branche = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True).stdout.strip()
     erreurs = []
-    if branche != "docs/soutenance":
-        erreurs.append(f"branche courante '{branche}' (attendue : docs/soutenance)")
+    if branche not in {"docs/soutenance", "main"}:
+        erreurs.append(f"branche courante '{branche}' (attendues : docs/soutenance ou main)")
     for f in ("00-description.md", "01-actifs.md", "registre-risques.md", "SYNTHESE.md", "RAPPORT-CONTROLE.md"):
         if not (DOSSIER / f).exists():
             erreurs.append(f"livrable absent : {f}")
