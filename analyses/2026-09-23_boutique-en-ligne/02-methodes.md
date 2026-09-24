@@ -53,11 +53,11 @@ STRIDE n'est pas choisi « par défaut » mais **parce que le cas le rend object
    - **D — Denial of Service** : indisponibilité critique en décembre (A-13), pas de monitoring/WAF/CDN, mutualisation non isolée (A-15) ;
    - **E — Elevation of Privilege** : F3 — site = API = back-office sur la même VM, aucune segmentation : une compromission du site public élève les droits sur tout (A-01, A-03, A-04).
 3. **Proportionné à la TPE** : effort faible, pas d'équipe dédiée, budget 2 500 €/an — l'objectif est un registre priorisé justifiant ce budget, pas une analyse organisationnelle lourde (élimine EBIOS RM et PASTA complet, cf. § 3.3).
-4. **Aligné sur l'énoncé du sujet** (`etude-de-cas.md` § 11) qui préconise explicitement « STRIDE principal, LINDDUN pour les données personnelles, DREAD/CVSS pour la priorisation » — et le projet pilote a été retenu avec le modèle STRIDE (voir projet-context).
+4. **Alignement (vérifié, non causal) avec l'énoncé du sujet** (`etude-de-cas.md` § 11) : la préconisation du sujet et les caractéristiques du cas **convergent**, mais la justification ne repose pas sur l'énoncé — elle repose sur les points 1–3 ci-dessus (DFD déjà produit, projection des menaces du cas sur les 6 catégories STRIDE, proportionnalité à la TPE). L'énoncé est une **cohérence vérifiée a posteriori**, pas un fondement (anti-circulaire).
 
 ### 3.2 Complément obligatoire : **LINDDUN** (données personnelles)
 
-Le cas a `donnees_personnelles: true` et identifie des actifs RGPD critiques : **A-05** (données clients : nom, e-mail, adresse, tél., historique, mots de passe sha1), **A-06** (exports `.csv` complets non pseudonymisés conservés 24 mois), **A-11** (consentement newsletter mal enregistré). Ces actifs introduisent des menaces que la grille STRIDE ne couvre pas : corrélation des données (**`LINDDUN-L`**), identification d'une personne (**`LINDDUN-I`**), divulgation de données personnelles (**`LINDDUN-DI`** — cas de l'export non pseudonymisé), non-conformité RGPD (**`LINDDUN-NC`** — absence de registre, droit à l'oubli non automatisé, mentions incomplètes, consentement invalide). LINDDUN s'applique **en parallèle de STRIDE** sur les seuls flux/stockages de données personnelles (A-05, A-06, A-11, flux F1–F2), pas sur tout le système.
+Le cas a `donnees_personnelles: true` et identifie des actifs RGPD critiques : **A-05** (données clients : nom, e-mail, adresse, tél., historique, mots de passe sha1), **A-06** (exports `.csv` complets non pseudonymisés conservés 24 mois), **A-11** (consentement newsletter mal enregistré). Ces actifs introduisent des menaces que la grille STRIDE ne couvre pas : corrélation des données (**`LINDDUN-L`**), identification d'une personne (**`LINDDUN-I`**), divulgation de données personnelles (**`LINDDUN-Disclosure`** — cas de l'export non pseudonymisé), non-conformité RGPD (**`LINDDUN-NC`** — absence de registre, droit à l'oubli non automatisé, mentions incomplètes, consentement invalide). LINDDUN s'applique **en parallèle de STRIDE** sur les seuls flux/stockages de données personnelles (A-05, A-06, A-11, flux F1–F2), pas sur tout le système.
 
 ### 3.3 Méthodes écartées — pourquoi
 
@@ -105,7 +105,7 @@ flowchart LR
 | # | Maillon | Application ShoPix | Sortie |
 |---|---|---|---|
 | ① | Décrire | DFD + F1–F4 déjà produits (`00-description.md`) | `00-description.md` ✓ |
-| ② | Identifier | STRIDE sur chaque élément du DFD (S/T/R/I/D/E) + LINDDUN sur les données personnelles (L/I/DI/NC) | Liste des menaces par actif et frontière |
+| ② | Identifier | STRIDE sur chaque élément du DFD (S/T/R/I/D/E) + LINDDUN sur les données personnelles (L/I/D/Disclosure/Unawareness/NC — L/I/Disclosure/NC retenues au cas) | Liste des menaces par actif et frontière |
 | ③ | Détailler | Ancrage dans des attaques réelles (ex. `ATT&CK-T1190` Exploit Public-Facing Application pour le site exposé ; scénarios issus des incidents 2023–2025) | Scénarios concrets (étape 3) |
 | ④ | Prioriser | DREAD pour toutes les menaces ; CVSS v4.0 pour les CVE connues (PayFlow-SDK, PHP 8.0 EOL…) ; mapping vers la matrice probabilité × impact | Niveaux de risque (étape 4) |
 | ⑤ | Traiter | 4 réponses : réduire (MFA, correctifs…), transférer (cyber-assurance), éviter, accepter — 8–10 risques attendus | Contre-mesures sourcées `ISO27002-*` (étape 5) |
@@ -118,13 +118,13 @@ flowchart LR
 | ID | Source | Usage dans ce fichier |
 |---|---|---|
 | `STRIDE-S`, `STRIDE-T`, `STRIDE-R`, `STRIDE-I`, `STRIDE-D`, `STRIDE-E` | Microsoft — A. Shostack, *Threat Modeling: Designing for Security* (2014) | Méthode d'identification principale, grille 6 catégories (§ 2, § 3.1) |
-| `LINDDUN-L`, `LINDDUN-I`, `LINDDUN-D`, `LINDDUN-DI`, `LINDDUN-UA`, `LINDDUN-NC` | KU Leuven — *LINDDUN* (le « STRIDE de la vie privée ») ; RGPD (UE 2016/679) | Complément vie privée sur A-05/A-06/A-11 (§ 2, § 3.2) — `LINDDUN-N` non pertinent ici (non-répudiation est un *bien* pour la boutique) |
+| `LINDDUN-L`, `LINDDUN-I`, `LINDDUN-D`, `LINDDUN-Disclosure`, `LINDDUN-Unawareness`, `LINDDUN-NC` | KU Leuven — *LINDDUN* (le « STRIDE de la vie privée ») ; RGPD (UE 2016/679) | Complément vie privée sur A-05/A-06/A-11 (§ 2, § 3.2) — `LINDDUN-N` non pertinent ici (non-répudiation est un *bien* pour la boutique) |
 | `EBIOS-RM-2018` | ANSSI — *EBIOS Risk Manager* (2018) | Méthode examinée puis écartée (organisation/OIV) (§ 2, § 3.3) |
 | `PASTA-*` | UcedaVélez & Morana — *Risk Centric Threat Modeling* | Méthode examinée puis écartée (trop lourde pour la TPE) (§ 2, § 3.3) |
 | `ATT&CK-T1190` | MITRE — *ATT&CK*, Exploit Public-Facing Application | Maillon « détailler les scénarios » ; autres techniques vérifiées à l'étape 3 contre l'index |
 | `DREAD-D…` | Microsoft — DREAD (Damage / Reproducibility / Exploitability / Affected users / Discoverability) | Grille de priorisation générale (§ 2, § 3.4) |
 | `CVSS-*` | FIRST — *CVSS v4.0* ; NIST NVD | Priorisation des CVE connues, ajustée en environnement (§ 2, § 3.4) |
-| `etude-de-cas.md` § 11 | Sujet E21 (documentation du projet) | Préconisation explicite du cocktail STRIDE + LINDDUN + DREAD/CVSS (§ 3.1) |
+| `etude-de-cas.md` § 11 | Sujet E21 (documentation du projet) | **Alignement** constaté a posteriori avec le cocktail STRIDE + LINDDUN + DREAD/CVSS — l'énoncé conforte, il ne justifie pas (la justification = § 3.1 points 1–3) (§ 3.1) |
 
 ---
 
