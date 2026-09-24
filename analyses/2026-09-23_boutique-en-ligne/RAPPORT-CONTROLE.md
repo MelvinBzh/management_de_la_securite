@@ -112,6 +112,17 @@
 
 **Verdict étape 6 : OK — poussée, en ATTENTE de la validation humaine.**
 
+### Mise à jour après validation humaine (2026-09-23)
+
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Décision analyste | OK | R-01…R-12 **validés** ; **R-13 rejeté** (consigné § 2 décisions + section « risque rejeté » du registre) ; **R-14 modifié** (impact → Élevé, résiduel → Moyen), tracé et opposable |
+| `valide_par` | OK | Rempli sur R-01…R-12, R-14 (Analyste · 2026-09-23) ; **R-13 reste non validé** (`valide_par: null` dans le JSON, section rejetés) |
+| Registre | OK | 13 risques validés (2 critiques, 10 élevés, 1 moyen) ; `registre_risques.json` annexé |
+| Garde-fous | OK | La modification R-14 est une décision humaine directive « tu modifi » — valeurs changées avec accord écrit ; aucune autre valeur altérée |
+
+**État final étape 6 : OK — registre validé. La synthèse peut démarrer.**
+
 ---
 
 ## Étape 7 — Synthèse (`SYNTHESE.md`)
