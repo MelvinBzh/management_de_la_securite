@@ -9,7 +9,7 @@
 | Sujet | AVANT (faux) | APRÈS (à présenter) |
 |---|---|---|
 | Registre validé | 13 risques (R-13 « rejeté ») | **14 risques** : 2 critiques, **11 élevés**, 1 moyen. R-13 est **retenu** (programme de mise en conformité RGPD, échéance déc. 2026, résiduel Faible) |
-| Validation humaine | R-13 rejeté le 23/09 | Rejet du 23/09 = **essai du circuit** de validation ; **reconsidéré le 24/09** (un rejet sans motif de gestion n'est pas une décision). Décisions : traces dans `06-validation.md`, `valide_par` « Analyste · 2026-09-24 » |
+| Validation humaine | R-13 rejeté le 23/09 | Rejet du 23/09 = **essai du circuit** de validation ; **reconsidéré le 24/09** (un rejet sans motif de gestion n'est pas une décision). Décisions : traces dans `06-validation.md`, `valide_par` « Melvin RAIMBAULT · 2026-09-24 » |
 | Niveau de référence | DREAD semblait concurrent | La **matrice probabilité × impact** fait foi ; DREAD = ordre de traitement (rappelé en tête du registre et dans le JSON) |
 | ISO 27002 | Index « codes A » mélangeant 2013/2022 (ex. `A8.5.2`, `A6.2.3`, `A5.36`) | **Index ISO/IEC 27002:2022 canonique** : codes 5.3, 5.15, 5.19, 5.30, 6.3, 8.2, 8.5, 8.8, 8.11, 8.13, 8.14, 8.15, 8.16, 8.22, 8.24, 8.25, 8.26, 8.28, 8.29, 8.34 (+ tables de correspondance documentaire). **T-10 = invariant** : tout retour de `ISO27002-A*` fait échouer la suite |
 | Budget sécurité | ~2 300 €/an (sous l'enveloppe) | **~4 300 €/an** (dont **~2 000 € de cyber-assurance** pour R-09) → **dépasse l'enveloppe de 2 500 € : arbitrage de l'analyste en cours** (issue #20). C'est un point de discussion, pas une erreur |
@@ -52,7 +52,7 @@
 2. **Analyse manuelle de référence** (exigence 4 de la checklist, comparatif « agents vs main ») — issue #17, reste à produire (l'analyste a autorisé l'assistant à la rédiger).
 3. **T-11 protocole d'exposition réelle** — exécution à archiver avant une démonstration.
 4. **Tests pytest pérennes** (P2) et **connaissances nouvelles** à proposer au `research` (ATT&CK-T1110/-T1078/-T1566, innocuité du commerce/2 % → 4 %) — en cours.
-5. **`valide_par` nominatif** : les fichiers portent « Analyste » ; le nom complet est à confirmer (l'audit demande un nom).
+5. **`valide_par` nominatif** : réglé — les fichiers portent « **Melvin RAIMBAULT · 2026-09-24** ».
 
 ## 4. Instructions pour l'IA qui régénère le support
 

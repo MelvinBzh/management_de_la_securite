@@ -402,9 +402,9 @@ rows = [
     ["Menace (catégorie)", "Brute force /admin — STRIDE-S (Spoofing)"],
     ["Proba · Impact · Niveau", "Élevée · Élevé · Critique"],
     ["Traitement", "Réduire : MFA, lockout, sessions courtes, sensibilisation"],
-    ["Justification & sources", "Incident 2024 (~1 000 tentatives/24 h), pas de lockout ni MFA — STRIDE-S, ISO27002-A8.5.2, A6.2, A7.2"],
+    ["Justification & sources", "Incident 2024 (~1 000 tentatives/24 h), pas de lockout ni MFA — STRIDE-S, ISO27002-8.5, ISO27002-5.15, ISO27002-6.3"],
     ["Risque résiduel", "Moyen (après MFA + lockout)"],
-    ["Validé par", "Analyste · 2026-09-23"],
+    ["Validé par", "Melvin RAIMBAULT · 2026-09-24"],
 ]
 slide_table("Anatomie d'un risque (registre-risques.md)", "4 · Démo", head, rows,
     "Aucune validation « automatique » : le niveau critique a été relu et approuvé par l'analyste.",
@@ -419,7 +419,7 @@ bullets(s, [
     (0, "R-14 (perte de commandes) : MODIFIÉ par l'analyste — impact Moyen → Élevé"),
     (1, "Motif : perte définitive de données clients ; résiduel recalculé à Moyen"),
     (0, "Conséquence : le registre final ne ressemble pas exactement à la sortie brute des agents"),
-    (0, "Preuve formelle : T-08 vérifie que 13/13 risques portent `valide_par` = Analyste 2026-09-23"),
+    (0, "Preuve formelle : T-08 vérifie que 14/14 risques portent `valide_par` = Melvin RAIMBAULT · 2026-09-24"),
     (0, "Le système ne peut pas s'auto-valider : pas de `valide_par` sans humain (garde-fou n°4)"),
 ], size=15)
 
