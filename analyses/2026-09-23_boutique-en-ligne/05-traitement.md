@@ -8,7 +8,7 @@
 
 1. **R-10** (M-10, Critique) — absence de segmentation → compromission totale
 2. **R-01** (M-01, Critique) — brute force `/admin`
-3. puis les risques Élevés (R-04, R-13, R-02, R-11, R-12, R-09, R-07, R-03, R-08, R-05), puis les Moyens (R-06, R-14).
+3. puis les risques Élevés (R-03, R-04, R-05, R-06, R-07, R-08, R-09, R-11, R-12, R-13), puis les Moyens (R-02, R-14).
 
 Les **deux risques critiques** sont traités en premier (phases « quick wins » compatibles au budget de 2 500 €/an : pas d'obstacle technique).
 
