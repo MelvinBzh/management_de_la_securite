@@ -123,10 +123,10 @@ flowchart TB
     VAL -.-> T4
     VAL -.-> T5
 
-    classDef act class fill:#e3f0fb,stroke:#5b9bd5
-    classDef men class fill:#fde9d9,stroke:#ed7d31
-    classDef tra class fill:#e2f0e0,stroke:#70ad47
-    classDef gf class fill:#f2f2f2,stroke:#7f7f7f
+    classDef act fill:#e3f0fb,stroke:#5b9bd5,stroke-width:2px
+    classDef men fill:#fde9d9,stroke:#ed7d31,stroke-width:2px
+    classDef tra fill:#e2f0e0,stroke:#70ad47,stroke-width:2px
+    classDef gf fill:#f2f2f2,stroke:#7f7f7f,stroke-width:1px
     class A1,A2,A3,A4,A5 act
     class M1,M2,M3,M4,M5 men
     class T1,T2,T3,T4,T5 tra
