@@ -22,6 +22,8 @@ Chaque menace / contre-mesure / niveau cité dans une analyse DOIT référencer 
 | `LINDDUN-Unawareness` | Unawareness — id. | Vie privée : méconnaissance |
 | `LINDDUN-NC` | Non-compliance — id. | Vie privée : non-conformité |
 | `EBIOS-RM-2018` | EBIOS Risques Manager (ANSSI) | Analyse organisationnelle, 5 ateliers |
+| `EBIOS-RM-A3` | EBIOS RM — atelier 3, scénarios stratégiques & cartographie de la menace | Chemins d'attaque (source → objectif → frontières) |
+| `EBIOS-RM-A4` | EBIOS RM — atelier 4, appréciation des risques | Gravité × vraisemblance, seuils d'acceptation |
 | `ATT&CK-T1190` | MITRE ATT&CK, *Exploit Public-Facing Application* | Techniques d'attaque réelles |
 | `PASTA-*` | Process for Attack Simulation & Threat Analysis | Centré métier/attaquant |
 | `DREAD-D`… | Damage / Reproducibility / Exploitability / Affected users / Discoverability (Microsoft) | Priorisation |
@@ -52,7 +54,7 @@ Chaque menace / contre-mesure / niveau cité dans une analyse DOIT référencer 
 | `ISO27002-8.28` | Secure coding — Codage sécurisé |
 | `ISO27002-8.29` | Security testing in development and acceptance — Tests de sécurité en développement et acceptation |
 | `ISO27002-8.34` | Protection of information systems during audit testing — Protection des SI pendant les tests d'audit |
-| `ANSSI-*` | Guides ANSSI (recommandations de sécurité) | 
+| `ANSSI-*` | Guides ANSSI (recommandations de sécurité) |
 
 ## Correspondance ISO 27002:2013 → 2022 (documentation — ne pas citer les codes 2013 dans les registres)
 
@@ -70,10 +72,26 @@ Correspondances principales (annexe officielle de l'ISO/IEC 27002:2022) :
 | A12.6.1 | 8.8 | Gestion des vulnérabilités |
 | A12.4.1, A12.4.3 | 8.15 / 8.16 | Journalisation et surveillance |
 | A12.3.1 | 8.13 | Sauvegarde de l'information |
+| A8.2.3, A8.8 | 8.8 | Correctifs / vulnérabilités |
 | A10.1.1 | 8.24 | Utilisation de la cryptographie |
 | A13.1.3 | 8.22 | Séparation des réseaux |
 
 > L'ancien index contenait aussi des identifiants non standard (ex. codes `A5.36`, `A8.1.1`, `A8.4.2`, `A8.5.2` de l'ancien format). Ils ont été ré-indexés vers les codes 2022 ci-dessus — seul le format canonique `ISO27002-<code 2022>` fait foi, tout `ISO27002-A*` est refusé par le contrôleur.
+
+## Référentiels ANSSI officiels (par étape de la chaîne e21)
+Chaque agent de la chaîne ancre sa réflexion sur un référentiel ANSSI précis (documents publiés sur cyber.gouv.fr / messervices.cyber.gouv.fr). Citer l'ID dans les sorties.
+
+| ID | Source (ANSSI) | Agent e21 ciblé | Usage |
+|---|---|---|---|
+| `ANSSI-CARTO-SI` | *Cartographie du système d'information — Guide d'élaboration en 5 étapes* (ANSSI, 2018) | e21-analyse-existant | Vues (métier/applicative/architecture), objets + attributs, granularité, sensibilité |
+| `EBIOS-RM-2018` | *EBIOS Risk Manager* (ANSSI, 2018) | e21-choix-methode | Méthode française de référence (5 ateliers), option OIV/administration |
+| `EBIOS-RM-A3` | EBIOS RM — **atelier 3**, scénarios stratégiques & cartographie de la menace | e21-menaces | Raisonner en chemins d'attaque : source de risque → objectif visé → frontières |
+| `EBIOS-RM-A4` | EBIOS RM — **atelier 4**, appréciation des risques | e21-evaluation | Gravité × vraisemblance → niveau, seuils d'acceptation |
+| `ANSSI-HYGIENE` | *Guide d'hygiène informatique* (ANSSI) | e21-traitement | Mesures de base numérotées (MFA, correctifs, sauvegardes…) |
+| `ANSSI-RECYF` | *Référentiel Cyber France (ReCyF)* (ANSSI, 2026) — NIS2 | e21-traitement | Objectifs de sécurité + moyens acceptables de conformité |
+| `ANSSI-HOMOLOGATION` | *Guide de l'homologation de sécurité* (ANSSI, 2025) | e21-validation-suivi | Acceptation formelle des risques résiduels par l'autorité, revue |
+| `ANSSI-IA-GEN` | *Recommandations de sécurité pour un système d'IA générative* (ANSSI, 2024) | e21-controle | Manipulation, infection des données, exfiltration, contrôle humain |
+| `ANSSI-PSSI` | *Guide pour l'élaboration d'une PSSI* (ANSSI) | e21-synthese | Notes de synthèse, plan d'action, orientation décision |
 
 ## Documents de référence (sujet)
 

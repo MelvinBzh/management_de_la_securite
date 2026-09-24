@@ -29,6 +29,13 @@ Tableau des menaces, une ligne par menace :
 - Si une **CVE connue** correspond (ex. vulnérabilité serveur web), citer son identifiant.
 - Enrichir les scénarios critiques via **MITRE ATT&CK** (techniques).
 
+## Référentiel ANSSI — boussole de raisonnement
+Enrichir chaque menace avec l'esprit de l'**atelier 3 d'EBIOS Risk Manager** (scénarios stratégiques, ID `EBIOS-RM-A3`).
+- Raisonner en **scénarios d'attaque** : source de risque → objectif visé → chemins d'attaque à travers les frontières de confiance.
+- Décrire la **cartographie de la menace** de chaque actif (qui attaque, avec quel accès, pour quel objectif), pas seulement une catégorie STRIDE.
+- Décrire chaque scénario comme une suite d'étapes intermédiaires (point d'entrée → propagation → objectif), les plus « évidentes » d'abord.
+- Citer `EBIOS-RM-A3` en source complémentaire dans `03-menaces.md`.
+
 ## Règles
 - **Catégorie** toujours préfixée par la grille : `STRIDE-S`, `LINDDUN-L`, `ATT&CK-T1190`…
 - Chaque menace = **description réaliste et argumentée**, pas une liste générique.

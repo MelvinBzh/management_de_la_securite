@@ -33,6 +33,12 @@ Projet de **registre des risques** (tableau + JSON) : pour chaque risque →
 
 Contre-mesures **concrètes et référencées** (ex. `MFA FIDO2`, `STRIDE-S`, `ISO27002-A8.2.3`, `ANSSI`).
 
+## Référentiel ANSSI — boussole de raisonnement
+Proposer des contre-mesures issues des référentiels ANSSI vérifiables :
+- **Guide d'hygiène informatique** (ANSSI, ID `ANSSI-HYGIENE`) : mesures de base numérotées et concrètes (MFA, correctifs, sauvegardes, cloisonnement, journalisation) → usage direct en contre-mesure.
+- **Référentiel Cyber France (ReCyF)** (ANSSI 2026 / NIS2, ID `ANSSI-RECYF`) : objectifs de sécurité + moyens acceptables de conformité, si le cas est éligible NIS2.
+- Pour chaque contre-mesure, citer l'un de ces IDs à côté de l'ISO 27002 (chaque contre-mesure doit avoir une source dans `knowledge_base/`).
+
 ## Règles
 - Chaque contre-mesure a une **source** dans `knowledge_base/` (validable par `e21-controle`).
 - Le risque résiduel est estimé après application (jamais nul).

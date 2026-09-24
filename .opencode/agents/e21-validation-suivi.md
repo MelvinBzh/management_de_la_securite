@@ -32,6 +32,13 @@ Tu es l'agent « Étape 6 — Validation et suivi ». Tu fais **relire et décid
 - `registre-risques.md` : **le registre final validé** (une ligne par risque + `valide_par` renseigné + date).
 - Annexer le JSON `registre_risques.json` conforme au skill `registre-risques`.
 
+## Référentiel ANSSI — boussole de raisonnement
+Caler la validation et le suivi sur le **« Guide de l'homologation de sécurité »** (ANSSI, 2025, ID `ANSSI-HOMOLOGATION`).
+- Risque résiduel **accepté formellement**, à un niveau de responsabilité suffisant (autorité d'homologation) — jamais implicitement.
+- Consigner la décision **par écrit** (responsable, date, justification) ; tout risque « accepter » doit être tracé.
+- Prévoir la **revue périodique** et les **déclencheurs de ré-analyse** (changement de périmètre, incident, nouveau fournisseur) — la vraisemblance évolue.
+- Citer `ANSSI-HOMOLOGATION` dans `06-validation.md`.
+
 ## Règles
 - **Aucun risque « Done » sans `valide_par`** rempli.
 - Ne pas modifier les valeurs (probabilité/impact/niveau) sans accord de l'analyste.
