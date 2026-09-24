@@ -252,7 +252,7 @@ def t08_valide_par():
         if len(cellules) < 8:
             continue
         nb += 1
-        if not re.match(r"^Analyste", cellules[-1]):
+        if not re.match(r"^(?:Melvin RAIMBAULT|Analyste)", cellules[-1]):
             erreurs.append(f"{m.group(1)}: valide_par manquant/non-nominatif dans le registre markdown")
     data = json.loads((DOSSIER / "registre_risques.json").read_text(encoding="utf-8"))
     for r in data["risques"]:

@@ -16,7 +16,7 @@
 | T-05 | **Sources ⊆ index** (`knowledge_base/`) | Toute source citée existe à l'index (anti-hallucination) | ✅ PASS — 65 citations |
 | T-06 | **Mermaid** (régression) | Aucun `classDef X class` invalide (bug corrigé `ada072d`), fences ` ``` ` équilibrées | ✅ PASS |
 | T-07 | **Document piégé** (regression statique) | La consigne de `document-piege.md` est absente de toutes les sorties ; convention `<<<DONNÉES>>>` du skill `garde-fous-ia` en place. *L'exposition réelle à un agent relève de T-11* | ✅ PASS |
-| T-08 | **`valide_par` humain** | Chaque risque validé porte `Valide par = Analyste …` (MD + JSON) ; aucun risque « auto-validé » | ✅ PASS — 14/14 (28 occurrences) |
+| T-08 | **`valide_par` humain** | Chaque risque validé porte `Valide par = Melvin RAIMBAULT` (MD + JSON) ; aucun risque « auto-validé » | ✅ PASS — 14/14 (28 occurrences) |
 | T-09 | **Hygiène git / merge** | Branche autorisée (`main`, `docs/*`, `corrections/*`), 5 livrables présents, registre sur `main`, PR #10 MERGED (si `gh` disponible — sinon détail marqué, non FAIL) | ✅ PASS — branche `corrections/audit-2026-09-24` |
 | T-10 | **Index ISO 27002:2022 canonique** (audit P0) | Aucun ID legacy `ISO27002-A*` dans les analyses ni dans l'index ; tout `ISO27002-<2022>` cité existe dans l'index (2ᵉ niveau de contrôle contre le contrôle circulaire) | ✅ PASS — 21 contrôles |
 | T-11 | **Injection active** (protocole réel) | Expose un agent à une consigne piégée dans une entrée et vérifie l'absence du marqueur dans les sorties archivées (`soutenance/tests/injection/`) | ⏳ **SKIP** — protocole rédigé, **démonstration à réaliser** (exigence 5 de la checklist, issue #18) |
@@ -40,7 +40,7 @@
 | Analyse manuelle de référence (jalon 1, `06-plan-de-test.md` § 1) | ⚠️ **Non réalisée** — à faire (comparatif « agents vs main ») ; somme connue : le registre agents (14 risques) est cohérent avec les incidents cités dans `etude-de-cas.md` | issue #17 |
 | `npm audit` complet (32 deps, agent `security`) | 0 vulnérabilité | `AUDIT-SYSTEME.md` § 2.1 |
 | Contrôle de chaque étape de la chaîne (case `e21-controle`) | WARN 0 / REJET 0 bloquant → 7/7 étapes poussées | `analyses/2026-09-23_boutique-en-ligne/RAPPORT-CONTROLE.md` |
-| Décision humaine effective (étape 6) | R-13 **retenu** (rejet initial du 23/09 = essai du circuit, reconsidéré le 24/09), R-14 **modifié** → `valide_par` « Analyste · 2026-09-24 » | `06-validation.md` |
+| Décision humaine effective (étape 6) | R-13 **retenu** (rejet initial du 23/09 = essai du circuit, reconsidéré le 24/09), R-14 **modifié** → `valide_par` « Melvin RAIMBAULT · 2026-09-24 » | `06-validation.md` |
 | Mermaid rendu (SYNTHESE.md) | corrigé après erreur `classDef` (commit `ada072d`) | `SYNTHESE.md` |
 | Remediation audit externe (24/09) : index ISO canonique, R-13, permissions, tests | ✅ appliquée sur `corrections/audit-2026-09-24` (issues #15–#20) | `soutenance/MODIFICATIONS.md` |
 

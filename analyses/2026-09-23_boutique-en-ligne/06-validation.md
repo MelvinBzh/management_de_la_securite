@@ -10,20 +10,20 @@ Décision de l'analyste le **2026-09-24** : R-01…R-12 **validés tels quels**,
 
 | ID | Niveau proposé | Traitement proposé | Risque résiduel proposé | Décision analyste | Valide par + date |
 |---|---|---|---|---|---|
-| R-01 | Critique | Réduire (MFA, lockout) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-02 | Moyen | Réduire (bcrypt/argon2) | Faible | **Validé** | Analyste · 2026-09-24 |
-| R-03 | Élevé | Réduire (SPF/DKIM/DMARC) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-04 | Élevé | Réduire (requêtes paramétrées, patchs) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-05 | Élevé | Réduire + Transférer | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-06 | Élevé | Réduire (journalisation) | Faible | **Validé** | Analyste · 2026-09-24 |
-| R-07 | Élevé | Réduire (rotation, secret manager) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-08 | Élevé | Réduire (chiffrement, stockage externe) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-09 | Élevé | Réduire + Transférer (cyber-assurance) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-10 | Critique | Réduire (séparation composants) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-11 | Élevé | Réduire (pseudonymisation) | Faible | **Validé** | Analyste · 2026-09-24 |
-| R-12 | Élevé | Réduire (procédure 72 h) | Moyen | **Validé** | Analyste · 2026-09-24 |
-| R-13 | Élevé | Réduire (programme de mise en conformité RGPD) | Faible | **Validé** (rejet initial du 23/09 **reconsidéré**) | Analyste · 2026-09-24 |
-| R-14 | Moyen → **Élevé** | Réduire (automatisation backups) | Faible → **Moyen** | **Modifié** (impact Élevé : perte définitive de commandes + données clients ; résiduel Moyen conservateur) | Analyste · 2026-09-24 |
+| R-01 | Critique | Réduire (MFA, lockout) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-02 | Moyen | Réduire (bcrypt/argon2) | Faible | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-03 | Élevé | Réduire (SPF/DKIM/DMARC) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-04 | Élevé | Réduire (requêtes paramétrées, patchs) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-05 | Élevé | Réduire + Transférer | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-06 | Élevé | Réduire (journalisation) | Faible | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-07 | Élevé | Réduire (rotation, secret manager) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-08 | Élevé | Réduire (chiffrement, stockage externe) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-09 | Élevé | Réduire + Transférer (cyber-assurance) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-10 | Critique | Réduire (séparation composants) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-11 | Élevé | Réduire (pseudonymisation) | Faible | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-12 | Élevé | Réduire (procédure 72 h) | Moyen | **Validé** | Melvin RAIMBAULT · 2026-09-24 |
+| R-13 | Élevé | Réduire (programme de mise en conformité RGPD) | Faible | **Validé** (rejet initial du 23/09 **reconsidéré**) | Melvin RAIMBAULT · 2026-09-24 |
+| R-14 | Moyen → **Élevé** | Réduire (automatisation backups) | Faible → **Moyen** | **Modifié** (impact Élevé : perte définitive de commandes + données clients ; résiduel Moyen conservateur) | Melvin RAIMBAULT · 2026-09-24 |
 
 ## 2. Décisions de la direction (consignées le 2026-09-24)
 
