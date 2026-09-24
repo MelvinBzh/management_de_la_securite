@@ -13,7 +13,7 @@
 | Méthodes | Skill par framework : **STRIDE (défaut)**, EBIOS RM, LINDDUN, PASTA, ATT&CK, DREAD, CVSS | L'agent `e21-choix-methode` compare et justifie par le cas |
 | Cas d'étude | **A — Boutique en ligne** + **STRIDE** | Frontière de confiance « prestataire de paiement » idéale pour le DFD |
 | Sorties | Dossier `analyses/<AAAA-MM-JJ>_<cas>/` : `.md` + `.json` (registre), `valide_par` obligatoire | Traçabilité + suivi board |
-| Modèle LLM | **Interchangeable** : opencode (modèle DU) nominal, `mock/déterministe` en mode démo | Machine : pas de gros modèle local, pas de clé API → le prototype doit TOUJOURS tourner |
+| Modèle LLM | **Interchangeable à la config opencode** : nominal `opencode/big-pickle` (API cloud, données fictives uniquement) ; **roadmap : ollama en local** (aucune donnée ne sort du poste) | Machine : pas de gros modèle local, pas de clé API détectée → POC piloté par consignes, la démo reste rejouable |
 | Garde-fous | Skill `garde-fous-ia` : hallucination, injection, fuite, excès d'autonomie, empoisonnement, dépendance + agent `e21-controle` | Critère « Sécurité du système d'agents » |
 | Suivi | Push régulier + issues + board #6 (Todo / In Progress / Review / Done) | Critère « gestion de projet » |
 

@@ -300,12 +300,17 @@ def t09_git():
 def t10_iso_canonique():
     erreurs = []
     motif_legacy = re.compile(r"ISO27002-A[0-9][0-9.]*")   # code 2013/invente interdit
-    cibles = sorted((RACINE / "analyses").rglob("*.md")) + sorted((RACINE / "analyses").rglob("*.json"))
+    # cible : analyses MAIS AUSSI les consignes vivantes des agents, skills et prompts —
+    # une reference legacy dans un prompt re-apparaitrait dans la prochaine analyse
+    cibles = []
+    for racine in ("analyses", ".opencode/agents", ".opencode/skills", "prompts"):
+        for pattern in ("*.md", "*.json"):
+            cibles += sorted((RACINE / racine).rglob(pattern))
     for path in cibles:
-        texte = path.read_text(encoding="utf-8")
+        texte = path.read_text(encoding="utf-8", errors="ignore")
         for m in motif_legacy.finditer(texte):
             if "post-audit" not in texte[max(0, m.start() - 200):m.start()]:
-                erreurs.append(f"{path.name}: ID legace '{m.group(0)}'")
+                erreurs.append(f"{path.relative_to(RACINE)}: ID legace '{m.group(0)}'")
     index = lire("knowledge_base/README.md")
     if motif_legacy.search(index):
         erreurs.append("index knowledge_base : contient un ID ISO27002-A* (2013) — doit etre rejete")

@@ -28,5 +28,5 @@ Dernière mise à jour : 2026-09-23.
 | - | - | - |
 
 ## Snapshot de référence (prototype IA)
-- Pas de modèle LLM local → `LlmProvider` multi-backend (ollama/api/mock) requis
+- Pas de modèle LLM local → exécution opencode via API cloud (modèle nominal `opencode/big-pickle`) ; **roadmap : ollama en local** (swap de modèle en une ligne d'ouverture opencode, pas de code applicatif à modifier)
 - Reste : sqlite3, make, curl/wget, PyYAML, python-docx/pptx, openpyxl, pillow, pymupdf, bcrypt, cryptography, PyJWT

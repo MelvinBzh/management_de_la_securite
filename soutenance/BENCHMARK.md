@@ -34,9 +34,9 @@
 ## 3. Avantages du système E21 (faits vérifiables dans le dépôt)
 
 1. **Méthode métier encodée dans des skills** (`analyse-risques`, `stride`, `linddun`, `dread`, `cvss`, `ebios-rm`, `pasta`, `mitre-attack`) : la grille n'est pas laissée à l'initiative du LLM → reproductibilité.
-2. **Sources obligatoires à ID stable** (`knowledge_base/README.md`) et **rejet automatique des sources inconnues** : chaque risque du registre ShoPix est sourcé (13/13).
-3. **Humain décideur réellement dans la boucle** : `valide_par` rempli par l'analyste ; décisions de rejet (R-13) et de modification (R-14) **traces réelles** dans `06-validation.md`.
-4. **Coût quasi nul** : 0 € de licence, mode **mock déterministe** (démo garantie sans LLM externe), ou local via `ollama` — de 0 à ~1 $ pour une analyse complète en API (cf. `CHOIX-MODELES-IA.md`).
+2. **Sources obligatoires à ID stable** (`knowledge_base/README.md`) et **rejet automatique des sources inconnues** (`e21-controle` + invariant T-05) : chaque risque du registre ShoPix est sourcé (14/14).
+3. **Humain décideur réellement dans la boucle** : `valide_par` rempli nominativement (Melvin RAIMBAULT) ; décisions de rejet/reconsidération (R-13) et de modification (R-14) = **traces réelles** dans `06-validation.md`.
+4. **Coût quasi nul** : 0 € de licence ; POC **piloté par consignes** exécuté via opencode (modèle nominal `opencode/big-pickle`, API) — de 0 à ~1 $ pour une analyse complète en API — et **roadmap ollama en local** (cf. `CHOIX-MODELES-IA.md`).
 5. **Traçabilité complète** : branche dédiée, push à chaque étape, issue #9 suivie sur le board (Todo → In Progress → Review → Done), PR #10 fusionnée.
 6. **Garde-fous explicites** (skill `garde-fous-ia`), 6 risques IA couverts : hallucination → rejet sans source ; injection → documents traités comme données non fiables ; fuite → anonymisation ; excès d'autonomie → lecture seule ; empoisonnement → index contrôlé ; dépendance → sorties `.md` autonomes.
 7. **Adaptabilité** : bascule de méthode par skill (STRIDE défaut, LINDDUN pour RGPD, EBIOS RM pour OIV/administration, PASTA pour la vision métier) sans toucher aux agents.
@@ -46,7 +46,7 @@
 
 | Inconvénient | Parade |
 |---|---|
-| **Dépendance à l'environnement opencode** (pas un site web autonome) | Sorties 100 % `.md`/`.json` autonomes (test « dépendance » du plan de test) ; abstraction `LlmProvider` interchangeable |
+| **Dépendance à l'environnement opencode** (pas un site web autonome) | Sorties 100 % `.md`/`.json` autonomes (test « dépendance » du plan de test) ; modèle **interchangeable à la config** (ollama en roadmap) |
 | **Pas de parsing automatique des documents entrants** (PDF/.doc/.xlsx) — l'analyseur ou l'utilisateur résume | Feuille de route : intégration parseurs (PyMuPDF/Docling/OCR) — cf. `PERSPECTIVES` ; en attendant, collecte en une passe par questions |
 | **Pas d'analyse technique automatique du système réel** (pas de scan réseau, pas de vuln scan) | Le cas d'emploi vise l'**analyse au sens EBIOS/architecture** (amont) ; les CVE doivent être confirmées (ex. `composer audit`) et sont explicitement non fabriquées |
 | **Évaluation probabilité/impact qualitative** (subjectivité résiduelle) | Matrice normalisée + justification unique par risque + validation humaine obligatoire + sources réelles (incidents 2023–2025 du cas ShoPix) |

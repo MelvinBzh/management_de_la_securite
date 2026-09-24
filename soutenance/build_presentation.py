@@ -262,22 +262,22 @@ rows = [
     ["github-manager", "oui", "issues/PR", "git + gh", "push/board uniquement"],
     ["Analyste", "tout", "tout", "tout", "valide chaque risque"],
 ]
-slide_table("Permissions : lecture seule + markdown pour la chaîne", "2 · Infrastructure", head, rows,
-    "Aucun agent ne peut modifier un système réel : seulement écrire des documents d'analyse. "
-    "La décision finale (valide_par) appartient à l'humain.",
+slide_table("Permissions : défense en profondeur pour la chaîne", "2 · Infrastructure", head, rows,
+    "Aucun agent ne peut modifier un système réel : écriture bornée à analyses/**, bash refusé, "
+    "e21-controle en lecture seule. La décision finale (valide_par) appartient à l'humain.",
     col_w=[Inches(2.6), Inches(1.7), Inches(3.0), Inches(3.0), Inches(2.0)], fsize=12)
 
 # ================================================================ SLIDE 9 — LLM
-s = slide_titre("Un LLM interchangeable — la démo est garantie", "2 · Infrastructure",
-    "C'est un point fort : l'abstraction LlmProvider permet trois implémentations. En démo on peut même "
-    "couper tout LLM externe (mode mock) : la méthode, les contrôles et les formats restent.", tag="Partie 2")
+s = slide_titre("Un modèle d'exécution interchangeable — POC piloté par consignes", "2 · Infrastructure",
+    "Le système est un POC dont les consignes (.md + skills) SONT le programme : aucun code applicatif. "
+    "Le modèle d'exécution se change en une ligne de config opencode ; le local (ollama) est la roadmap.",
+    tag="Partie 2")
 bullets(s, [
-    (0, "``LlmProvider`` : une bascule en une ligne, aucun changement dans les agents"),
-    (0, "Trois implémentations :"),
-    (1, "``ollama`` — modèle local (aucune donnée ne sort de la machine) — mode nominal"),
-    (1, "``api`` — cloud (secours, comparaison ; données fictives uniquement, conformément au garde-fou)"),
-    (1, "``mock / déterministe`` — démo garantie : le prototype fonctionne sans aucun LLM externe (temperature=0)"),
-    (0, "La chaîne s'exécute de bout en bout même en mode mock : la valeur est dans la méthode, pas dans le modèle"),
+    (0, "Modèle nominal utilisé : ``opencode/big-pickle`` (API cloud ; données fictives uniquement)"),
+    (0, "POC piloté par consignes : les agents et skills ``.opencode/`` sont le programme"),
+    (1, "Sorties ``.md`` / ``.json`` autonomes — la démarche ne dépend d'aucun code propriétaire"),
+    (1, "``ollama`` (local, aucune donnée ne sort) : objectif roadmap, documenté dans ROADMAP.md"),
+    (0, "La chaîne s'exécute de bout en bout dans opencode : la valeur est dans la méthode (consignes), pas dans le modèle"),
     (0, "Au besoin, router par étape (cf. « Choix des modèles IA ») — quel modèle à quelle étape"),
 ], size=15)
 
@@ -349,10 +349,10 @@ s = slide_titre("Exemple réel : de l'étape 5 à l'étape 6 sur ShoPix", "3 · 
 bullets(s, [
     (0, "Étape 5 (e21-traitement) : 05-traitement.md = projet de registre — statut « aucune décision finale »"),
     (0, "Étape 6 (e21-validation-suivi) : soumission à l'analyste, risque par risque"),
-    (1, "L'analyste a validé R-01…R-12 et R-14 ; R-13 rejeté ; R-14 modifié (impact → Élevé)"),
+    (1, "L'analyste a validé R-01…R-12 et R-14 ; R-13 rejeté le 23/09 puis **retenu** le 24/09 (reconsidération) ; R-14 modifié"),
     (0, "Le champ valide_par n'est rempli QUE par l'humain — sinon rien n'est final"),
     (0, "Traçabilité : 06-validation.md consigne chaque décision (valide/rejette/modifie + motif)"),
-    (0, "Résultat : un registre de 13 risques réellement « accordé » entre la chaîne et l'analyste"),
+    (0, "Résultat : un registre de 14 risques réellement « accordé » entre la chaîne et l'analyste"),
 ], size=15)
 
 # ================================================================ SLIDE 15 — SKILLS MÉTIER
@@ -386,7 +386,7 @@ s = slide_titre("Démo : la chaîne exécutée sur ShoPix", "4 · Démo",
     "Résumer les chiffres clés de l'analyse fusionnée. Les fichiers sont tous sur main.", tag="Partie 4")
 bullets(s, [
     (0, "Collecte en une passe → dossier analyses/2026-09-23_boutique-en-ligne/ (11 livrables)"),
-    (0, "16 actifs identifiés · 14 menaces évaluées · 13 risques au registre validé"),
+    (0, "16 actifs identifiés · 14 menaces évaluées · 14 risques au registre validé"),
     (0, "Répartition : 2 critiques · 10 élevés · 1 moyen"),
     (1, "R-01 & R-10 critiques (brute force /admin ; absence de segmentation)"),
     (0, "Chaque risque : actif + menace + catégorie + proba·impact·niveau + traitement + sources + résiduel + valide_par"),
@@ -431,7 +431,7 @@ bullets(s, [
     (0, "Vérifie 6 points : existence des sources, injection, fuite de données, excès d'autonomie, format registre, Mermaid"),
     (0, "Exemples réels de la passe ShoPix (RAPPORT-CONTROLE.md) :"),
     (1, "Étape 4 : matice appliquée 14/14 · DREAD recalculé 14/14 · aucune CVE fabriquée (placeholder signalé)"),
-    (1, "Étape 6 : décisions humaines consignées (R-13 rejeté, R-14 modifié) — registre conforme"),
+    (1, "Étape 6 : décisions humaines consignées (R-13 retenu après reconsidération, R-14 modifié) — registre conforme"),
     (0, "En clair : on peut relire a posteriori ce qui a été contrôlé, à chaque étape"),
     (0, "C'est la « piste d'audit » du système — rejouable par la suite de tests"),
 ], size=15)
@@ -443,7 +443,7 @@ bullets(s, [
     (0, "1 · Analyse manuelle de référence — ⚠️ à faire (comparatif « agents vs main », prévu jalon 1)"),
     (0, "2 · Tests des conventions (pytest prévus : registre, sources, matrice, formats) — la suite rejouable les préfigure"),
     (0, "3 · Robustesse / garde-fous (document piégé, hallucination, fuite, autonomie, dépendance)"),
-    (0, "4 · Test fonctionnel de bout en bout sur le cas A — RÉALISÉ (14 menaces → 13 risques validés)"),
+    (0, "4 · Test fonctionnel de bout en bout sur le cas A — RÉALISÉ (14 menaces → 14 risques validés)"),
     (0, "5 · Checklist finale (sujet p. 28) — chaque risque sourcé ✔, valide_par ✔, doc piégé ✔ (T-07)"),
     (1, "La suite automatisée : soutenance/tests/verification.py — 10 tests, rejouable en 1 commande"),
 ], size=15)
@@ -452,13 +452,13 @@ bullets(s, [
 head = ["Test", "Vérification", "Résultat"]
 rows = [
     ["T-01", "npm audit (dépendances opencode)", "✅ 0 vulnérabilité"],
-    ["T-02", "Registre JSON : schéma, enums, valide_par", "✅ 13 risques conformes"],
+    ["T-02", "Registre JSON : schéma, enums, valide_par", "✅ 14 risques conformes"],
     ["T-03", "Moyennes DREAD recalculées", "✅ 14/14 identiques"],
     ["T-04", "Matrice proba×impact", "✅ 40 cas conformes"],
     ["T-05", "Sources ⊆ knowledge_base (anti-hallucination)", "✅ 63 citations vérifiées"],
     ["T-06", "Mermaid : aucune régression classDef", "✅ fences équilibrées"],
     ["T-07", "Document piégé / injection de prompt", "✅ consigne absente des sorties"],
-    ["T-08", "valide_par humain obligatoire", "✅ 13/13"],
+    ["T-08", "valide_par humain obligatoire", "✅ 14/14"],
     ["T-09", "Hygiène git : branche, PR #10 MERGED", "✅ issue #9 Done"],
     ["T-10", "knowledge_base : ré-indexation ISO (P1)", "⚠️ WARN attendu/planifié"],
 ]
@@ -492,7 +492,7 @@ rows = [
     ["contrôle (garde-fous)", "GPT-5-mini + contrôles déterministes", "Phi-4-mini (CPU)"],
 ]
 slide_table("Routeur de modèles 2026 (détail sourcé : CHOIX-MODELES-IA.md)", "6 · Modèles IA", head, rows,
-    "Bascule LlmProvider en une ligne ; comparaison sourcée (OpenRouter, Anthropic, Google AI, Mistral, OmniDocBench, SO-Bench…).",
+    "Modèle en une ligne de config (roadmap ollama) ; comparaison sourcée (OpenRouter, Anthropic, Google AI, Mistral, OmniDocBench, SO-Bench…).",
     col_w=[Inches(3.9), Inches(4.6), Inches(3.7)], fsize=11)
 
 # ================================================================ SLIDE 25 — JUSTIFICATIONS
@@ -559,7 +559,7 @@ s = slide_titre("Avantages démontrables", "7 · Limites",
 bullets(s, [
     (0, "Reproductibilité : méthode encodée dans les skills, pas laissée au LLM"),
     (0, "Traçabilité : une branche/issue/PR par analyse, push à chaque étape, RAPPORT-CONTROLE"),
-    (0, "Humain dans la boucle : valide_par réellement rempli (R-13 rejeté, R-14 modifié)"),
+    (0, "Humain dans la boucle : valide_par réellement rempli (R-13 retenu après reconsidération, R-14 modifié)"),
     (0, "Coût : 0 € de licence, démo garantie en mode mock, ~1 $ par analyse en API"),
     (0, "Garde-fous explicites : 6 risques IA couverts, contrôles déterministes + rejet sans source"),
     (0, "Adaptabilité : bascule de méthode (STRIDE/LINDDUN/EBIOS RM/PASTA) sans toucher aux agents"),
@@ -570,7 +570,7 @@ bullets(s, [
 # ================================================================ SLIDE 30 — INCONVÉNIENTS
 head = ["Inconvénient", "Parade"]
 rows = [
-    ["Pas autonome hors d'opencode (pas de site web)", "sorties .md/.json autonomes ; LlmProvider interchangeable"],
+    ["Pas autonome hors d'opencode (pas de site web)", "sorties .md/.json autonomes ; modèle interchangeable à la config (ollama en roadmap)"],
     ["Pas de parsing auto des documents entrants", "feuille de route ingestion (.pdf/.doc/.xlsx/.img) — Perspectives"],
     ["Pas d'analyse technique du système réel", "cas d'emploi amont (EBIOS/architecture) ; CVE confirmées explicitement"],
     ["Proba/impact qualitatifs (subjectivité)", "matrice normalisée + justification + sources + validation humaine"],
@@ -617,7 +617,7 @@ bullets(s, [
     (0, "2 · Traçabilité : chaque risque cite une source vérifiée ; chaque étape est poussée sur GitHub"),
     (0, "3 · Humain décideur : rien n'est validé sans l'analyste — et ça s'est réellement produit (R-13, R-14)"),
     (0, "Ce qui est démontré aujourd'hui :"),
-    (1, "une analyse complète et validée (ShoPix, 13 risques) — artefacts sur main"),
+    (1, "une analyse complète et validée (ShoPix, 14 risques) — artefacts sur main"),
     (1, "une suite de tests rejouable 10/10, dont le document piégé (injection de prompt)"),
     (1, "un choix de modèles justifié par task et par la sensibilité des données"),
     (0, "Reste à faire : analyse réseau, ingestion documentaire, ré-indexation ISO (feuille de route)"),
