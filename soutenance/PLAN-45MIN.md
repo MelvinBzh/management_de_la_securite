@@ -2,7 +2,9 @@
 
 > Projet E21 « Des agents IA pour analyser les risques » — M2 Cybersécurité.
 > Déroulé : 45 min + questions. Support : `soutenance/presentation.pptx` (~34 slides).
-> Données d'appui : `CHOIX-MODELES-IA.md`, `AUDIT-SYSTEME.md`, `BENCHMARK.md`, `TESTS.md`, `analyses/2026-09-23_boutique-en-ligne/`.
+> Data d'appui : `CHOIX-MODELES-IA.md`, `AUDIT-SYSTEME.md`, `BENCHMARK.md`, `TESTS.md`, `analyses/2026-09-23_boutique-en-ligne/`.
+>
+> ⚠️ **Mise à jour 2026-09-24 (audit externe remédié)** : ce plan et le support reflètent l'état **corrigé** du dépôt. Si le `.pptx` est régénéré, se baser sur **`soutenance/MODIFICATIONS.md`** (liste exhaustive des changements) — notamment : index ISO 27002:2022 canonique, R-13 retenu (14 risques), permissions `analyses/**`, POC piloté par consignes (pas de « mock LLM » exécuté), suite de tests T-01→T-11, oLLama en roadmap.
 
 ## Déroulé détaillé (timing cumulé)
 
@@ -19,8 +21,8 @@
 ### Partie 3 — Infrastructure (8 → 13 min)
 7. Architecture globale (Mermaid) : opencode, orchestrateur, chaîne 7 agents, contrôle, GitHub, board (2 min)
 8. Dépôt / workflow : branches par analyse, issues, board (Todo → In Progress → Review → Done) (1 min)
-9. Modes et permissions : agents en lecture seule + markdown, `bash` refusé (1 min)
-10. Le LLM interchangeable : `ollama` / `api` / **mock déterministe** (démo garantie) (1 min)
+9. Modes et permissions : lectures + écriture **limitée à `analyses/**`**, `bash` refusé, `e21-controle` en lecture seule (1 min)
+10. Le système : un **POC piloté par consignes** dans opencode — les consignes `.md` + skills *sont* le programme (pas de code applicatif exécuté) ; le **local (ollama) est en roadmap** (1 min)
 
 ### Partie 4 — Les agents (13 → 19 min)
 11. Vue d'ensemble : 12 agents dans `.opencode/agents/` (tableau rôles → sorties) (1 min)
@@ -34,16 +36,16 @@
 17. Skills framework : STRIDE, LINDDUN, EBIOS RM, PASTA, ATT&CK, DREAD, CVSS — **bascule de méthode** (2 min)
 
 ### Partie 6 — Démo : cas ShoPix (23 → 28 min)
-18. Chaîne exécutée : 14 menaces → 13 risques validés, 2 critiques, 10 élevés, 1 moyen (1 min)
+18. Chaîne exécutée : 14 menaces → **14 risques validés** (2 critiques, 11 élevés, 1 moyen) (1 min)
 19. Exemple de risque complet (R-01 : brute force `/admin`) — actif, menace, niveau, source, résiduel (2 min)
-20. La validation humaine : R-13 rejeté, R-14 modifié → `valide_par` (1 min)
+20. La validation humaine : R-13 rejeté (essai du circuit) **puis retenu** le 24/09, R-14 modifié → `valide_par` (1 min)
 21. `RAPPORT-CONTROLE.md` : trace du contrôle à chaque étape (1 min)
 
 ### Partie 7 — Tests effectués (28 → 32 min)
 22. Stratégie de test (`06-plan-de-test.md`) : analyse manuelle de réf., conventions, garde-fous, bout en bout (1 min)
-23. Suite de tests automatisée T-01 → T-10 (script rejouable `soutenance/tests/verification.py`) — **artefacts sur `main`** (2 min)
-24. Résultats : 14/14 DREAD recalculés, 14/14 matrice, sources 29/29, JSON valide, npm audit 0 vuln (1 min)
-25. Test du document piégé (injection de prompt) : consigne ignorée → sorties non modifiées (1 min)
+23. Suite de tests automatisée **T-01 → T-11** (script rejouable `soutenance/tests/verification.py`, 3 statuts incl. SKIP) — **artefacts sur `main`** (2 min)
+24. Résultats : **14/14 DREAD recalculés, 42 cas matrice, 65 sources ⊆ index, JSON valide, npm audit 0 vuln, T-10 index ISO 2022 canonique** ; T-11 = protocole d'injection (SKIP tant que la démo n'a pas tourné) (1 min)
+25. Test du document piégé (injection de prompt) : consigne ignorée → sorties non modifiées (régression T-07) + protocole d'exposition réelle T-11 (1 min)
 
 ### Partie 8 — Choix des modèles IA (32 → 37 min)
 25'. Routeur de modèles : **un modèle par étape**, pas un modèle unique (1 min)
@@ -55,7 +57,7 @@
 
 ### Partie 10 — Avantages / inconvénients + audit (40 → 43 min)
 29. Benchmark : E21 vs TMT/Threat Dragon/IriusRisk/pytm/LLM générique/multi-agents (2 min)
-30. Audit : findings (index ISO 27002 à ré-indexer, contrôle circulaire, checklist) + forces (1 min)
+30. Audit : findings (index ISO 27002 corrigé, contrôle circulaire → T-10, checklist) + forces ; **remédiation appliquée** (`MODIFICATIONS.md`) (1 min)
 
 ### Partie 11 — Perspectives & conclusion (43 → 45 min)
 31. **Feuille de route** : analyse réseau automatique (scan, vulns, CVE → registre), **ingestion documentaire automatisée** (`.xlsx`, `.doc`, `.pdf`, `.img` → OCR/parsing), ré-indexation ISO, tests pytest, supervision continue (2 min)
@@ -80,13 +82,13 @@
 7. ❌ **Pas de supervision continue** : une analyse = un instantané ; pas de collecte de logs, pas de SOC, pas d'alerte.
 8. ❌ **Pas de validation automatique** : `valide_par` est **toujours humain** ; le système ne « valide » jamais seul.
 9. ❌ **En local limité** : la machine de démo (~1 Go RAM libre) ne peut pas exécuter de gros LLM local (7–8B+) ; démo = mock/opencode.
-10. ⚠️ **Risque résiduel d'erreurs de libellés** : index `knowledge_base/` imparfait (audit P1) → les références normatives seront ré-indexées.
+10. ✅ **Corrigé (24/09)** : l'index `knowledge_base/` est désormais **ISO/IEC 27002:2022 canonique** (les rares résidus « codes A » cités dans les documents historiques sont datés et annotés comme tels).
 
 ### B. Perspectives (feuille de route)
 1. **Analyse réseau automatique** : brancher des collecteurs (nmap, OpenVAS/Greenbone, OWASP ZAP) → preuves automatisées pour la matrice (probabilité = mesure réelle de l'exposition) → rattachement des CVE réelles (feed NVD + `composer audit` / `npm audit`).
 2. **Ingestion documentaire automatisée** : `.pdf` (PyMuPDF/Docling, scans → PaddleOCR-VL / Mistral OCR 4), `.doc/.docx`, `.xlsx` (tableaux → DFD), `.img`/captures (VLMs) → structuration en entrées de la chaîne (actifs, flux, hypothèses) — sondage direct via `CHOIX-MODELES-IA.md` §1.
-3. **Ré-indexation ISO 27002:2022** de `knowledge_base/` (audit P1) + fichiers par thématique (`stride.md`, `iso27002.md`, `oss_fr.md`, `cve.json`).
+3. ✅ **Ré-indexation ISO 27002:2022 effectuée** (24/09) : index canonique + correspondance 2013→2022 + invariant T-10 ; restent optionnels les fichiers par thématique (`stride.md`, `iso27002.md`, `cve.json`).
 4. **Campagne de tests pytest** des conventions (registre, sources, matrice, formats) — `06-plan-de-test.md` §2.
-5. **Analyse manuelle de référence** (comparatif « agents vs main » exigé par le sujet, jalon 1) + test document piégé documenté (jadis manquant — désormais `soutenance/tests/`).
+5. **Analyse manuelle de référence** (comparatif « agents vs main » exigé par le sujet, jalon 1 — issue #17) ; **test d'injection réel (T-11)** : protocole rédigé, exécution à archiver avant la démo.
 6. **Supervision continue** : ré-analyse périodique des actifs critiques, delta-registre (nouveaux risques vs N-1), lien avec un outil de tickets.
 7. **Extensions de méthode** : mode EBIOS RM « 5 ateliers » pour OIV/administration, PASTA pour comités métier, arbres d'attaque.
