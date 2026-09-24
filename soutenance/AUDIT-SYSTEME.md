@@ -14,12 +14,12 @@ Audit de l'infrastructure du projet (dépôt, agents, skills, base de connaissan
 - Aucune donnée réelle/sensible dans le dépôt : le cas pilote utilise des données **fictives** ; l'historique git ne contient aucun secret réel (clés, tokens).
 
 ### 2.2 Points forts constatés
-1. **Humain dans la boucle réellement appliqué** : `valide_par` rempli par l'analyste, R-13 rejeté et R-14 modifié (traces dans `06-validation.md`) — ce n'est pas un gadget.
+1. **Humain dans la boucle réellement appliqué** : `valide_par` rempli par l'analyste (R-13 rejeté le 23/09 *pour essayer le circuit*, R-14 modifié — traces dans `06-validation.md`). Cet essai a permis de confirmer que la décision humaine est **opposable** ; il a aussi été reconsidéré le 24/09 (un rejet sans motif de gestion n'est pas une décision — R-13 retenu, cf. `MODIFICATIONS.md`).
 2. **Sources à ID stable + rejet si inconnu** : chaque risque cite `STRIDE-*`, `LINDDUN-*`, `ISO27002-*`, `ATT&CK-T1190`, `CVE` placeholder explicitement signalé (pas de note CVSS fabriquée).
 3. **Traçabilité** : une branche par analyse, push à chaque étape, issue + board GitHub suivis, `RAPPORT-CONTROLE.md` à chaque étape.
-4. **Démo garantie** : abstraction `LlmProvider` (ollama / api / **mock déterministe**) — une présentation ne peut pas échouer faute de LLM.
-5. **Permissions minimales** : agents de chaîne en lecture seule + écriture markdown ; `bash` refusé ; aucun agent ne modifie de système réel.
-6. **Contrôles déterministes en plus du LLM** : `valider_sources()`, schéma JSON, matrice proba×impact.
+4. **Démo = POC piloté par consignes** : il n'existe **pas de code applicatif** (ni `LlmProvider` ni `config.py` exécutés) — le « prototype » est une chaîne d'agents dont les consignes (`.md` + skills) *sont* le programme, exécutée dans opencode. La démonstration ne dépend donc d'aucun service externe : elle utilise le modèle d'exécution d'opencode (`opencode/big-pickle`, API cloud) ; le **passage en local (ollama) est planifié en roadmap** (« solution plus tard »).
+5. **Permissions minimales (renforcées le 24/09)** : agents de chaîne en lecture seule + écriture **limitée à `analyses/**`** (`edit: deny **` puis `allow analyses/**` — dernière règle gagnante) ; `bash` refusé ; `e21-controle` entièrement en lecture seule ; aucun agent ne modifie de système réel.
+6. **Contrôles déterministes en plus du LLM** : suite `verification.py` (schéma JSON, matrice proba×impact, sources ⊆ index, index ISO canonique) + checks du drapeau `valide_par`.
 
 ### 2.3 Faiblesses — détaillées par criticité
 
@@ -56,7 +56,21 @@ Audit de l'infrastructure du projet (dépôt, agents, skills, base de connaissan
 
 ## 4. Conclusion de l'audit
 
-Le cœur du système (garde-fous par skills, humain obligatoire, traçabilité git/GitHub, mode mock) est **solide et démontrable**. Les faiblesses sont **corrigeables sans refonte** : la priorité absolue est la **fiabilisation de l'index ISO 27002** (erreurs citées par des risques validés), puis la mise en œuvre des tests de conventions prévus au plan de test.
+Le cœur du système (garde-fous par skills, humain obligatoire, traçabilité git/GitHub) est **solide et démontrable**. Les faiblesses sont **corrigeables sans refonte** : la priorité absolue est la **fiabilisation de l'index ISO 27002** (erreurs citées par des risques validés), puis la mise en œuvre des tests de conventions prévus au plan de test.
+
+## 6. Remédiation appliquée (audit externe du 24/09/2026)
+
+> Un auditeur indépendant a évalué tout le dépôt le 24/09 (note indicative 11–12/20). Constats confirmés en grande partie ; la remédiation a été menée dans la branche `corrections/audit-2026-09-24` (issues #15–#20). Détail complet : `soutenance/MODIFICATIONS.md`.
+
+| Constat | Verdict | Remédiation |
+|---|---|---|
+| IDs ISO 27002 non canoniques (10/13 risques mal sourcés) | ✅ confirmé | Index ré-écrit en **ISO/IEC 27002:2022 canonique** + table de correspondance 2013→2022 ; registres ré-indexés (R-06→8.15/8.16, R-01→8.5/5.15, R-08→8.24/8.13/8.11, R-09→5.30, R-14→8.13/8.16/8.24…) ; **T-10** interdit tout retour de `ISO27002-A*` (issue #15) |
+| R-13 « rejeté sans justification » | ⚠️ confirmé/atténué | Le rejet était un **essai du circuit** ; reconsidéré le 24/09 : R-13 **retenu** (état de fait RGPD), programme de mise en conformité, échéance déc. 2026, résiduel Faible (issue #16) |
+| « Niveaux concurrents R-02 » | ❌ **réfuté** | `04-evaluation.md` §5 dit déjà « le niveau de référence est la **matrice** ; DREAD = ordre de traitement » — rappelé en tête du registre + JSON (`niveau_reference`) |
+| Analyse manuelle de référence (exigence 4 checklist) | ✅ confirmé | À produire : issue #17 (comparatif agents vs main) |
+| Suite de tests surévaluée (SKIP compté PASS, 13 en dur, pas de test d'injection réel) | ✅ confirmé | `verification.py` refondu : **3 statuts** (PASS/SKIP/FAIL), comptage dynamique, manifeste `.opencode/package.json` versionné, `gh` optionnel, **T-10** ISO canonique, **T-11** protocole d'injection réel (SKIP tant que non exécuté) (issue #18) |
+| Permissions « edit: allow » trop larges | ✅ confirmé | `edit: deny **` + `allow analyses/**` sur les 7 agents de chaîne ; `e21-controle` en lecture seule (issue #19) |
+| Discours « prototype LlmProvider/mock » non conforme au dépôt | ✅ confirmé | Documents corrigés : POC piloté par consignes, modèle réel `opencode/big-pickle`, ollama en roadmap (issue #20) |
 
 ## 5. Sources / références
 - `documentation/technique/06-plan-de-test.md`, `04-garde-fous.md`, `01-architecture.md`

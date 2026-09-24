@@ -7,7 +7,7 @@ permission:
   glob: allow
   grep: allow
   list: allow
-  edit: allow
+  edit: deny
   bash:
     git status *: allow
     *: deny

@@ -22,7 +22,7 @@
 | ID | Menace (rappel) | Probabilité | Impact | **Niveau** | Justification (une phrase) |
 |---|---|---|---|---|---|
 | **M-01** | Usurpation du compte admin par brute force (`/admin`) | Élevée | Élevé | **Critique** | ~1 000 tentatives/24 h déjà observées (2024), aucun lockout, mot de passe simple, pas de MFA → accès admin total quasi garanti à force |
-| **M-02** | Credential stuffing des comptes clients (hash SHA-1) | Moyenne | Moyen | Moyen | Nécessite une liste d'identifiants volée ailleurs ; prise de contrôle d'un compte avec données RGPD à l'appui |
+| **M-02** | Credential stuffing des comptes clients (hash SHA-1) | Moyenne | Moyen | Moyen | Deux mécanismes : (a) réutilisation d'identifiants volés ailleurs, (b) cassage hors ligne des hash SHA-1 *si* la base fuit (M-04/M-08) — pris ensemble : Moyenne |
 | **M-03** | Usurpation de l'identité « ShoPix » (e-mailing + domaine) | Moyenne | Élevé | **Élevé** | Déjà survenu en 2023 (clé MailJet, 2 jours de spam) ; escroquerie de clients + atteinte durable à la réputation |
 | **M-04** | Falsification des données via exploitation du site (PHP EOL, SQLi) | Moyenne | Élevé | **Élevé** | Site exposé sans WAF, PHP 8.0 EOL, requêtes préparées non mentionnées ; une injection = lecture/écriture sur la base |
 | **M-05** | Falsification du flux de paiement (SDK PayFlow 2.1 non patché) | Moyenne | Élevé | **Élevé** | Vulnérabilité connue non patchée sur composant de paiement ; exploitation = détournement de transactions (placeholder CVE à confirmer) |
@@ -30,9 +30,9 @@
 | **M-07** | Divulgation de la clé API PayFlow (`.env` versionné) | Moyenne | Élevé | **Élevé** | Déjà survenu (2024, 1 mois sur GitHub, pas de rotation) ; accès au dépôt = paiements frauduleux |
 | **M-08** | Divulgation des sauvegardes FTP en clair (mutualisation) | Moyenne | Élevé | **Élevé** | Dump SQL complet déposé sur le même hébergeur mutualisé sans chiffrement ; autre locataire ou tiers = fuite totale |
 | **M-09** | Indisponibilité en période critique (nov–déc) | Moyenne | Élevé | **Élevé** | Pic ×3 sans monitoring/WAF/redondance sur VM mutualisée ; CA de décembre irrattrapable |
-| **M-10** | Élévation de privilèges par absence de segmentation (F3) | Élevée | Élevé | **Critique** | Site = API = back-office = MySQL sur la même VM, un compte `shopix` plein droits → toute compromission web = compromission totale |
+| **M-10** | Élévation de privilèges par absence de segmentation (F3) | Élevée | Élevé | **Critique** | Site = API = back-office = MySQL sur la même VM, un compte `shopix` plein droits → toute compromission web = compromission totale de la base, des exports et du back-office |
 | **M-11** | Corrélation / identification via exports `.csv` non pseudonymisés | Élevée | Moyen | **Élevé** | Exports complets conservés 24 mois sans pseudonymisation ; croisement possible → fichier clients réutilisable |
-| **M-12** | Divulgation des données personnelles clients (RGPD art. 33) | Moyenne | Élevé | **Élevé** | Si M-04/M-08/M-10 se réalise, exposition en masse de données de citoyens européens sans procédure de notification préparée |
+| **M-12** | Divulgation des données personnelles clients (RGPD art. 33) | Moyenne | Élevé | **Élevé** | *Conséquence* de M-04/M-08/M-10 (probabilité alignée sur elles, non cumulée) : exposition en masse sans procédure de notification préparée → sanction + préjudice |
 | **M-13** | Non-conformité RGPD des traitements | Élevée | Moyen | **Élevé** | Non-conformité *actuelle* (registre absent, consentement invalide, droit à l'oubli non automatisé) → contrôle CNIL = mise en demeure/amende |
 | **M-14** | Perte de commandes par défaillance de sauvegarde | Moyenne | Moyen | Moyen | Sauvegarde manuelle hebdo sans cron ni test de restauration ; survenu en 2025 (2 jours perdus) |
 
@@ -73,4 +73,7 @@ Moyenne des 5 critères (Damage, Reproducibility, Exploitability, Affected users
 
 - **CVSS** : non notée pour M-05 (CVE placeholder de l'énoncé — aucune note fabriquée). Action de fiabilisation : lancer `composer audit` pour identifier la CVE réelle du SDK PayFlow et poser la note CVSS v4.0 (avec métriques Environnement : exposition Internet, mutualisation, données RGPD) à la prochaine revue.
 - Le niveau de référence utilisé pour la suite est celui de la **matrice** (§ 2) ; le rang DREAD sert d'ordre de traitement.
+- **Agrégation explicite (M-10, R-10)** : la probabilité **Élevée** agrège 3 précurseurs distincts déjà notés Élevés/Moyens (M-04 injection web, M-05 SDK non patché, M-07 clé exposée) — *si l'un se réalise, l'élévation est directe*. L'impact Élevé couvre base + exports + back-office.
+- **Non-cumul (M-12, R-12)** : la divulgation est une conséquence de M-04/M-08/M-10. Sa probabilité suit la leur (Moyenne), elle est *évaluée une seule fois* dans le registre (R-12), sans double comptage avec R-04/R-08/R-10.
+- **Séparation des mécanismes (M-02, R-02)** : credential stuffing et cassage hors ligne des hash sont deux scénarios distincts partageant les mêmes contre-mesures ; le registre les évalue ensemble (R-02) mais note les deux chemins.
 - Répartition : **2 critiques** (M-01, M-10), **10 élevés** (M-03…M-13 hors M-02/M-14), **2 moyens** (M-02, M-14).

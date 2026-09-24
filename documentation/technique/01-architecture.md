@@ -85,7 +85,7 @@ flowchart TB
 | `e21-controle` | subagent | Garde-fous qualité : sources, injection, fuite, format | `RAPPORT-CONTROLE.md` |
 | `github-manager`, `research`, `security` | subagent | Support : board/PR, veille/knowledge_base, audit | — |
 
-Modes et permissions : `orchestrator` dispose des outils de workflow (`question`, `task`); les agents de chaîne sont en **lecture seule + écriture Markdown** (`edit` authorisé, `bash` refusé) ; `github-manager` seul gère repo/board.
+Modes et permissions : `orchestrator` dispose des outils de workflow (`question`, `task`) ; les agents de chaîne sont en **lecture seule partout sauf `analyses/**`** (règle `edit: deny "**"` puis `allow "analyses/**"` — la dernière règle gagnante l'emporte), `bash` refusé ; `e21-controle` est entièrement **lecture seule** (il n'écrit que son `RAPPORT-CONTROLE.md` via l'orchestrateur) ; `github-manager` seul gère repo/board.
 
 ## Skills (`.opencode/skills/<nom>/SKILL.md`)
 
@@ -101,14 +101,15 @@ Modes et permissions : `orchestrator` dispose des outils de workflow (`question`
 
 ## Base de connaissances et sources
 
-Chaque menace / contre-mesure / niveau cite une **source à identifiant stable** (`knowledge_base/`) : `STRIDE-S`, `ISO27002-A8.2.3`, `EBIOS-RM-2018`, CVE via NVD. Ce point est vérifié par `e21-controle`.
+Chaque menace / contre-mesure / niveau cite une **source à identifiant stable** (`knowledge_base/`, ré-indexée en **ISO/IEC 27002:2022 canonique** le 24/09) : `STRIDE-S`, `ISO27002-8.8`, `EBIOS-RM-2018`, CVE via NVD. Ce point est vérifié par `e21-controle` (et par l'invariant **T-10** de la suite de tests, qui refuse tout code `ISO27002-A*` legacy).
 
-## Modèle LLM
+## Modèle LLM — état réel (mis à jour le 24/09/2026)
 
-L'environnement opencode utilise un **LLM interchangeable**. Trois implémentations (une ligne de config) :
-- `ollama` — modèle local **nominal** (aucune donnée ne sort) ;
-- `api` — cloud, en secours ou pour comparaison ;
-- `mock/déterministe` — **démo garantie**, le prototype fonctionne sans aucun LLM externe (`temperature=0`).
+**Le système est un POC piloté par consignes** : il n'existe **aucun code applicatif** (ni `LlmProvider`, ni `config.py`, ni script de routage) — le « programme » est l'ensemble des consignes Markdown des agents (`description`, `system`, skills) interprétées par l'environnement opencode.
+
+- Modèle effectivement utilisé pour l'exécution (et pour cette analyse) : **`opencode/big-pickle`** (API cloud). Les consignes interdisent tout envoi de données réelles : le cas pilote n'utilise que des données **fictives**.
+- **Roadmap (décision du 24/09)** : passer l'exécution en **local avec ollama** (aucune donnée ne sort du poste) — « solution plus tard », documentée dans `ROADMAP.md` et `CHOIX-MODELES-IA.md`.
+- L'abstraction « modèle interchangeable » décrite dans les études amont (ollama / api / mock déterministe) est **un objectif de conception**, pas un composant codé — les documents l'ont depuis corrigé en ce sens (ne pas présenter le contraire en soutenance).
 
 ## Structure du dépôt
 
@@ -125,6 +126,6 @@ ROADMAP.md
 
 ## Positions de sécurité
 
-- Outils **en lecture seule** pour les agents de chaîne ; aucun agent ne modifie de système réel.
-- Chaque sortie intermédiaire est **vérifiée** (`e21-controle`), **journalisée** et **poussée**.
+- Outils **en lecture seule** pour les agents de chaîne (écriture bornée à `analyses/**`), `bash` refusé ; aucun agent ne modifie de système réel.
+- Chaque sortie intermédiaire est **vérifiée** (`e21-controle`, en lecture seule), **journalisée** et **poussée**.
 - Garde-fous appliqués à tous les agents (cf. `04-garde-fous.md` et skill `garde-fous-ia`).

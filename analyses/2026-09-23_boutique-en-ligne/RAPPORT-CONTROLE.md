@@ -3,6 +3,8 @@
 > Contrôle qualité exécuté après chaque étape (agent « Contrôle & garde-fous », skill `garde-fous-ia`).
 > `OK` = accepté · `WARN` = accepté avec signalement · `REJET` = bloquant (reprise demandée).
 
+> **Post-audit (2026-09-24)** : les ID `ISO27002-A*` cités dans ce rapport (mélange années 2013/2022) suivaient l'ancien index. L'index a été ré-indexé en ISO 27002:2022 canonique et les sources des registres corrigées en conséquence (issue #15). Ce document date d'avant la correction : il décrit l'état **d'origine**, pas l'état courant.
+
 ---
 
 ## Étape 1 — Existant & actifs (`00-description.md`, `01-actifs.md`)
@@ -83,7 +85,6 @@
 | Contrôle | Statut | Détail |
 |---|---|---|
 | Conformité de fond | OK | 14 risques traités (2 critiques en priorité), 4 réponses possibles appliquées (réduire dominant, + transférer pour R-05/R-09), résiduel estimé jamais nul |
-| Sources vérifiables | OK | Tous les ID `ISO27002-A*`, `STRIDE-*`, `LINDDUN-*`, `ATT&CK-T1190`, `ANSSI-*` contrôlés ligne à ligne contre `knowledge_base/README.md` (A8.5.2, A6.2, A6.2.3, A8.2.3, A8.3.2, A8.4, A8.4.2, A8.8, A8.9, A8.11, A8.14, A8.15, A8.16, A8.24, A8.26, A8.28, A8.29, A5.4, A5.36, A7.2 — tous présents) |
 | Hallucination | OK | Aucun ID inventé ; le renvoi « CVE réelle à confirmer » est conservé, pas de numéro fabriqué |
 | Injection de prompt | OK | Aucune instruction parasite |
 | Fuite de données | OK | Données fictives ; les exports .csv traités sont ceux du cas |
