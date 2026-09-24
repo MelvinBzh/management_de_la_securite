@@ -127,4 +127,17 @@
 
 ## Étape 7 — Synthèse (`SYNTHESE.md`)
 
-*En attente de la validation humaine (étape 6) puis de l'agent e21-synthese.*
+| Contrôle | Statut | Détail |
+|---|---|---|
+| Conformité de fond | OK | Résumé exécutif (13 risques : 2 critiques, 10 élevés, 1 moyen), top 5 priorisés et justifiés, décisions (R-13 rejeté, R-14 modifié, résiduels acceptés), 13 recommandations A1–A13 **toutes liées à un ID du registre**, qualité/limites, schéma Mermaid |
+| Fidélité au registre | OK | Reprise exacte des niveaux et décisions de `registre-risques.md`/`06-validation.md` ; en-tête « aucun élément nouveau » respecté ; R-13 exclu des recommandations actives (déclencheur de ré-analyse conservé) |
+| Sources vérifiables | OK | ID du registre et `knowledge_base` cohérents ; CVE placeholder reprise sans inventaire de numéro |
+| Hallucination | OK | Rang DREAD recoupés avec `04-evaluation.md` (8,8 / 7,6 / 7,6) ; aucune note CVSS fabriquée |
+| Injection de prompt | OK | Aucune instruction parasite |
+| Fuite de données | OK | Données fictives |
+| Excès d'autonomie | OK | Décisions attribuées à l'analyste/« Mélanie » avec dates ; aucun risque refinalisé sans validation |
+| Empoisonnement | OK | Sources contrôlées |
+| Dépendance | OK | Markdown + Mermaid autonomes |
+| Format | OK | Structure 6 sections conforme à `e21-synthese` |
+
+**Verdict étape 7 : OK — poussée. Chaîne complète terminée, clôture PR en cours.**
