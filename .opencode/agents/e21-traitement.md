@@ -31,7 +31,7 @@ Tu es l'agent « Étape 5 — Traitement ». Pour chaque risque évalué (`04-ev
 Projet de **registre des risques** (tableau + JSON) : pour chaque risque →
 | ID | Actif | Menace/Catégorie | Proba·Impact·Niveau | Traitement | Contre-mesures | Sources | Risque résiduel estimé |
 
-Contre-mesures **concrètes et référencées** (ex. `MFA FIDO2`, `STRIDE-S`, `ISO27002-A8.2.3`, `ANSSI`).
+Contre-mesures **concrètes et référencées** (ex. `MFA FIDO2`, `STRIDE-S`, `ISO27002-8.8`, `ANSSI`).
 
 ## Référentiel ANSSI — boussole de raisonnement
 Proposer des contre-mesures issues des référentiels ANSSI vérifiables :

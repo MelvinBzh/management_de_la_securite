@@ -14,7 +14,7 @@ Chaque risque propre aux LLM est traité par une **mesure concrète et démontra
 | **Fuite de données** | **Anonymiser** (emails, noms, IP, numéros) avant tout traitement ; ne jamais envoyer de donnée réelle/sensible vers un service externe. | Revue + journal |
 | **Excès d'autonomie** | Agents **sans outils d'écriture système**, ne font que proposer ; l'**humain décide** (humain dans la boucle). | Architecture (permissions) |
 | **Empoisonnement** | Base de connaissances **versionnée et contrôlée** (sources à ID stable), pas de mise à jour automatique. | `git` + revue |
-| **Dépendance** | Abstraction `LlmProvider` (ollama/api/mock) interchangeable ; architecture modulaire. | `config.py` |
+| **Dépendance** | **POC piloté par consignes** : les consignes `.md` + skills *sont* le programme (sorties Markdown/JSON autonomes, aucun code propriétaire) ; le modèle d'exécution opencode est **interchangeable** (nominal aujourd'hui : `opencode/big-pickle` ; **ollama local en roadmap**). | sorties autonomes + revue |
 
 ## Références à citer dans le dossier/soutenance
 

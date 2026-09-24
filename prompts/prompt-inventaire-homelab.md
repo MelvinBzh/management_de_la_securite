@@ -34,6 +34,5 @@ pour voir l'état actuel, puis mets-le à jour avec les infos réelles.
 ## Sortie
 1. Un tableau récapitulatif compact (catégorie | valeur) dans ta réponse ;
 2. Mise à jour de `.opencode/skills/machine-state/SKILL.md` avec ces valeurs réelles ;
-3. Une conclusion claire en 3 lignes : quel mode LLM utiliser (ollama local / api / mock déterministe)
-   pour que le prototype E21 « toujours fonctionnel », et que faut-il installer en priorité.
+3. Une conclusion claire en 3 lignes : quel mode d'exécution opencode recommander (API cloud — nominal aujourd'hui — ou ollama en local selon les ressources) pour que le prototype E21 « toujours fonctionnel », et que faut-il installer en priorité.
 ```

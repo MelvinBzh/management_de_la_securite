@@ -15,7 +15,7 @@ description: Use at the start of any work on this repository to load the current
 ## Env / stack
 - **Environnement :** opencode (pas de site web) — les agents et skills `.opencode/` SONT le système
 - **Prototype = environnement opencode :** orchestrateur + chaîne d'agents + skills par framework
-- **LLM :** abstraction `LlmProvider` (ollama local / API / mock démo) — machine sans gros LLM local (~1 Go RAM libre), pas de clé API détectée
+- **LLM :** POC **piloté par consignes** dans opencode — modèle d'exécution nominal `opencode/big-pickle` (API cloud) ; **roadmap : ollama en local** (aucune donnée ne sort du poste). Données pilotes **fictives** uniquement. Machine : pas de gros LLM local (~1 Go RAM libre), pas de clé API détectée.
 
 ## Structure
 - `.opencode/agents/` — agents (orchestrateur + chaîne d'analyse e21-*)

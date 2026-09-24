@@ -53,7 +53,7 @@
 
 ## 3. Routeur de modèles recommandé pour la chaîne E21 (cas A « boutique en ligne », RGPD)
 
-Principe : **router par étape**, bascule `LlmProvider` en une ligne (déjà dans le prototype). Cas A = données **fictives** → API acceptables en démo ; en production données réelles → **ANSSI : local ou hébergement FR** (Azure France, GCP europe-west9, Mistral EU).
+Principe : **router par étape** (objectif de conception du POC — le swap de modèle = une ligne de config opencode ; **ollama en roadmap**). Cas A = données **fictives** → API acceptables en démo ; en production données réelles → **ANSSI : local ou hébergement FR** (Azure France, GCP europe-west9, Mistral EU).
 
 | Étape | Modèle API (recommandé) | Alternative sensitive (locale) | Justification |
 |---|---|---|---|

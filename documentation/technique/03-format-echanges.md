@@ -36,7 +36,7 @@ Tous les échanges entre agents sont **structurés** et **validés** (Pydantic).
 
 ## Règles
 
-1. **`sources` obligatoire** et non vide pour chaque risque ; vérifiée par `valider_sources()` contre l'index de `knowledge_base/` — toute source inconnue → rejet + retour à l'agent.
+1. **`sources` obligatoire** et non vide pour chaque risque ; vérifiée par `e21-controle` contre l'index de `knowledge_base/` (et par l'invariant **T-05** de la suite `verification.py`) — toute source inconnue → rejet + retour à l'agent.
 2. **`valide_par`** : `null` en sortie des agents ; rempli uniquement par la validation humaine.
 3. Une sortie d'agent est **re-validée Pydantic** avant d'être injectée dans l'agent suivant (sanitisation inter-agents).
 
