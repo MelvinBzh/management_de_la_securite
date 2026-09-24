@@ -18,11 +18,25 @@ Chaque menace / contre-mesure / niveau cité dans une analyse DOIT référencer 
 | `LINDDUN-DI` | Disclosure of Information | id. |
 | `LINDDUN-UA` | Unawareness | id. |
 | `LINDDUN-NC` | Non-compliance | id. |
-| `EBIOS-RM-2018` | EBIOS Risques Manager (ANSSI) | Analyse organisationnelle, 5 ateliers |
 | `ATT&CK-T1190` | MITRE ATT&CK, Exploit Public-Facing Application | Techniques d'attaque |
 | `PASTA-*` | Process for Attack Simulation & Threat Analysis | Centré métier/attaquant |
 | `DREAD-D`… | Damage potential / Reproducibility / Exploitability / Affected users / Discoverability | Priorisation |
 | `CVSS-*` | Common Vulnerability Scoring System v4.0 (FIRST) | Note 0–10 d'une CVE |
+
+## Référentiels ANSSI officiels (par étape de la chaîne e21)
+Chaque agent de la chaîne ancre sa réflexion sur un référentiel ANSSI précis (documents publiés sur cyber.gouv.fr / messervices.cyber.gouv.fr). Citer l'ID dans les sorties.
+
+| ID | Source (ANSSI) | Agent e21 ciblé | Usage |
+|---|---|---|---|
+| `ANSSI-CARTO-SI` | *Cartographie du système d'information — Guide d'élaboration en 5 étapes* (ANSSI, 2018) | e21-analyse-existant | Vues (métier/applicative/architecture), objets + attributs, granularité, sensibilité |
+| `EBIOS-RM-2018` | *EBIOS Risk Manager* (ANSSI, 2018) | e21-choix-methode | Méthode française de référence (5 ateliers), option OIV/administration |
+| `EBIOS-RM-A3` | EBIOS RM — **atelier 3**, scénarios stratégiques & cartographie de la menace | e21-menaces | Raisonner en chemins d'attaque : source de risque → objectif visé → frontières |
+| `EBIOS-RM-A4` | EBIOS RM — **atelier 4**, appréciation des risques | e21-evaluation | Gravité × vraisemblance → niveau, seuils d'acceptation |
+| `ANSSI-HYGIENE` | *Guide d'hygiène informatique* (ANSSI) | e21-traitement | Mesures de base numérotées (MFA, correctifs, sauvegardes…) |
+| `ANSSI-RECYF` | *Référentiel Cyber France (ReCyF)* (ANSSI, 2026) — NIS2 | e21-traitement | Objectifs de sécurité + moyens acceptables de conformité |
+| `ANSSI-HOMOLOGATION` | *Guide de l'homologation de sécurité* (ANSSI, 2025) | e21-validation-suivi | Acceptation formelle des risques résiduels par l'autorité, revue |
+| `ANSSI-IA-GEN` | *Recommandations de sécurité pour un système d'IA générative* (ANSSI, 2024) | e21-controle | Manipulation, infection des données, exfiltration, contrôle humain |
+| `ANSSI-PSSI` | *Guide pour l'élaboration d'une PSSI* (ANSSI) | e21-synthese | Notes de synthèse, plan d'action, orientation décision |
 
 ## Contre-mesures (baseline)
 | ID | Mesure |
@@ -54,7 +68,7 @@ Chaque menace / contre-mesure / niveau cité dans une analyse DOIT référencer 
 | `ISO27002-A8.24` | Clés cryptographiques |
 | `ISO27002-A5.36` | Continuité de l'activité |
 | `ISO27002-A8.14` | Redondance / haute disponibilité |
-| `ANSSI-*` | Guides ANSSI (recommandations de sécurité) |
+| `ANSSI-*` | Guides ANSSI (recommandations de sécurité) — cf. section « Référentiels ANSSI officiels » |
 
 ## Documents de référence (sujet)
 - Sujet E21 : `documentation/E21_Management_de_la_sécurité_—_Projet_Agents_IA_pour_l'analyse_de_risques.pdf` (dossier, p. 28 checklist, méthode 6 étapes).

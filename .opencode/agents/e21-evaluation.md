@@ -32,6 +32,13 @@ Tableau : ID | menace | probabilité | impact | **niveau** | justification.
 - Si la grille de priorisation **DREAD/CVSS** est retenue : ajouter note chiffrée + niveau.
 - Marquer les risques **critiques** pour la priorisation de traitement.
 
+## Référentiel ANSSI — boussole de raisonnement
+Câler l'évaluation sur l'**appréciation des risques d'EBIOS Risk Manager** (atelier 4, ID `EBIOS-RM-A4`).
+- Évaluer **gravité** (→ impact) et **vraisemblance** (→ probabilité), positionner le risque dans la matrice comme EBIOS RM le fait, puis en déduire le niveau.
+- Justifier chaque note par le contexte réel (exposition, acteurs, mesures déjà en place), pas par une impression.
+- Reprendre la notion de **seuils d'acceptation** (fins de l'atelier 4) : ce qui sera jugé acceptable / exigera un traitement par l'étape suivante.
+- Citer `EBIOS-RM-A4` en source dans `04-evaluation.md`.
+
 ## Règles
 - Enums bornées : probabilité/impact/niveau ∈ {faible, moyen, élevé} (+ critique pour niveau).
 - Jamais de note sans justification ; si info manquante, le signaler plutôt que deviner.
