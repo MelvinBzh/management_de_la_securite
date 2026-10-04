@@ -8,16 +8,20 @@
 
 PYTHON ?= python3
 PORT ?= 8501
+# 0.0.0.0 = accessible depuis le réseau local (ex. http://192.168.x.x:8501)
+# localhost = accessible uniquement depuis la machine (plus sûr si réseau non maîtrisé).
+ADDRESS ?= 0.0.0.0
 
 .PHONY: web suite test-ingest test-preparation test-export test-web test-reseau test-detection test-methodes \
 	test-methodes-pasta test-methodes-linddun test-methodes-stride test-methodes-ebios \
 	tests aide
 
 ## Interface web locale (streamlit) — s'arrête avec Ctrl+C.
+## Lancement LAN : make web ADDRESS=0.0.0.0  (défaut) | machine seule : make web ADDRESS=localhost
 web:
 	$(PYTHON) -m streamlit run web/app.py \
 		--server.headless true \
-		--server.address localhost \
+		--server.address $(ADDRESS) \
 		--server.port $(PORT)
 
 ## Suite de référence du projet (T-01..T-13).
