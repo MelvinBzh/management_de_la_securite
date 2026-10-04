@@ -1,0 +1,33 @@
+{
+  // Configuration projet opencode — E21 « Des agents IA pour analyser les risques ».
+  //
+  // Fournisseur local Ollama (https://ollama.com) : permet de faire tourner la
+  // chaîne d'agents 100 % en local, sans appel API externe.
+  //
+  //   - Nécessite Ollama démarré sur la machine : `ollama serve` (port 11434).
+  //   - Télécharger un modèle : `ollama pull qwen2.5:7b` (ou llama3.2, mistral…).
+  //   - Lister les modèles disponibles depuis opencode : `opencode models`.
+  //   - Sélectionner un modèle Ollama : `opencode run --model ollama/qwen2.5:7b …`,
+  //     ou depuis l'interface web E21 (page « Studio E21 » → état Ollama).
+  //
+  // Ce bloc n'écrase PAS le modèle configuré par ailleurs (ex. big-pickle via
+  // l'environnement) : il ajoute simplement « ollama » comme fournisseur
+  // supplémentaire. Sans serveur Ollama actif, ce fournisseur est simplement
+  // inutilisé — aucune des deux configurations ne casse.
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "options": {
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
+        // Modèle local par défaut (le plus courant ; tiré automatiquement par
+        // Ollama au premier appel si absent). Décommenter les autres si installés.
+        "qwen2.5:7b": { "name": "qwen2.5:7b" }
+        // "llama3.2":  { "name": "llama3.2" },
+        // "mistral":   { "name": "mistral" }
+      }
+    }
+  }
+}

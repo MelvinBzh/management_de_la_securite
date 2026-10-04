@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-10).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-11).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -21,6 +21,12 @@ page. Le garde-fou d'injection (T-15) est ainsi couvert sans dépendre du widget
 Lancement réel de la chaîne (WEB-07 → WEB-10) : `web/run_agent.py` est testé
 sans Streamlit et sans lancer opencode (`subprocess.Popen` simulé), en vérifiant
 que la ligne de commande reste fixe et que les intrants n'y entrent jamais.
+
+Studio (WEB-11) : la page « Studio E21 » est couverte comme les autres par WEB-01
+(chargement sans exception, y compris quand la base locale est vide). Ses boutons
+ne sont en revanche pas cliqués via `AppTest` — le socle `tools/studio/db.py` est
+donc testé directement, en base et en cibles TEMPORAIRES : rien n'est écrit dans
+`.opencode/` ni dans `stockage_local/` par ce test.
 """
 from __future__ import annotations
 
@@ -132,7 +138,7 @@ def lever_chaine_error(action, fragment: str):
 
 # --------------------------------------------------------------------------- WEB-01
 def test_web_01():
-    """WEB-01 : l'application Streamlit se lance et ses 5 pages s'affichent sans exception."""
+    """WEB-01 : l'application Streamlit se lance et ses 6 pages s'affichent sans exception."""
     from streamlit.testing.v1 import AppTest
 
     app = AppTest.from_file(str(APP), default_timeout=90)
@@ -145,7 +151,7 @@ def test_web_01():
         "aucun en-tête affiché"
     assert app.radio, "navigation absente de la barre latérale"
     assert app.file_uploader, "téléverseur de documents absent"
-    assert len(app.radio[0].options) == 5, f"5 entrées attendues : {app.radio[0].options}"
+    assert len(app.radio[0].options) == 6, f"6 entrées attendues : {app.radio[0].options}"
     # Chaque page de la navigation doit s'afficher sans exception.
     for nom in app.radio[0].options:
         app.radio[0].set_value(nom).run()
@@ -153,7 +159,7 @@ def test_web_01():
         pages = [element.value for element in app.title]
         assert any(nom.split(" ")[0] in titre for titre in pages), \
             f"titre de la page « {nom} » absent : {pages}"
-    passer("WEB-01", f"5 pages affichées · titres {titres} · navigation · file_uploader")
+    passer("WEB-01", f"6 pages affichées · titres {titres} · navigation · file_uploader")
 
 
 # --------------------------------------------------------------------------- WEB-02
@@ -408,11 +414,79 @@ def test_web_10():
     passer("WEB-10", "ChaineError explicites · fail closed sur nom de cas piégé")
 
 
+# --------------------------------------------------------------------------- WEB-11
+def test_web_11():
+    """WEB-11 : socle du studio — import réel, déploiement rejouable (base temporaire)."""
+    from tools.studio import db
+
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp)
+        base = racine / "stockage_local" / "e21-test-web.sqlite3"
+        assert not base.exists(), "la base ne doit pas exister avant init()"
+        db.init(base).close()
+        assert base.is_file(), f"base temporaire non créée : {base}"
+        assert db.lister("agent", base) == [], "base neuve non vide (agents)"
+        assert db.lister("skill", base) == [], "base neuve non vide (skills)"
+
+        # Import réel des fichiers `.opencode/` du dépôt : c'est le bootstrap du studio.
+        bilan = db.importer_depuis_opencode(chemin_db=base)
+        agents = [entite["nom"] for entite in db.lister("agent", base)]
+        skills = [entite["nom"] for entite in db.lister("skill", base)]
+        assert "e21-analyse-existant" in agents, \
+            f"agent e21-analyse-existant absent de la base : {agents}"
+        assert "analyse-risques" in skills, \
+            f"skill analyse-risques absent de la base : {skills}"
+        assert bilan["importes"] == len(agents) + len(skills), \
+            f"bilan d'import incohérent avec la base : {bilan}"
+        assert bilan["total"] == len(agents) + len(skills), f"total incohérent : {bilan}"
+        assert agents == sorted(agents), f"agents non triés par nom : {agents}"
+
+        # Déploiement vers des dossiers temporaires (`.opencode/` du dépôt intouché).
+        cibles_agents = racine / "deploiement" / "agents"
+        cibles_skills = racine / "deploiement" / "skills"
+        premier = db.deployer_vers_opencode(cibles_agents, cibles_skills, base)
+        assert premier["ecrits"] == len(agents) + len(skills), \
+            f"toutes les entités doivent être écrites : {premier}"
+        assert premier["inchangees"] == 0, f"rien n'était déjà écrit : {premier}"
+        assert (cibles_agents / "e21-analyse-existant.md").is_file(), \
+            "agent déployé absent du dossier temporaire"
+        assert (cibles_skills / "analyse-risques" / db.NOM_SKILL).is_file(), \
+            "skill déployé absent du dossier temporaire"
+        contenu_deploye = (cibles_agents / "e21-analyse-existant.md").read_text(encoding="utf-8")
+        assert contenu_deploye == db.lire("agent", "e21-analyse-existant", base)["contenu"], \
+            "la copie déployée diffère de la source de vérité"
+
+        # Re-déploiement : idempotent (aucune écriture, rien n'est touché dans le dépôt).
+        second = db.deployer_vers_opencode(cibles_agents, cibles_skills, base)
+        assert second["ecrits"] == 0, f"re-déploiement non idempotent : {second}"
+        assert second["inchangees"] == len(agents) + len(skills), \
+            f"re-déploiement : trop d'inchangés : {second}"
+
+        # Édition (comme le bouton « Enregistrer ») puis refus fail closed d'un nom piégé.
+        db.sauvegarder(
+            "agent", "e21-analyse-existant", "# Studio\n\nVersion de test.\n", chemin_db=base
+        )
+        troisieme = db.deployer_vers_opencode(cibles_agents, cibles_skills, base)
+        assert troisieme["ecrits"] == 1, \
+            f"une seule écriture attendue après édition : {troisieme}"
+        for nom_piege in ("../evasion", "agent/injection", ""):
+            try:
+                db.sauvegarder("agent", nom_piege, "x", chemin_db=base)
+            except ValueError as exc:
+                assert str(exc).strip(), f"ValueError sans message pour « {nom_piege} »"
+                continue
+            raise AssertionError(f"nom piégé accepté par la base : « {nom_piege} »")
+    passer(
+        "WEB-11",
+        f"{len(agents)} agents + {len(skills)} skills importés · re-déploiement sans écriture",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
-        test_web_07, test_web_08, test_web_09, test_web_10,
+        test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

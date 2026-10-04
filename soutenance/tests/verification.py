@@ -563,12 +563,36 @@ def t19_git_donnees_privees():
                        "ne peuvent pas être poussées")
 
 
+# -------------------------- T-20 Studio : base source de vérité agents/skills (gitignorée)
+def t20_studio():
+    """La base SQLite locale (stockage_local/e21.sqlite3, gitignorée) est la source
+    de vérité des agents et skills : import déterministe depuis .opencode/, round-trip
+    de déploiement idempotent, aucun sqlite dans l'index git (relayé par T-19)."""
+    import subprocess
+    script = RACINE / "tools" / "studio" / "tests" / "test_db.py"
+    if not script.exists():
+        return enregistrer("T-20", "FAIL", "tests studio absents (tools/studio/tests/test_db.py)")
+    run = subprocess.run(["python3", str(script)], capture_output=True, text=True, cwd=str(RACINE))
+    m = re.search(r"STUDIO:\s*(\d+)\s*PASS,\s*(\d+)\s*FAIL,\s*(\d+)\s*SKIP", run.stdout or "")
+    if not m:
+        return enregistrer("T-20", "FAIL",
+                           f"sortie illisible (exit {run.returncode}) : {run.stdout[-300:] or run.stderr[-300:]}")
+    n_pass, n_fail, n_skip = map(int, m.groups())
+    if n_fail:
+        return enregistrer("T-20", "FAIL", f"{n_pass} PASS, {n_fail} FAIL (ligne STUDIO)")
+    if n_skip:
+        return enregistrer("T-20", "SKIP", f"{n_pass} PASS, {n_skip} SKIP (infra locale)")
+    return enregistrer("T-20", "PASS",
+                       f"{n_pass} tests studio OK (base source de vérité : import .opencode, "
+                       "édition, déploiement idempotent, export/import JSON)")
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
                t11_injection_active, t12_ingestion, t13_preparation, t14_web, t15_injection_web,
-               t16_methodes, t17_detection, t18_ci, t19_git_donnees_privees):
+               t16_methodes, t17_detection, t18_ci, t19_git_donnees_privees, t20_studio):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)
