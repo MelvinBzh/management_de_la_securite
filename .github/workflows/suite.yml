@@ -1,0 +1,48 @@
+name: Suite de vérification E21
+
+# CI minimale : vérification.py sur chaque push/PR touchant main,
+# et sur les branches dédiées (feat/*, corrections/*, docs/*).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Configurer Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Configurer Node (pour npm audit de .opencode)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Installer les dépendances CI
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-fra tesseract-ocr-osd \
+            libpango-1.0-0 libpangocairo-1.0-0 fonts-dejavu
+          pip install --quiet pymupdf --break-system-packages
+          (cd .opencode && test -f package.json && npm install --package-lock-only --no-audit --silent)
+
+      - name: Suite de vérification (verification.py)
+        run: |
+          make suite 2>&1 | tail -40
+          python3 soutenance/tests/verification.py > /tmp/suite.txt 2>&1
+          tail -5 /tmp/suite.txt
+          grep -q "RESULTAT GLOBAL  OK" /tmp/suite.txt || { echo "Suite NON verte"; exit 1; }
+
+      - name: Exporter un PDF (smoke test WeasyPrint)
+        run: |
+          pip install --quiet weasyprint==70.0 --break-system-packages
+          python3 -m tools.export analyses/2026-09-23_boutique-en-ligne --format pdf \
+            --out /tmp/opencode-smoke.pdf && ls -la /tmp/opencode-smoke.pdf
