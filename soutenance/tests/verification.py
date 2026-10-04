@@ -377,11 +377,35 @@ def t12_ingestion():
                                        "(PDF texte, OCR, XLSX, DOCX, PPTX, PNG, ZIP, zip-slip)")
 
 
+# --------------------------------------- T-13 préparation : description + questions auto (chantier #31)
+def t13_preparation():
+    import subprocess
+    script = RACINE / "tools" / "ingest" / "tests" / "test_preparation.py"
+    if not script.exists():
+        return enregistrer("T-13", "FAIL",
+                           "outil de préparation absent (tools/ingest/tests/test_preparation.py introuvable)")
+    run = subprocess.run(["python3", str(script)], capture_output=True, text=True, cwd=str(RACINE))
+    if run.returncode != 0:
+        return enregistrer("T-13", "FAIL",
+                           f"tests de préparation en échec (exit {run.returncode}) : "
+                           f"{run.stdout[-300:] or run.stderr[-300:]}")
+    m = re.search(r"PREPARATION:\s*(\d+)\s*PASS,\s*(\d+)\s*FAIL,\s*(\d+)\s*SKIP", run.stdout)
+    if not m:
+        return enregistrer("T-13", "FAIL", "sortie des tests de préparation illisible (ligne PREPARATION manquante)")
+    n_pass, n_fail, n_skip = map(int, m.groups())
+    if n_fail:
+        return enregistrer("T-13", "FAIL", f"{n_pass} PASS, {n_fail} FAIL (ligne PREPARATION)")
+    if n_skip:
+        return enregistrer("T-13", "SKIP", f"{n_pass} PASS, {n_skip} SKIP documenté(s)")
+    return enregistrer("T-13", "PASS", f"{n_pass} tests de préparation OK "
+                                       "(brouillon 00-description, questions auto, reproductible, exit 2)")
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
-               t11_injection_active, t12_ingestion):
+               t11_injection_active, t12_ingestion, t13_preparation):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)

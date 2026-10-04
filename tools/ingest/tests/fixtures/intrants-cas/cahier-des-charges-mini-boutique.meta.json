@@ -1,0 +1,14 @@
+{
+  "type": "docx",
+  "nom": "cahier-des-charges-mini-boutique.docx",
+  "source": "/tmp/tmpano6j41c/cahier-des-charges-mini-boutique.docx",
+  "tableaux": 0,
+  "avertissements": [
+    "1 passage(s) ressemblant à une instruction détecté(s) : conservés verbatim comme donnée, jamais exécutés."
+  ],
+  "message": "",
+  "ok": true,
+  "genere_le": "2026-10-04T11:33:50+00:00",
+  "taille_octets": 37086,
+  "instructions_detectees": 1
+}
