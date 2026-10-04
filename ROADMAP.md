@@ -63,6 +63,6 @@
 
 ## Liens
 
-- **Semaine d'amélioration (2026-09-28 → 10-02)** : plan des chantiers P0→P3 (ingestion, web, méthodes, détection, consolidation) dans `documentation/technique/07-ameliorations-semaine.md` (issues #25→#31).
+- **Semaine d'amélioration (2026-10-05 → 10-09)** : plan des chantiers P0→P3 (ingestion, web, méthodes, détection, consolidation) dans `documentation/technique/07-ameliorations-semaine.md` (issues #25→#31) — décisions techniques vérifiées par recherches le 04/10 (Streamlit, WeasyPrint, PyMuPDF, Tesseract/PaddleOCR, python-docx/openpyxl/pptx).
 - GitHub issues : https://github.com/MelvinBzh/management_de_la_securite/issues
 - Documentation technique : `documentation/technique/`
