@@ -1,0 +1,12 @@
+# Artefacts à ne pas embarquer dans l'image Docker E21
+.git
+.venv/
+venv/
+**/__pycache__/
+*.pyc
+*.sqlite3
+stockage_local/
+analyses/
+soutenance/tests/injection/resultats/
+.opencode/node_modules/
+.opencode/package-lock.json
