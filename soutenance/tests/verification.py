@@ -481,12 +481,43 @@ def t16_methodes():
     return enregistrer("T-16", "FAIL", " ; ".join(bilans))
 
 
+# ------------------------------- T-17 détection amont + inventaire local (chantier #29)
+def t17_detection():
+    import os, subprocess
+    runners = [
+        ("RESEAU", RACINE / "tools" / "reseau" / "tests" / "test_inventaire.py"),
+        ("DETECTION", RACINE / "tools" / "reseau" / "tests" / "test_detection.py"),
+    ]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(RACINE)
+    bilans = []
+    for nom, script in runners:
+        if not script.exists():
+            bilans.append(f"{nom}: ABSENT")
+            continue
+        run = subprocess.run(["python3", str(script)], capture_output=True, text=True,
+                             cwd=str(RACINE), env=env)
+        m = re.search(rf"{nom}:\s*(\d+)\s*PASS,\s*(\d+)\s*FAIL,\s*(\d+)\s*SKIP", run.stdout or "")
+        if not m:
+            bilans.append(f"{nom}: illisible (exit {run.returncode})")
+        elif int(m.group(2)):
+            bilans.append(f"{nom}: {m.group(2)} FAIL")
+        elif int(m.group(3)):
+            bilans.append(f"{nom}: {m.group(3)} SKIP")
+        else:
+            bilans.append(f"{nom}: {m.group(1)} PASS")
+    if all("PASS" in b for b in bilans):
+        return enregistrer("T-17", "PASS", " ; ".join(bilans)
+                           + " (inventaire anonymisé local, détecteur 12 règles MITRE, rapport verbatim)")
+    return enregistrer("T-17", "FAIL", " ; ".join(bilans))
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
                t11_injection_active, t12_ingestion, t13_preparation, t14_web, t15_injection_web,
-               t16_methodes):
+               t16_methodes, t17_detection):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)

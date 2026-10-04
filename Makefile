@@ -9,7 +9,7 @@
 PYTHON ?= python3
 PORT ?= 8501
 
-.PHONY: web suite test-ingest test-preparation test-export test-web test-methodes \
+.PHONY: web suite test-ingest test-preparation test-export test-web test-reseau test-detection test-methodes \
 	test-methodes-pasta test-methodes-linddun test-methodes-stride test-methodes-ebios \
 	tests aide
 
@@ -60,8 +60,15 @@ test-methodes-stride:
 test-methodes: test-methodes-ebios test-methodes-pasta test-methodes-linddun test-methodes-stride
 
 ## Tous les runners autonomes, puis la suite de référence.
-tests: test-ingest test-preparation test-export test-web test-methodes suite
+tests: test-ingest test-preparation test-export test-web test-reseau test-detection test-methodes suite
 
 ## Rappel des cibles disponibles.
 aide:
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## //'
+## Tests autonomes de l'inventaire réseau local-only (chantier #29).
+test-reseau:
+	$(PYTHON) tools/reseau/tests/test_inventaire.py
+
+## Tests autonomes du détecteur de menaces (règles DET-01 → DET-12).
+test-detection:
+	$(PYTHON) tools/reseau/tests/test_detection.py

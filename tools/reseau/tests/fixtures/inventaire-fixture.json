@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-10-04T12:00:00+00:00",
+  "voisins": {
+    "nombre": 2,
+    "brut": [
+      "192.168.1.10 dev eth0 lladdr aa:bb:cc:dd:ee:01 STALE",
+      "192.168.1.20 dev eth0 lladdr aa:bb:cc:dd:ee:02 REACHABLE"
+    ]
+  },
+  "ecouteurs": {
+    "lignes": [],
+    "brut": [
+      "tcp  LISTEN  0  128  0.0.0.0:80  0.0.0.0:*  users:(\"nginx\",pid=1234,fd=6)",
+      "tcp  LISTEN  0  128  127.0.0.1:3306  0.0.0.0:*  users:(\"mysqld\",pid=5678,fd=5)"
+    ],
+    "commande_indisponible": null
+  },
+  "services_systemd": {
+    "noms": [
+      "nginx.service",
+      "mariadb.service",
+      "sshd.service"
+    ],
+    "brut": []
+  },
+  "indisponibilites": []
+}
