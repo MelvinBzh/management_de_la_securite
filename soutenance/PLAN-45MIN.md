@@ -43,9 +43,9 @@
 
 ### Partie 7 — Tests effectués (28 → 32 min)
 22. Stratégie de test (`06-plan-de-test.md`) : analyse manuelle de réf., conventions, garde-fous, bout en bout (1 min)
-23. Suite de tests automatisée **T-01 → T-11** (script rejouable `soutenance/tests/verification.py`, 3 statuts incl. SKIP) — **artefacts sur `main`** (2 min)
-24. Résultats : **14/14 DREAD recalculés, 42 cas matrice, 65 sources ⊆ index, JSON valide, npm audit 0 vuln, T-10 index ISO 2022 canonique** ; T-11 = protocole d'injection (SKIP tant que la démo n'a pas tourné) (1 min)
-25. Test du document piégé (injection de prompt) : consigne ignorée → sorties non modifiées (régression T-07) + protocole d'exposition réelle T-11 (1 min)
+23. Suite de tests automatisée **T-01 → T-18 — 17 PASS + 0 SKIP** (script rejouable `soutenance/tests/verification.py`, 3 statuts incl. SKIP) — **artefacts sur `main`** (2 min)
+24. Résultats : **14/14 DREAD recalculés, 42 cas matrice, 65 sources ⊆ index, JSON valide, npm audit 0 vuln, T-10 index ISO 2022 canonique** ; périmètre : ingestion+préparation (T-12, T-13), web (T-14, T-15), méthodes opérationnelles (T-16), détection+inventaire (T-17), CI (T-18) (2 min)
+25. Test du document piégé (injection de prompt) : consigne ignorée → sorties non modifiées (régression T-07) + **T-11 exécuté le 04/10 et archivé** (`soutenance/tests/injection/resultats/`, `VERDICT: PAS DE CONSIGNE EXECUTEE`) — démo interactive e21-* en séance (1 min)
 
 ### Partie 8 — Choix des modèles IA (32 → 37 min)
 25'. Routeur de modèles : **un modèle par étape**, pas un modèle unique (1 min)
@@ -53,14 +53,14 @@
 27. Point clé : « JSON à 100 % = la forme, jamais les valeurs » → contrôle déterministe + humain (1 min)
 
 ### Partie 9 — Ce que l'outil ne fait PAS (37 → 40 min)
-28. Limites : pas de scan réseau, pas de parsing auto des documents entrants, pas d'analyse de code réel, CVE non fabriquées, probabilité/impact qualitatifs, pas de plateforme web, dépendance opencode, pas de supervision continue (3 min)
+28. Limites assumées : pas de plateforme web publique (app locale), pas de supervision continue en production, pas d'analyse automatisée de code réel à la chaîne, CVE non fabriquées (scores CVSS re-cités), probabilité/impact qualitatifs, dépendance opencode/big-pickle, modèles non auto-hébergés (roadmap ollama), coûts d'exploitation POC non chiffrés (3 min)
 
 ### Partie 10 — Avantages / inconvénients + audit (40 → 43 min)
 29. Benchmark : E21 vs TMT/Threat Dragon/IriusRisk/pytm/LLM générique/multi-agents (2 min)
 30. Audit : findings (index ISO 27002 corrigé, contrôle circulaire → T-10, checklist) + forces ; **remédiation appliquée** (`MODIFICATIONS.md`) (1 min)
 
 ### Partie 11 — Perspectives & conclusion (43 → 45 min)
-31. **Feuille de route** : analyse réseau automatique (scan, vulns, CVE → registre), **ingestion documentaire automatisée** (`.xlsx`, `.doc`, `.pdf`, `.img` → OCR/parsing), ré-indexation ISO, tests pytest, supervision continue (2 min)
+31. **Feuille de route** : déploiement serveur automatisé (CI/CD complet : plan de test + agent de déploiement), détection étendue au homelab réel (inventaire opt-in), PaddleOCR optionnel (reçus/photos), tests pytest, supervision continue, intégration des ateliers EBIOS générés en cas réel (2 min)
 32. Conclusion : reproductibilité + traçabilité + humain décideur (1 min)
 33. Questions (45 min →)
 
@@ -73,22 +73,23 @@
 ## Sections de contenu détaillées (à lire pour préparer les slides)
 
 ### A. Ce que l'outil ne fait PAS
-1. ❌ **Pas d'analyse technique automatique du système réel** : aucun scan réseau, aucun scan de vulnérabilités, aucun test d'intrusion (le cas d'emploi est l'analyse *amont* au sens EBIOS/architecture).
-2. ❌ **Pas de parsing automatique des documents entrants** : les PDF / `.doc` / `.xlsx` / images ne sont pas lus automatiquement ; l'analyste (ou l'orchestrateur, par questions) fournit le contenu résumé.
+1. ❌ **Pas d'analyse technique automatique du système réel au-delà du périmètre déclaré** : pas de scan de vulnérabilités, pas de test d'intrusion, pas d'inventaire automatique hors homelab local opt-in ; l'analyse reste *amont* (EBIOS/architecture). En local : inventaire + détection opt-in (`tools/reseau/`, T-17).
+2. ✅ **Parsing automatique des documents entrants livré** : PDF (texte + **OCR FR/EN**), XLSX/CSV, DOCX, PPTX, PNG — `tools/ingest/` (T-12, T-13) ; la ligne piégée d'un document est reproduite verbatim comme donnée, jamais exécutée (T-15).
 3. ❌ **Pas d'analyse de code** : aucune lecture de code applicatif réel, pas d'AST, pas de SCA automatique (la CVE du SDK PayFlow reste un placeholder tant que `composer audit` n'a pas tourné).
 4. ❌ **Pas de CVE fabriquées** : aucune note CVSS inventée — un placeholder est signalé comme tel (anti-hallucination).
 5. ❌ **Pas de quantification financière** : probabilité/impact qualitatifs (matrice), les évaluations chiffrées supposent un référentiel métier.
-6. ❌ **Pas de plateforme web / multi-utilisateurs** : le système vit dans l'environnement opencode d'un poste ; pas de dashboard, pas d'API publique.
+6. ❌ **Pas de plateforme web publique / multi-utilisateurs** : l'app Streamlit est **locale** (`make web`, T-14) — bibliothèque, exports PDF/MD/HTML/JSON, rien n'est exécuté depuis le web ; pas d'API publique, pas d'auth.
 7. ❌ **Pas de supervision continue** : une analyse = un instantané ; pas de collecte de logs, pas de SOC, pas d'alerte.
 8. ❌ **Pas de validation automatique** : `valide_par` est **toujours humain** ; le système ne « valide » jamais seul.
-9. ❌ **En local limité** : la machine de démo (~1 Go RAM libre) ne peut pas exécuter de gros LLM local (7–8B+) ; démo = mock/opencode.
+9. ❌ **En local limité** : la machine de démo (~1 Go RAM libre) ne peut pas exécuter de gros LLM local (7–8B+) ; la chaîne tourne sur opencode/big-pickle, le passage à ollama est une ligne de config (roadmap).
 10. ✅ **Corrigé (24/09)** : l'index `knowledge_base/` est désormais **ISO/IEC 27002:2022 canonique** (les rares résidus « codes A » cités dans les documents historiques sont datés et annotés comme tels).
 
 ### B. Perspectives (feuille de route)
-1. **Analyse réseau automatique** : brancher des collecteurs (nmap, OpenVAS/Greenbone, OWASP ZAP) → preuves automatisées pour la matrice (probabilité = mesure réelle de l'exposition) → rattachement des CVE réelles (feed NVD + `composer audit` / `npm audit`).
-2. **Ingestion documentaire automatisée** : `.pdf` (PyMuPDF/Docling, scans → PaddleOCR-VL / Mistral OCR 4), `.doc/.docx`, `.xlsx` (tableaux → DFD), `.img`/captures (VLMs) → structuration en entrées de la chaîne (actifs, flux, hypothèses) — sondage direct via `CHOIX-MODELES-IA.md` §1.
+1. ✅ **Inventaire + détection locale livrés** (T-17) : inventaire 100 % local, rapport **anonymisé** (aucune IP/MAC réelle dans le dépôt), détecteur déterministe 12 règles (ATT&CK) ; restent en perspective : collecteurs réseau étendus (nmap/OpenVAS/OWASP ZAP) pour preuves automatisées, puis rattachement des CVE réelles (feed NVD + `composer audit` / `npm audit`).
+2. ✅ **Ingestion documentaire automatisée livrée** (T-12, T-13) : `.pdf` (PyMuPDF, scans → OCR Tesseract FR/EN), `.doc/.docx`, `.xlsx`/CSV, `.pptx`, `.png`, ZIP — entrées structurées de la chaîne (actifs, flux, hypothèses) ; PaddleOCR optionnel en perspective (reçus/photos).
 3. ✅ **Ré-indexation ISO 27002:2022 effectuée** (24/09) : index canonique + correspondance 2013→2022 + invariant T-10 ; restent optionnels les fichiers par thématique (`stride.md`, `iso27002.md`, `cve.json`).
 4. **Campagne de tests pytest** des conventions (registre, sources, matrice, formats) — `06-plan-de-test.md` §2.
-5. **Analyse manuelle de référence** (comparatif « agents vs main » exigé par le sujet, jalon 1 — issue #17) ; **test d'injection réel (T-11)** : protocole rédigé, exécution à archiver avant la démo.
+5. ✅ **Analyse manuelle de référence livrée** (issue #17) : `analyses/2026-09-23_boutique-en-ligne/reference-manuelle.md` — 12 menaces humaines, comparaison IA vs manuel (écarts : vol de session admin non couvert, sur/sous-notations), conclusion d'usage ; ✅ **test d'injection réel T-11 exécuté le 04/10 et archivé** (`soutenance/tests/injection/resultats/`, `VERDICT: PAS DE CONSIGNE EXECUTEE`).
 6. **Supervision continue** : ré-analyse périodique des actifs critiques, delta-registre (nouveaux risques vs N-1), lien avec un outil de tickets.
-7. **Extensions de méthode** : mode EBIOS RM « 5 ateliers » pour OIV/administration, PASTA pour comités métier, arbres d'attaque.
+7. ✅ **Méthodes approfondies livrées** (T-16) : mode EBIOS RM « 5 ateliers » opérationnel (`tools/methodes/ebios`), PASTA 7 étapes, LINDDUN 7 fiches + DPF, validateur DFD STRIDE — choix combinables documentés (e21-choix-methode).
+8. **CI/CD complet** (vision analyste) : plan de test + **déploiement automatique sur serveur avec un agent** — CI minimale déjà vert sur chaque PR (`.github/workflows/suite.yml`, T-18).
