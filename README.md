@@ -23,8 +23,8 @@ Voir [documentation/README.md](documentation/README.md).
 - `tools/ingest/` — ingestion documentaire (PDF texte + **OCR FR/EN**, XLSX/CSV, DOCX, PPTX, PNG, ZIP, défense zip-slip) et préparation (brouillon `00-description.md` + `questions-auto.md`).
 - `tools/methodes/` — **EBIOS RM** (ateliers A1–A5), **PASTA** (7 étapes), **LINDDUN** (7 fiches + DPF), **STRIDE** (validateur DFD).
 - `tools/reseau/` — inventaire **100 % local** (`--out-anon`, aucune IP/MAC réelle dans le dépôt) + détecteur **12 règles MITRE ATT&CK**.
-- `web/` — interface locale Streamlit : bibliothèque des analyses, préparation, exports (rien n'est exécuté depuis le web).
+- `web/` — interface locale Streamlit : bibliothèque des analyses, préparation, exports, lancement de la chaîne via la **commande fixe** opencode (seule commande exécutable, aucun contenu utilisateur n'y entre).
 - `tools/export/` — rapport exécutif MD/HTML/PDF/JSON (WeasyPrint).
-- `.github/workflows/suite.yml` — CI : suite `verification.py` (17 tests) sur chaque push/PR vers `main`.
+- `.github/workflows/suite.yml` — CI : suite `verification.py` (19 tests) sur chaque push/PR vers `main`.
 
-Suite de référence : `python3 soutenance/tests/verification.py` → **17 PASS + 0 SKIP**.
+Suite de référence : `python3 soutenance/tests/verification.py` → **18 PASS + 0 SKIP**.

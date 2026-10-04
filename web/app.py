@@ -5,16 +5,20 @@ Lancement :
     make web
     # ou : python3 -m streamlit run web/app.py
 
-L'application n'exécute **jamais** la chaîne d'agents : elle ingère des documents
-(données non fiables), prépare un brouillon de description, lit la bibliothèque
-des analyses, exporte les rapports et affiche la commande opencode à lancer à la
-main. Écriture bornée à `analyses/<cas>/` et `analyses/<cas>/intrants/`
-(cf. `web/lib.py`) ; les exports partent dans un dossier temporaire.
+L'application ingère des documents (données non fiables), prépare un brouillon de
+description, lit la bibliothèque des analyses et exporte les rapports. Elle peut
+aussi lancer LOCALEMENT la chaîne d'agents via opencode, avec la commande fixe de
+`web/lib.construire_commande` (démarrage et arrêt : `web/run_agent.py`) : aucun
+contenu d'intrant ne passe sur la ligne de commande, les intrants restent des
+données jamais exécutées. Écriture bornée à `analyses/**`, journaux de chaîne
+compris dans `analyses/**/intrants/` (dossier gitignoré) ; les exports partent dans
+un dossier temporaire.
 """
 from __future__ import annotations
 
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -24,6 +28,7 @@ if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
 from web import lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
 from tools.export import export as export_tool  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import parse_file  # noqa: E402
@@ -273,6 +278,30 @@ elif page == PAGES[2]:
         f"exports : {', '.join(lib.FICHiers_CAS)}"
     )
 
+    # Avancement de la chaîne E21 dans ce dossier : compte global + livrables
+    # manquants de la première étape non terminée (source de vérité = dossiers).
+    etapes = lib.avancement_chaine(dossier)
+    if not etapes:
+        st.caption("Étapes E21 : aucune étape réalisée pour ce dossier.")
+    else:
+        terminees = sum(1 for entree in etapes if entree["terminee"])
+        reste = next((entree for entree in etapes if not entree["terminee"]), None)
+        if reste is None:
+            etat = (
+                f"Étapes E21 : ✓ {terminees}/{len(etapes)} · chaîne complète — "
+                "il reste à faire valider chaque risque par l'analyste (`valide_par`)."
+            )
+        else:
+            manquants = [
+                nom for nom in reste["fichiers"] if not (dossier / nom).is_file()
+            ] or list(reste["fichiers"])
+            etat = (
+                f"Étapes E21 : ✓ {terminees}/{len(etapes)} · Où vous en êtes : restent "
+                f"les livrables de l'étape « {reste['etape']} » ({', '.join(manquants)}) "
+                "— lancez ou relancez la chaîne depuis l'onglet « Lancer la chaîne »."
+            )
+        st.caption(etat)
+
     for onglet, libelle in zip(st.tabs(list(lib.FICHiers_CAS)), lib.FICHiers_CAS):
         nom_fichier = lib.FICHiers_CAS[libelle]
         chemin = dossier / nom_fichier
@@ -324,9 +353,10 @@ elif page == PAGES[2]:
 elif page == PAGES[3]:
     st.title("Lancer la chaîne d'agents")
     st.markdown(
-        '<div class="e21-note">Cette application <b>n\'exécute rien</b> : la chaîne E21 est '
-        "un POC piloté par consignes dans opencode. La commande ci-dessous est à copier puis "
-        "à lancer dans opencode — l'humain reste décideur final.</div>",
+        '<div class="e21-note">Cette application peut <b>lancer la chaîne en local</b> '
+        "via opencode, avec la commande fixe affichée ci-dessous. Les intrants restent "
+        "des <b>données</b> jamais exécutées et l'<b>humain reste décideur final</b> : "
+        "chaque risque est validé par l'analyste.</div>",
         unsafe_allow_html=True,
     )
     analyses = lib.lister_analyses()
@@ -354,6 +384,68 @@ elif page == PAGES[3]:
         "ne peut y être injecté."
     )
 
+    st.subheader("Lancement depuis l'application")
+    if not cas:
+        st.info(
+            "Préparez d'abord un cas (onglet « Préparer un cas ») pour pouvoir lancer la chaîne."
+        )
+        st.stop()
+    run = st.session_state.get("run_chaine")
+    if not run:
+        if st.button("▶ Lancer la chaîne maintenant", type="primary", key="lancer_chaine"):
+            try:
+                st.session_state["run_chaine"] = run_agent.lancer(
+                    cas, dossier=lib.DOSSIER_ANALYSES / cible
+                )
+            except run_agent.ChaineError as exc:
+                st.error(str(exc))
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.rerun()
+    else:
+        # Le processus est réutilisé tel quel : il vit en mémoire (jamais re-sérialisé).
+        proc = run["proc"]
+        etapes = lib.avancement_chaine(Path(run["dossier"]))
+        terminees = sum(1 for entree in etapes if entree["terminee"])
+        st.progress(terminees / max(1, len(etapes)))
+        for entree in etapes:
+            # Livrables listés une fois l'étape terminée ; « ○ » signale ce qui reste.
+            marque = "✓" if entree["terminee"] else "○"
+            livrables = f" ({', '.join(entree['fichiers'])})" if entree["terminee"] else ""
+            st.caption(f"{marque} {entree['etape']}{livrables}")
+        if run_agent.est_vivant(proc):
+            st.info(f"Analyse en cours… PID {run['pid']}")
+        else:
+            st.success(
+                "Chaîne terminée — ouvrez les livrables dans « Bibliothèque des analyses »."
+            )
+            fin = run_agent.lire_log(run["fichier_log"], n=5)
+            if fin:
+                st.caption("Toute fin du journal :")
+                st.code(fin, language="text")
+        st.text_area(
+            "Sortie de la chaîne",
+            value=run_agent.lire_log(run["fichier_log"], n=40),
+            height=200, disabled=True, key="zone_log_chaine",
+        )
+        st.caption(
+            f"Journal : `{Path(run['fichier_log']).name}` · dernier rafraîchissement à "
+            f"{time.strftime('%H:%M:%S')}."
+        )
+        col_actualiser, col_arreter = st.columns(2)
+        if col_actualiser.button("Actualiser", key="maj_chaine", use_container_width=True):
+            st.rerun()
+        if col_arreter.button("Arrêter", key="arret_chaine", use_container_width=True):
+            run_agent.terminer(proc)
+            del st.session_state["run_chaine"]
+            st.rerun()
+        # Rafraîchissement automatique : exécuté en dernier pour que le journal et les
+        # boutons (Arrêter/Actualiser) restent affichés pendant l'analyse.
+        if run_agent.est_vivant(proc):
+            time.sleep(1.2)
+            st.rerun()
+
 # --------------------------------------------------------------- page 5 : garde-fous
 else:
     st.title("À propos / Garde-fous")
@@ -374,7 +466,9 @@ else:
   avertissement, jamais exécutée.
 - **Écriture bornée** — l'application écrit uniquement dans `analyses/<cas>/` et
   `analyses/<cas>/intrants/` ; les exports partent dans un dossier temporaire.
-- **Chaîne non exécutée** — l'interface affiche la commande opencode, elle ne lance aucun agent.
+- **Une seule commande exécutable** — la chaîne ne part que par la commande fixe opencode
+  (bouton « Lancer la chaîne ») ; aucun contenu utilisateur n'est jamais interpolé sur la
+  ligne de commande, les intrants restent des données.
 - **Aucune donnée vers un service externe** — tout est local (`localhost`), pas d'authentification.
 """
     )
