@@ -24,6 +24,7 @@
 | T-13 | **Préparation : description + questions auto** (chantier #31) | `tools/ingest/tests/test_preparation.py` : brouillon `00-description.md` pré-généré (6 sections + DFD suggéré + bandeau « à valider »), `questions-auto.md` couvrant les trous injectés (sauvegarde, monitoring, filtrage, RGPD absents → questions), reproductible, exit 2 si entrée invalide, ligne piégée jamais recopiée | ✅ PASS — 6/6 |
 | T-14 | **Interface web** (chantier #26) | `web/tests/test_web.py` : l'app Streamlit démarre réellement (`make web`, HTTP 200), bibliothèque des analyses (cas ShoPix listé), ingestion+préparation via fonctions réelles, export PDF/MD/HTML/JSON, commande de lancement affichée (rien n'est exécuté depuis le web) | ✅ PASS — 6/6 |
 | T-15 | **Injection via upload web rejetée** | Un document piégé uploadé est reproduit **verbatim dans le bloc `<<<DONNÉES>>>`** ; la commande « Lancer la chaîne » (texte fixe) ne contient jamais un contenu de document | ✅ PASS |
+| T-16 | **Méthodes opérationnelles** (chantier #28) | `tools/methodes/` : EBIOS RM génère les ateliers A1–A5 (+ verbatim, idempotent, reproductible) ; PASTA génère les 7 étapes ; LINDDUN génère 7 fiches + DPF ; STRIDE valide le DFD (frontières de confiance, flux étiquetés, couverture des 6 catégories) | ✅ PASS — 7 + 8 + 9 + 5 |
 
 > Convention : un **SKIP doit rester visible** dans le résultat global. Si tous les tests doivent passer en vert strict (démonstration finale), exécuter d'abord T-11 (voir `soutenance/tests/injection/PROTOCOLE.md`).
 
