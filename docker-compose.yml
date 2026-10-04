@@ -1,0 +1,18 @@
+# Lancement Docker Compose de l'application E21 (hôte Docker).
+#
+#   docker compose up -d --build
+#   → http://<ip-du-serveur>:8501
+#
+# Volumes : analyses/ (cas + intrants, gitignorés) et stockage_local/
+# (base source de vérité) persistent sur l'hôte.
+
+services:
+  e21:
+    build: .
+    container_name: e21-studio
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./analyses:/app/analyses
+      - ./stockage_local:/app/stockage_local
