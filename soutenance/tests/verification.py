@@ -268,9 +268,9 @@ def t09_git():
     import subprocess
     branche = subprocess.run(["git", "branch", "--show-current"],
                              capture_output=True, text=True).stdout.strip()
-    if not branche.startswith(("corrections/", "docs/")) and branche != "main":
+    if not branche.startswith(("corrections/", "docs/", "feat/")) and branche != "main":
         return enregistrer("T-09", "FAIL",
-                           f"branche courante '{branche}' (attendues : main, docs/*, corrections/* — pas de travail sur autre branche)")
+                           f"branche courante '{branche}' (attendues : main, docs/*, corrections/*, feat/* — pas de travail sur autre branche)")
     erreurs = []
     for f in ("00-description.md", "01-actifs.md", "registre-risques.md", "SYNTHESE.md", "RAPPORT-CONTROLE.md"):
         if not (DOSSIER / f).exists():
@@ -352,11 +352,36 @@ def t11_injection_active():
                        "protocole execute : la consigne piegee n'apparait dans aucune sortie (verdict archive)")
 
 
+# ----------------------------------------------------- T-12 ingestion documentaire (chantier #25)
+def t12_ingestion():
+    import subprocess
+    script = RACINE / "tools" / "ingest" / "tests" / "test_ingest.py"
+    if not script.exists():
+        return enregistrer("T-12", "FAIL",
+                           "outil d'ingestion absent (tools/ingest/tests/test_ingest.py introuvable)")
+    run = subprocess.run(["python3", str(script)], capture_output=True, text=True, cwd=str(RACINE))
+    if run.returncode != 0:
+        return enregistrer("T-12", "FAIL",
+                           f"tests d'ingestion en echec (exit {run.returncode}) : "
+                           f"{run.stdout[-300:] or run.stderr[-300:]}")
+    m = re.search(r"INGEST:\s*(\d+)\s*PASS,\s*(\d+)\s*FAIL,\s*(\d+)\s*SKIP", run.stdout)
+    if not m:
+        return enregistrer("T-12", "FAIL", "sortie des tests d'ingestion illisible (ligne INGEST manquante)")
+    n_pass, n_fail, n_skip = map(int, m.groups())
+    if n_fail:
+        return enregistrer("T-12", "FAIL", f"{n_pass} PASS, {n_fail} FAIL (ligne INGEST)")
+    if n_skip:
+        return enregistrer("T-12", "SKIP",
+                           f"{n_pass} PASS, {n_skip} SKIP documente(s) (ex. OCR sans binaire tesseract)")
+    return enregistrer("T-12", "PASS", f"{n_pass} tests d'ingestion OK "
+                                       "(PDF texte, OCR, XLSX, DOCX, PPTX, PNG, ZIP, zip-slip)")
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
-               t11_injection_active):
+               t11_injection_active, t12_ingestion):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)
