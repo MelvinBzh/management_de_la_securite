@@ -512,12 +512,32 @@ def t17_detection():
     return enregistrer("T-17", "FAIL", " ; ".join(bilans))
 
 
+# ------------------------------------------------ T-18 CI active (workflow GitHub Actions)
+def t18_ci():
+    wf = RACINE / ".github" / "workflows" / "suite.yml"
+    if not wf.exists():
+        return enregistrer("T-18", "FAIL", "workflow .github/workflows/suite.yml manquant")
+    try:
+        txt = wf.read_text(encoding="utf-8")
+    except OSError as exc:
+        return enregistrer("T-18", "FAIL", f"workflow illisible : {exc}")
+    exigences = ["name:", "on:", "push:", "pull_request:", "verification.py", "make suite",
+                 "tesseract", "streamlit", "weasyprint"]
+    manquants = [e for e in exigences if e not in txt]
+    if manquants:
+        return enregistrer("T-18", "FAIL",
+                           f"workflow incomplet, éléments absents : {', '.join(manquants)}")
+    return enregistrer("T-18", "PASS",
+                       "workflow .github/workflows/suite.yml présent : suite de vérification "
+                       "lancee sur chaque push/PR vers main (verification.py + make suite + OCR + PDF)")
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
                t11_injection_active, t12_ingestion, t13_preparation, t14_web, t15_injection_web,
-               t16_methodes, t17_detection):
+               t16_methodes, t17_detection, t18_ci):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)

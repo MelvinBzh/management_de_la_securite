@@ -28,10 +28,11 @@ jobs:
 
       - name: Installer les dépendances CI
         run: |
+          mkdir -p /tmp/opencode   # dossier temporaire attendu par les runners de tests
           sudo apt-get update -qq
           sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-fra tesseract-ocr-osd \
             libpango-1.0-0 libpangocairo-1.0-0 fonts-dejavu
-          pip install --quiet pymupdf --break-system-packages
+          pip install --quiet --break-system-packages pymupdf streamlit weasyprint==70.0
           (cd .opencode && test -f package.json && npm install --package-lock-only --no-audit --silent)
 
       - name: Suite de vérification (verification.py)
@@ -43,6 +44,5 @@ jobs:
 
       - name: Exporter un PDF (smoke test WeasyPrint)
         run: |
-          pip install --quiet weasyprint==70.0 --break-system-packages
           python3 -m tools.export analyses/2026-09-23_boutique-en-ligne --format pdf \
             --out /tmp/opencode-smoke.pdf && ls -la /tmp/opencode-smoke.pdf
