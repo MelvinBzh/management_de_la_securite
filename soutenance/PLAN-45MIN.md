@@ -43,8 +43,8 @@
 
 ### Partie 7 — Tests effectués (28 → 32 min)
 22. Stratégie de test (`06-plan-de-test.md`) : analyse manuelle de réf., conventions, garde-fous, bout en bout (1 min)
-23. Suite de tests automatisée **T-01 → T-18 — 17 PASS + 0 SKIP** (script rejouable `soutenance/tests/verification.py`, 3 statuts incl. SKIP) — **artefacts sur `main`** (2 min)
-24. Résultats : **14/14 DREAD recalculés, 42 cas matrice, 65 sources ⊆ index, JSON valide, npm audit 0 vuln, T-10 index ISO 2022 canonique** ; périmètre : ingestion+préparation (T-12, T-13), web (T-14, T-15), méthodes opérationnelles (T-16), détection+inventaire (T-17), CI (T-18) (2 min)
+23. Suite de tests automatisée **T-01 → T-19 — 18 PASS + 0 SKIP** (script rejouable `soutenance/tests/verification.py`, 3 statuts incl. SKIP) — **artefacts sur `main`** (2 min)
+24. Résultats : **14/14 DREAD recalculés, 42 cas matrice, 65 sources ⊆ index, JSON valide, npm audit 0 vuln, T-10 index ISO 2022 canonique, T-19 index git sans donnée privée** ; périmètre : ingestion+préparation (T-12, T-13), web (T-14, T-15), méthodes opérationnelles (T-16), détection+inventaire (T-17), CI (T-18), données privées (T-19) (2 min)
 25. Test du document piégé (injection de prompt) : consigne ignorée → sorties non modifiées (régression T-07) + **T-11 exécuté le 04/10 et archivé** (`soutenance/tests/injection/resultats/`, `VERDICT: PAS DE CONSIGNE EXECUTEE`) — démo interactive e21-* en séance (1 min)
 
 ### Partie 8 — Choix des modèles IA (32 → 37 min)

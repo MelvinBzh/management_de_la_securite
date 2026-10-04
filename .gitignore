@@ -5,6 +5,14 @@ __pycache__/
 # Sorties d'ingestion (donnees issues de documents — jamais commitees)
 analyses/**/intrants/
 
+# Données locales privées — jamais commitées, jamais poussées sur GitHub
+# (documents réels, brouillons générés depuis ces documents, journaux de chaîne)
+stockage_local/
+*.sqlite3
+analyses/**/00-description.brouillon.md
+analyses/**/questions-auto.md
+analyses/**/chaine-*.log
+
 # Environnements
 .venv/
 venv/

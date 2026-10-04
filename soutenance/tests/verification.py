@@ -532,12 +532,43 @@ def t18_ci():
                        "lancee sur chaque push/PR vers main (verification.py + make suite + OCR + PDF)")
 
 
+# ------------------------------------- T-19 aucune donnée privée dans l'index git (garde-fou)
+def t19_git_donnees_privees():
+    """Aucun fichier réel/sensible ne doit jamais être sous contrôle git :
+    intrants, brouillons issus de documents, bases locales (sqlite), journaux.
+    Les documents uploadés (souvent la propriété de l'analyste) restent locaux,
+    jamais poussés sur GitHub — y compris par `git add -A`."""
+    import subprocess
+    run = subprocess.run(["git", "ls-files"], capture_output=True, text=True, cwd=str(RACINE))
+    if run.returncode != 0:
+        return enregistrer("T-19", "FAIL", f"git ls-files en échec : {run.stderr[-200:] or run.stdout[-200:]}")
+    intercepteurs = (
+        "/intrants/",                      # documents bruts d'analyse (dossiers par cas)
+        ".sqlite3",                        # bases locales (futur stockage documents)
+        "/stockage_local/",                # futur coffre local des documents
+    )
+    def sous_analyses(p: str) -> bool:
+        return p.startswith("analyses/") and p.endswith((
+            "00-description.brouillon.md",  # brouillon généré depuis les documents
+            "questions-auto.md",            # questions automatiques (peuvent contenir le contenu)
+        ))
+    sensibles = [p for p in run.stdout.splitlines()
+                 if any(m in p for m in intercepteurs) or sous_analyses(p)]
+    if sensibles:
+        return enregistrer("T-19", "FAIL",
+                           "données sensibles dans l'index git — les retirer (git rm --cached) : "
+                           + ", ".join(sensibles[:8]))
+    return enregistrer("T-19", "PASS",
+                       "aucun intrant/brouillon/sqlite/log dans l'index git — les données réelles "
+                       "ne peuvent pas être poussées")
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
                t11_injection_active, t12_ingestion, t13_preparation, t14_web, t15_injection_web,
-               t16_methodes, t17_detection, t18_ci):
+               t16_methodes, t17_detection, t18_ci, t19_git_donnees_privees):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)
