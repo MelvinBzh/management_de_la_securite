@@ -1,0 +1,399 @@
+{
+  "version": "1.0",
+  "nom": "regles-detection-homelab",
+  "description": "Mapping menaces du registre E21 → signaux observables → règles de détection testables (homelab, données anonymisées).",
+  "garde_fous": [
+    "Aucune adresse réelle : les fixtures n'utilisent que des plages de documentation (RFC 5737) — 192.0.2.0/24 (LAN anonymisée), 198.51.100.0/24 (IP inconnue, hors périmètre), 203.0.113.0/24 (partenaires/CDN autorisés).",
+    "Aucun accès réseau : le détecteur lit un fichier, rien d'autre.",
+    "Le rapport reprend l'événement déclencheur verbatim, sans réécriture ni masquage."
+  ],
+  "referentiels": [
+    "MITRE ATT&CK (techniques T####, tactiques)",
+    "STRIDE (knowledge_base : STRIDE-S/T/R/I/D/E)",
+    "LINDDUN (knowledge_base : LINDDUN-L/I/Disclosure/...)",
+    "EBIOS RM (knowledge_base : EBIOS-RM-A3 chemins d'attaque)",
+    "ISO/IEC 27002:2022 (knowledge_base : ISO27002-8.15 journalisation, 8.16 surveillance, 8.22 séparation des réseaux)"
+  ],
+  "schema_evenement": {
+    "ts": "horodatage ISO 8601 (obligatoire) — sert à l'ordre d'analyse et aux fenêtres glissantes",
+    "source": "émetteur anonymisé (IP ou nom d'hôte pseudonyme)",
+    "dest": "destinataire anonymisé",
+    "port": "port de destination (entier)",
+    "type": "catégorie d'événement : scan, ssh-ok, ssh-fail, auth-ok, auth-ko, connexion, http-200, http-401, http-403, http-404, transfert, fichier, dns, cron, container-start, backup",
+    "detail": "texte libre (chemin HTTP, ligne de commande, motif…)",
+    "utilisateur": "compte concerné (anonymisé)",
+    "action": "action métier (création de compte, export, déploiement…)",
+    "resultat": "OK / KO / refusé",
+    "octets": "volume échangé (entier)",
+    "duree_s": "durée en secondes (entier)",
+    "processus": "processus ou tâche qui a produit l'événement",
+    "image": "image de conteneur",
+    "privileges": "privileges du conteneur",
+    "chemin": "chemin ou URL"
+  },
+  "champs_calcules": {
+    "n_destinations": "nombre de destinations distinctes dans la fenêtre, par groupe",
+    "n_ports": "nombre de ports distincts dans la fenêtre",
+    "n_utilisateurs": "nombre de comptes distincts dans la fenêtre",
+    "n_sources": "nombre de sources distinctes dans la fenêtre",
+    "total_octets": "somme des octets dans la fenêtre",
+    "nb_evenements": "nombre d'événements dans la fenêtre"
+  },
+  "operateurs": {
+    "egale": "égalité du champ (comparaison texte insensible à la casse, numérique si les deux valeurs sont des nombres)",
+    "different": "inégalité",
+    "dans": "valeur dans une liste",
+    "hors": "valeur absente d'une liste",
+    "contient": "sous-chaîne",
+    "ne-contient-pas": "absence de sous-chaîne",
+    "regex": "expression régulière (re.search, insensible à la casse)",
+    "sup": ">", "inf": "<", "sup-ou-egal": ">=", "inf-ou-egal": "<=",
+    "present": "champ renseigné", "absent": "champ vide ou manquant"
+  },
+  "types_regle": {
+    "evenement": "alerte dès qu'un événement satisfait toutes les conditions",
+    "compteur": "alerte quand `seuil` événements conformes apparaissent dans `fenetre_s` secondes pour une même valeur de `cle` (fenêtre glissante, réarmement après alerte)",
+    "sequence": "alerte quand les étapes sont respectées dans l'ordre du fichier, la dernière servant de déclencheur"
+  },
+  "regles": [
+    {
+      "id": "DET-01",
+      "famille": "scan / repérage",
+      "intitule": "Balayage réseau : trop de destinations distinctes depuis une même source",
+      "tactique": "Discovery",
+      "techniques_mitre": [
+        {"id": "T1046", "nom": "Network Service Discovery"}
+      ],
+      "menaces": {
+        "registre": ["R-01", "R-04"],
+        "grilles": ["STRIDE-I", "EBIOS-RM-A3"],
+        "sources": ["ATT&CK-T1190", "ISO27002-8.22"]
+      },
+      "signaux": [
+        "N destinations distinctes touchées en moins de T secondes depuis une même source",
+        "sweep de ports sur une plage d'hôtes",
+        "requêtes DNS d'énumération (NXDOMAIN en rafale)"
+      ],
+      "regle": {
+        "type": "compteur",
+        "cle": "source",
+        "fenetre_s": 120,
+        "seuil": 8,
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["scan", "dns"]},
+          {"champ": "n_destinations", "operateur": "sup-ou-egal", "valeur": 8}
+        ]
+      }
+    },
+    {
+      "id": "DET-02",
+      "famille": "scan / repérage",
+      "intitule": "Balayage de ports : trop de ports distincts sur une même cible",
+      "tactique": "Discovery",
+      "techniques_mitre": [
+        {"id": "T1046", "nom": "Network Service Discovery"}
+      ],
+      "menaces": {
+        "registre": ["R-04"],
+        "grilles": ["STRIDE-I"],
+        "sources": ["ATT&CK-T1190"]
+      },
+      "signaux": [
+        "plus de N ports différents closed/filtrés sur un même hôte en moins de T secondes"
+      ],
+      "regle": {
+        "type": "compteur",
+        "cle": "dest",
+        "fenetre_s": 120,
+        "seuil": 6,
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["scan"]},
+          {"champ": "n_ports", "operateur": "sup-ou-egal", "valeur": 6}
+        ]
+      }
+    },
+    {
+      "id": "DET-03",
+      "famille": "compromission de compte",
+      "intitule": "Force brute : échecs d'authentification répétés sur un même compte",
+      "tactique": "Credential Access",
+      "techniques_mitre": [
+        {"id": "T1110", "nom": "Brute Force"},
+        {"id": "T1110.001", "nom": "Password Guessing"}
+      ],
+      "menaces": {
+        "registre": ["R-01"],
+        "grilles": ["STRIDE-S"],
+        "sources": ["ISO27002-8.5", "ISO27002-8.16"]
+      },
+      "signaux": [
+        "N tentatives SSH échouées en T secondes sur un même compte",
+        "aucun déverrouillage ni limitation de débit côté serveur"
+      ],
+      "regle": {
+        "type": "compteur",
+        "cle": "utilisateur",
+        "fenetre_s": 120,
+        "seuil": 5,
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["ssh-fail", "auth-ko", "http-401"]},
+          {"champ": "port", "operateur": "dans", "valeur": [22, 3389, 23, 21]}
+        ]
+      }
+    },
+    {
+      "id": "DET-04",
+      "famille": "compromission de compte",
+      "intitule": "Credential stuffing / compromission de compte depuis plusieurs IP",
+      "tactique": "Credential Access",
+      "techniques_mitre": [
+        {"id": "T1078", "nom": "Valid Accounts"},
+        {"id": "T1110.004", "nom": "Credential Stuffing"}
+      ],
+      "menaces": {
+        "registre": ["R-01", "R-02"],
+        "grilles": ["STRIDE-S"],
+        "sources": ["ISO27002-8.5", "ANSSI-HYGIENE"]
+      },
+      "signaux": [
+        "même compte en échec depuis N adresses IP différentes en moins de T secondes",
+        "aucune MFA (le registre note 2FA clients absents)"
+      ],
+      "regle": {
+        "type": "compteur",
+        "cle": "utilisateur",
+        "fenetre_s": 300,
+        "seuil": 3,
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["http-401", "auth-ko"]},
+          {"champ": "n_sources", "operateur": "sup-ou-egal", "valeur": 3}
+        ]
+      }
+    },
+    {
+      "id": "DET-05",
+      "famille": "accès web anormal",
+      "intitule": "Use of Applications Facing Public-Facing Application : balayage d'URL sur l'application",
+      "tactique": "Initial Access",
+      "techniques_mitre": [
+        {"id": "T1190", "nom": "Exploit Public-Facing Application"}
+      ],
+      "menaces": {
+        "registre": ["R-04", "R-05"],
+        "grilles": ["STRIDE-T"],
+        "sources": ["ATT&CK-T1190"]
+      },
+      "signaux": [
+        "pages d'erreur répétées sur un même chemin sensible (setup, admin, API)",
+        "absence de WAF / de limitation de débit (constat R-04, R-09)"
+      ],
+      "regle": {
+        "type": "compteur",
+        "cle": "chemin",
+        "fenetre_s": 300,
+        "seuil": 3,
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["http-404", "http-403", "http-500"]},
+          {"champ": "chemin", "operateur": "regex", "valeur": "(wp-|/admin|/phpmyadmin|/setup|/actuator|/\\.env|/vendor)"}
+        ]
+      }
+    },
+    {
+      "id": "DET-06",
+      "famille": "déni de service",
+      "intitule": "Déni de service applicatif : rafale de requêtes sur une ressource",
+      "tactique": "Impact",
+      "techniques_mitre": [
+        {"id": "T1498", "nom": "Network Denial of Service"},
+        {"id": "T1499", "nom": "Endpoint Denial of Service"}
+      ],
+      "menaces": {
+        "registre": ["R-09", "R-14"],
+        "grilles": ["STRIDE-D"],
+        "sources": ["ISO27002-8.14", "ISO27002-5.30"]
+      },
+      "signaux": [
+        "N requêtes (429/500/timeout) en moins de T secondes sur la même ressource",
+        "absence de CDN / rate-limiting / monitoring (constat R-09)"
+      ],
+      "regle": {
+        "type": "compteur",
+        "cle": "source",
+        "fenetre_s": 60,
+        "seuil": 20,
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["http-429", "http-500", "timeout"]},
+          {"champ": "n_destinations", "operateur": "sup-ou-egal", "valeur": 1}
+        ]
+      }
+    },
+    {
+      "id": "DET-07",
+      "famille": "exfiltration",
+      "intitule": "Exfiltration : transfert sortant volumineux ou mise en attente de données",
+      "tactique": "Exfiltration",
+      "techniques_mitre": [
+        {"id": "T1567", "nom": "Exfiltration Over Web Service"},
+        {"id": "T1041", "nom": "Exfiltration Over C2 Channel"}
+      ],
+      "menaces": {
+        "registre": ["R-07", "R-08", "R-11", "R-12"],
+        "grilles": ["STRIDE-I", "LINDDUN-Disclosure"],
+        "sources": ["ISO27002-8.13", "ISO27002-8.24"]
+      },
+      "signaux": [
+        "taille de téléchargement > seuil (octets) vers une destination hors périmètre",
+        "export massif (fichier .csv/.sql) généré ou copié hors des sauvegardes planifiées"
+      ],
+      "regle": {
+        "type": "evenement",
+        "conditions": [
+          {"champ": "type", "operateur": "dans", "valeur": ["transfert", "fichier"]},
+          {"champ": "octets", "operateur": "sup-ou-egal", "valeur": 150000000}
+        ]
+      }
+    },
+    {
+      "id": "DET-08",
+      "famille": "exfiltration",
+      "intitule": "Exfiltration vers une IP inconnue, en dehors des plages autorisées",
+      "tactique": "Exfiltration",
+      "techniques_mitre": [
+        {"id": "T1567.002", "nom": "Exfiltration to Cloud Storage"}
+      ],
+      "menaces": {
+        "registre": ["R-03", "R-07"],
+        "grilles": ["STRIDE-I"],
+        "sources": ["ISO27002-5.19", "ISO27002-8.24"]
+      },
+      "signaux": [
+        "connexion sortante vers IP inconnue en dehors des plages autorisées",
+        "destination jamais vue dans l'inventaire (allowlist = 203.0.113.0/24 partenaires/CDN)"
+      ],
+      "regle": {
+        "type": "evenement",
+        "conditions": [
+          {"champ": "dest", "operateur": "regex", "valeur": "^198\\.51\\.100\\."},
+          {"champ": "type", "operateur": "dans", "valeur": ["transfert", "connexion", "dns", "fichier"]}
+        ]
+      }
+    },
+    {
+      "id": "DET-09",
+      "famille": "mouvement latéral",
+      "intitule": "Mouvement latéral : authentification sensible suivie d'une session d'administration",
+      "tactique": "Lateral Movement",
+      "techniques_mitre": [
+        {"id": "T1021", "nom": "Remote Services"},
+        {"id": "T1078", "nom": "Valid Accounts"}
+      ],
+      "menaces": {
+        "registre": ["R-10"],
+        "grilles": ["STRIDE-E"],
+        "sources": ["ISO27002-8.22", "ISO27002-8.2"]
+      },
+      "signaux": [
+        "ouverture de session sur un compte à privilèges",
+        "puis connexion d'administration (RDP/WinRM/SSH) vers une autre machine, depuis la même source, dans la fenêtre",
+        "absence de segmentation entre les composants (constat R-10)"
+      ],
+      "regle": {
+        "type": "sequence",
+        "fenetre_s": 900,
+        "etapes": [
+          {
+            "nom": "authentification réussie sur compte à privilèges",
+            "conditions": [
+              {"champ": "type", "operateur": "dans", "valeur": ["auth-ok", "ssh-ok"]},
+              {"champ": "utilisateur", "operateur": "dans", "valeur": ["administrateur", "admin", "root", "adm-shoPix"]}
+            ]
+          },
+          {
+            "nom": "session d'administration ouverte depuis la même source",
+            "conditions": [
+              {"champ": "type", "operateur": "dans", "valeur": ["connexion", "ssh-ok"]},
+              {"champ": "port", "operateur": "dans", "valeur": [3389, 5985, 5986, 22]}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "DET-10",
+      "famille": "présence persistante",
+      "intitule": "Persistance : tâche planifiée téléchargeant et exécutant du code",
+      "tactique": "Persistence",
+      "techniques_mitre": [
+        {"id": "T1053", "nom": "Scheduled Task/Job"}
+      ],
+      "menaces": {
+        "registre": ["R-07"],
+        "grilles": ["STRIDE-T"],
+        "sources": ["ISO27002-8.8"]
+      },
+      "signaux": [
+        "tâche cron/at qui télécharge puis exécute un script distant (curl|sh)",
+        "commande planifiée écrivant dans un répertoire d'exécution"
+      ],
+      "regle": {
+        "type": "evenement",
+        "conditions": [
+          {"champ": "type", "operateur": "egale", "valeur": "cron"},
+          {"champ": "detail", "operateur": "regex", "valeur": "(curl|wget)[^|;]*\\|\\s*(ba)?sh|base64\\s+-d"}
+        ]
+      }
+    },
+    {
+      "id": "DET-11",
+      "famille": "présence persistante",
+      "intitule": "Persistance : compte créé hors fenêtre de service",
+      "tactique": "Persistence",
+      "techniques_mitre": [
+        {"id": "T1136", "nom": "Create Account"}
+      ],
+      "menaces": {
+        "registre": ["R-01", "R-10"],
+        "grilles": ["STRIDE-E"],
+        "sources": ["ISO27002-5.3", "ANSSI-HYGIENE"]
+      },
+      "signaux": [
+        "création de compte ou élévation de privilèges en dehors des fenêtres de service",
+        "compte créé sur un serveur applicatif plutôt que sur un serveur d'identités"
+      ],
+      "regle": {
+        "type": "evenement",
+        "conditions": [
+          {"champ": "action", "operateur": "dans", "valeur": ["creation-compte", "ajout-groupe", "changement-mot-de-passe"]},
+          {"champ": "detail", "operateur": "regex", "valeur": "(00:00|01:|02:|03:|04:|05:)"}
+        ]
+      }
+    },
+    {
+      "id": "DET-12",
+      "famille": "conteneurs risqués",
+      "intitule": "Conteneur : démarrage avec privilèges élevés ou montage de la socket Docker",
+      "tactique": "Privilege Escalation",
+      "techniques_mitre": [
+        {"id": "T1611", "nom": "Escape to Host"},
+        {"id": "T1610", "nom": "Deploy Container"}
+      ],
+      "menaces": {
+        "registre": ["R-10"],
+        "grilles": ["STRIDE-E"],
+        "sources": ["ISO27002-8.2", "ISO27002-8.22"]
+      },
+      "signaux": [
+        "image exécutée avec --privileged ou --net=host",
+        "montage de /var/run/docker.sock ou du dossier hôte en_rw",
+        "image taguée « latest » ou non épinglée"
+      ],
+      "regle": {
+        "type": "evenement",
+        "conditions": [
+          {"champ": "type", "operateur": "egale", "valeur": "container-start"},
+          {"champ": "privileges", "operateur": "egale", "valeur": "privileged"}
+        ]
+      }
+    }
+  ]
+}
