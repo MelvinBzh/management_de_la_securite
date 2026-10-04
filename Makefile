@@ -12,9 +12,9 @@ PORT ?= 8501
 # localhost = accessible uniquement depuis la machine (plus sûr si réseau non maîtrisé).
 ADDRESS ?= 0.0.0.0
 
-.PHONY: web suite test-ingest test-preparation test-export test-web test-reseau test-detection test-methodes \
-	test-methodes-pasta test-methodes-linddun test-methodes-stride test-methodes-ebios \
-	tests aide
+.PHONY: web suite test-ingest test-preparation test-export test-web test-studio test-reseau \
+	test-detection test-methodes test-methodes-pasta test-methodes-linddun test-methodes-stride \
+	test-methodes-ebios tests aide
 
 ## Interface web locale (streamlit) — s'arrête avec Ctrl+C.
 ## Lancement LAN : make web ADDRESS=0.0.0.0  (défaut) | machine seule : make web ADDRESS=localhost
@@ -43,6 +43,10 @@ test-export:
 ## Tests autonomes de l'interface web (chantier #26).
 test-web:
 	$(PYTHON) web/tests/test_web.py
+
+## Tests autonomes du socle Studio (base SQLite locale des agents et skills).
+test-studio:
+	$(PYTHON) tools/studio/tests/test_db.py
 
 ## Tests autonomes de la méthode EBIOS RM (ateliers générés).
 test-methodes-ebios:

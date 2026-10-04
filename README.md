@@ -24,7 +24,9 @@ Voir [documentation/README.md](documentation/README.md).
 - `tools/methodes/` — **EBIOS RM** (ateliers A1–A5), **PASTA** (7 étapes), **LINDDUN** (7 fiches + DPF), **STRIDE** (validateur DFD).
 - `tools/reseau/` — inventaire **100 % local** (`--out-anon`, aucune IP/MAC réelle dans le dépôt) + détecteur **12 règles MITRE ATT&CK**.
 - `web/` — interface locale Streamlit : bibliothèque des analyses, préparation, exports, lancement de la chaîne via la **commande fixe** opencode (seule commande exécutable, aucun contenu utilisateur n'y entre).
+- `tools/studio/` — **Studio E21** (page web) : la base locale `stockage_local/e21.sqlite3` (gitignorée) est la **source de vérité** des agents et skills ; édition/ajout depuis l'interface, déploiement vers `.opencode/**`, versionnage git en branche + PR, export/import JSON (portabilité machine), état **Ollama**.
+- `opencode.jsonc` — fournisseur local **Ollama** déclaré (`ollama/qwen2.5:7b`) : chaîne d'agents 100 % locale optionnelle (`opencode run --model ollama/qwen2.5:7b …`).
 - `tools/export/` — rapport exécutif MD/HTML/PDF/JSON (WeasyPrint).
-- `.github/workflows/suite.yml` — CI : suite `verification.py` (19 tests) sur chaque push/PR vers `main`.
+- `.github/workflows/suite.yml` — CI : suite `verification.py` (20 tests) sur chaque push/PR vers `main`.
 
-Suite de référence : `python3 soutenance/tests/verification.py` → **18 PASS + 0 SKIP**.
+Suite de référence : `python3 soutenance/tests/verification.py` → **19 PASS + 0 SKIP**.

@@ -1,0 +1,435 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Tests autonomes du socle Studio E21 (STUDIO-01 → STUDIO-06).
+
+Exécution sans dépendance externe :
+    python3 tools/studio/tests/test_db.py
+    # ou : make test-studio
+Compatible pytest (`pytest tools/studio/tests/test_db.py`) : les fonctions
+`test_*` sont alors collectées.
+
+Sortie attendue : STUDIO: N PASS, M FAIL, K SKIP (EXIT 0 seulement si 0 FAIL).
+
+Isolation : tout se passe dans un `tempfile.TemporaryDirectory` — les tests
+n'écrivent aucun fichier dans `.opencode/` (le déploiement de STUDIO-04 vise des
+dossiers temporaires) et ne créent aucune base dans le dépôt. STUDIO-03 est la
+seule exception : il LIT les vrais `.opencode/agents/*.md` et
+`.opencode/skills/*/SKILL.md` du dépôt — le test vérifie donc l'inventaire réel
+de la chaîne E21 — mais les écrit dans une base temporaire. Le seul fichier produit
+hors dossier temporaire est l'export horodaté de STUDIO-05, dans `stockage_local/`
+(dossier gitignoré), supprimé à la fin du test.
+"""
+from __future__ import annotations
+
+import json
+import sqlite3
+import sys
+import tempfile
+from pathlib import Path
+
+RACINE = Path(__file__).resolve().parents[3]
+if str(RACINE) not in sys.path:
+    sys.path.insert(0, str(RACINE))
+
+from tools.studio import db  # noqa: E402  (import après ajustement de sys.path)
+
+CONTENU = "# Studio — contenu de test\n\nEntité synthétique, sans valeur E21.\n"
+
+try:
+    import pytest
+
+    _BaseSkip = pytest.skip.Exception
+except ImportError:  # pragma: no cover
+    pytest = None
+    _BaseSkip = Exception
+
+
+class SkipTest(_BaseSkip):
+    """Test non exécutable dans cet environnement (motif documenté)."""
+
+
+def sauter(message: str):
+    """Interrompt le test en SKIP (motif : dépendance absente, fichier manquant…)."""
+    raise SkipTest(message)
+
+
+n_pass = 0
+n_fail = 0
+n_skip = 0
+
+
+def passer(tid: str, detail: str = ""):
+    """Enregistre et affiche un PASS."""
+    global n_pass
+    print(f"PASS {tid}{' — ' + detail if detail else ''}")
+    n_pass += 1
+    return True
+
+
+def echouer(tid: str, detail: str):
+    """Enregistre et affiche un FAIL."""
+    global n_fail
+    print(f"FAIL {tid} — {detail}")
+    n_fail += 1
+    return False
+
+
+def sauter_test(tid: str, detail: str):
+    """Enregistre et affiche un SKIP (environnement non conforme)."""
+    global n_skip
+    print(f"SKIP {tid} — {detail}")
+    n_skip += 1
+    return True
+
+
+# --------------------------------------------------------------------------- outils
+def base_temporaire(dossier: Path) -> Path:
+    """Chemin d'une base jetable dans le dossier temporaire courant."""
+    return dossier / "stockage_local" / "e21-test.sqlite3"
+
+
+def tables(conn) -> set[str]:
+    """Noms des tables présentes dans la base ouverte."""
+    return {
+        ligne[0]
+        for ligne in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+
+
+def lire_schema_version(conn) -> str | None:
+    """Valeur de `meta.schema_version` (`None` si la clé est absente)."""
+    ligne = conn.execute("SELECT valeur FROM meta WHERE cle = 'schema_version'").fetchone()
+    return None if ligne is None else ligne[0]
+
+
+def version_de(entites: list[dict], nom: str) -> int:
+    """Version d'une entité dans une liste de dictionnaires."""
+    versions = [entite["version"] for entite in entites if entite["nom"] == nom]
+    assert len(versions) == 1, f"entité « {nom} » absente ou dupliquée : {versions}"
+    return versions[0]
+
+
+def leverer(action, type_cercle: type[Exception], fragment: str) -> str:
+    """Vérifie qu'une exception de `type_cercle` contenant `fragment` est levée."""
+    try:
+        action()
+    except type_cercle as exc:
+        message = str(exc)
+    else:
+        raise AssertionError(f"{type_cercle.__name__} non levée")
+    assert message.strip(), "exception levée sans message"
+    assert fragment in message, f"message d'erreur inattendu : « {message} »"
+    return message
+
+
+# --------------------------------------------------------------------------- STUDIO-01
+def test_studio_01():
+    """STUDIO-01 : `init()` crée base + schéma (entites, meta) et schema_version."""
+    with tempfile.TemporaryDirectory() as tmp:
+        chemin = base_temporaire(Path(tmp))
+        assert not chemin.exists(), "la base ne doit pas exister avant init()"
+        conn = db.init(chemin)
+        try:
+            assert chemin.is_file(), f"base non créée : {chemin}"
+            noms = tables(conn)
+            assert "entites" in noms, f"table « entites » absente (tables : {sorted(noms)})"
+            assert "meta" in noms, f"table « meta » absente (tables : {sorted(noms)})"
+            assert lire_schema_version(conn) == db.VERSION_SCHEMA, \
+                f"schema_version absent ou incorrect : {lire_schema_version(conn)!r}"
+            # Contrainte de type portée par le schéma : « agent » ou « skill » seulement.
+            conn.execute(
+                "INSERT INTO entites(type, nom, contenu, modifie_le) "
+                "VALUES ('agent', 'controle-type', 'x', '2026-01-01T00:00:00+00:00')"
+            )
+            leverer(
+                lambda: conn.execute(
+                    "INSERT INTO entites(type, nom, contenu, modifie_le) "
+                    "VALUES ('plugin', 'controle-type', 'x', '2026-01-01T00:00:00+00:00')"
+                ),
+                sqlite3.Error,
+                "CHECK",
+            )
+            conn.rollback()  # annule la ligne de contrôle : base vide après fermeture
+        finally:
+            conn.close()
+        db.sauvegarder("agent", "e21-init", CONTENU, chemin_db=chemin)
+        # Idempotence : un second init() ne perd rien et ne réécrit pas le schéma.
+        conn = db.init(chemin)
+        try:
+            assert lire_schema_version(conn) == db.VERSION_SCHEMA, "schema_version altéré"
+        finally:
+            conn.close()
+        restants = db.lister("agent", chemin)
+        assert [e["nom"] for e in restants] == ["e21-init"], \
+            f"donnée perdue au second init() : {restants}"
+    passer("STUDIO-01", "schéma entites + meta · schema_version · init() idempotent")
+
+
+# --------------------------------------------------------------------------- STUDIO-02
+def test_studio_02():
+    """STUDIO-02 : `sauvegarder` crée en version 1 puis incrémente en version 2."""
+    with tempfile.TemporaryDirectory() as tmp:
+        chemin = base_temporaire(Path(tmp))
+        db.init(chemin).close()
+        premier = db.sauvegarder("agent", "e21-test-studio", CONTENU, chemin_db=chemin)
+        assert premier["version"] == 1, f"création en version 1 attendue : {premier}"
+        assert premier["source"] == "studio", f"source « studio » attendue : {premier}"
+        assert premier["modifie_le"], "modifie_le vide à la création"
+        assert premier["modifie_le"].startswith("20"), \
+            f"modifie_le attendu en ISO UTC : {premier['modifie_le']!r}"
+
+        modifie = CONTENU + "\nAjout.\n"
+        deuxieme = db.sauvegarder("agent", "e21-test-studio", modifie, chemin_db=chemin)
+        assert deuxieme["version"] == 2, f"mise à jour en version 2 attendue : {deuxieme}"
+        assert deuxieme["source"] == "studio", f"source « studio » attendue : {deuxieme}"
+        assert deuxieme["modifie_le"] >= premier["modifie_le"], "horodatage non monotone"
+
+        lu = db.lire("agent", "e21-test-studio", chemin_db=chemin)
+        assert lu == deuxieme, f"contenu relu différent de celui écrit : {lu}"
+        assert lu["contenu"] == modifie, "contenu altéré à la relecture"
+        assert db.lire("skill", "e21-test-studio", chemin_db=chemin) is None, \
+            "la clé primaire (type, nom) doit isoler agent et skill"
+
+        # Un skill du même nom vit dans la même table, sans collision.
+        skill = db.sauvegarder("skill", "e21-test-studio", "# Skill\n", chemin_db=chemin)
+        assert skill["version"] == 1, f"création skill en version 1 attendue : {skill}"
+        assert len(db.lister("agent", chemin)) == 1, "l'agent a disparu de lister('agent')"
+        assert len(db.lister("skill", chemin)) == 1, "le skill a disparu de lister('skill')"
+    passer("STUDIO-02", "version 1 puis 2 · source studio · contenu relu identique")
+
+
+# --------------------------------------------------------------------------- STUDIO-03
+def test_studio_03():
+    """STUDIO-03 : import du `.opencode/` réel, puis ré-import idempotent."""
+    assert db.DOSSIER_AGENTS.is_dir(), f"dossier agents absent : {db.DOSSIER_AGENTS}"
+    assert db.DOSSIER_SKILLS.is_dir(), f"dossier skills absent : {db.DOSSIER_SKILLS}"
+    agents_disques = sorted(chemin.stem for chemin in db.DOSSIER_AGENTS.glob(f"*{db.SUFFIXE_MD}"))
+    skills_disques = sorted(
+        dossier.name
+        for dossier in db.DOSSIER_SKILLS.iterdir()
+        if dossier.is_dir() and (dossier / db.NOM_SKILL).is_file()
+    )
+    if not agents_disques or not skills_disques:
+        sauter(
+            f"inventaire `.opencode/` vide (agents : {len(agents_disques)}, "
+            f"skills : {len(skills_disques)})"
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        chemin = base_temporaire(Path(tmp))
+        db.init(chemin).close()
+        attendu = len(agents_disques) + len(skills_disques)
+
+        premier = db.importer_depuis_opencode(chemin)
+        assert premier["importes"] == attendu, \
+            f"imports inattendus : {premier} ({attendu} fichiers sur disque)"
+        assert premier["mis_a_jour"] == 0, f"première importation déjà mise à jour : {premier}"
+        assert premier["total"] == attendu, f"total incohérent : {premier}"
+
+        base_agents = db.lister("agent", chemin)
+        base_skills = db.lister("skill", chemin)
+        assert [e["nom"] for e in base_agents] == agents_disques, \
+            f"agents importés différents des fichiers : {[e['nom'] for e in base_agents]}"
+        assert [e["nom"] for e in base_skills] == skills_disques, \
+            f"skills importés différents des fichiers : {[e['nom'] for e in base_skills]}"
+        for entite in base_agents + base_skills:
+            assert entite["source"] == "opencode", f"source « opencode » attendue : {entite}"
+            assert entite["version"] == 1, f"version 1 attendue à l'import : {entite}"
+            assert entite["contenu"].strip(), f"contenu vide pour {entite['nom']}"
+        # Le contenu importé est bien celui du fichier opencode correspondant.
+        for entite in base_agents:
+            fichier = db.DOSSIER_AGENTS / f"{entite['nom']}{db.SUFFIXE_MD}"
+            assert entite["contenu"] == fichier.read_text(encoding="utf-8"), \
+                f"contenu altéré pour {entite['nom']}"
+        for entite in base_skills:
+            fichier = db.DOSSIER_SKILLS / entite["nom"] / db.NOM_SKILL
+            assert entite["contenu"] == fichier.read_text(encoding="utf-8"), \
+                f"contenu altéré pour {entite['nom']}"
+
+        # Deuxième appel : rien ne change, aucune version n'est incrémentée.
+        second = db.importer_depuis_opencode(chemin)
+        assert second["importes"] == 0, f"ré-import : création inattendue {second}"
+        assert second["mis_a_jour"] == 0, f"ré-import non idempotent : {second}"
+        assert second["inchangees"] == attendu, f"inchangees inattendu au ré-import : {second}"
+        apres = db.lister("agent", chemin)
+        assert [e["version"] for e in apres] == [1] * len(base_agents), \
+            "version incrémentée à tort lors d'un ré-import"
+    detail = f"{len(agents_disques)} agents + {len(skills_disques)} skills importés"
+    passer("STUDIO-03", f"{detail} · ré-import sans changement")
+
+
+# --------------------------------------------------------------------------- STUDIO-04
+def test_studio_04():
+    """STUDIO-04 : déploiement vers des dossiers temporaires, puis idempotence."""
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp)
+        chemin = base_temporaire(racine)
+        agents = racine / "opencode" / "agents"
+        skills = racine / "opencode" / "skills"
+        db.init(chemin).close()
+        db.sauvegarder("agent", "e21-test-studio", CONTENU, chemin_db=chemin)
+        db.sauvegarder("skill", "test-skill", CONTENU, chemin_db=chemin)
+
+        premier = db.deployer_vers_opencode(agents, skills, chemin)
+        fichier_agent = agents / "e21-test-studio.md"
+        fichier_skill = skills / "test-skill" / db.NOM_SKILL
+        assert premier["ecrits"] == 2, f"deux écritures attendues : {premier}"
+        assert premier["inchangees"] == 0, f"rien n'était déjà à jour : {premier}"
+        assert set(premier["chemins"]) == {fichier_agent, fichier_skill}, \
+            f"chemins inattendus : {premier['chemins']}"
+        for fichier in (fichier_agent, fichier_skill):
+            assert fichier.is_file(), f"fichier non créé : {fichier}"
+            assert fichier.read_text(encoding="utf-8") == CONTENU, \
+                f"contenu déployé différent : {fichier}"
+
+        # Relance sans changement : aucune écriture.
+        second = db.deployer_vers_opencode(agents, skills, chemin)
+        assert second["ecrits"] == 0, f"déploiement non idempotent : {second}"
+        assert second["inchangees"] == 2, f"deux entités à jour attendues : {second}"
+        assert second["chemins"] == [], f"aucun chemin attendu : {second}"
+
+        # Modification en base : le fichier concerné est réécrit, l'autre non.
+        db.sauvegarder("skill", "test-skill", CONTENU + "Version 2.\n", chemin_db=chemin)
+        troisieme = db.deployer_vers_opencode(agents, skills, chemin)
+        assert troisieme["ecrits"] == 1, f"une écriture attendue : {troisieme}"
+        assert troisieme["chemins"] == [fichier_skill], f"chemin inattendu : {troisieme}"
+        assert "Version 2." in fichier_skill.read_text(encoding="utf-8"), \
+            "le nouveau contenu n'a pas été déployé"
+
+        # Fichier déployé altéré hors Studio : la base le rétablit.
+        fichier_agent.write_text("corruption locale\n", encoding="utf-8")
+        quatrieme = db.deployer_vers_opencode(agents, skills, chemin)
+        assert quatrieme["ecrits"] == 1, f"réécriture attendue : {quatrieme}"
+        assert fichier_agent.read_text(encoding="utf-8") == CONTENU, \
+            "le contenu de la base n'a pas rétabli le fichier"
+
+        # Les vrais dossiers `.opencode/` n'ont pas été touchés par ce test.
+        assert not (db.DOSSIER_AGENTS / "e21-test-studio.md").exists(), \
+            "le test a écrit dans le vrai .opencode/agents (contamination du dépôt)"
+    passer("STUDIO-04", "2 fichiers écrits · 2e relance 0 écriture · réécriture si écart")
+
+
+# --------------------------------------------------------------------------- STUDIO-05
+def test_studio_05():
+    """STUDIO-05 : export JSON puis restauration à l'identique (contenu + version)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp)
+        chemin = base_temporaire(racine)
+        db.init(chemin).close()
+        db.sauvegarder("agent", "e21-export", CONTENU, chemin_db=chemin)
+        db.sauvegarder("agent", "e21-export", CONTENU + "V2.\n", chemin_db=chemin)
+        db.sauvegarder("skill", "skill-export", CONTENU, chemin_db=chemin)
+        avant = db.lister("agent", chemin) + db.lister("skill", chemin)
+        assert version_de(avant, "e21-export") == 2, "l'agent doit être en version 2 avant export"
+
+        export = db.exporter_json(racine / "export.json", chemin_db=chemin)
+        assert export.is_file(), f"export non écrit : {export}"
+        document = json.loads(export.read_text(encoding="utf-8"))
+        assert document["schema_version"] == db.VERSION_SCHEMA, \
+            f"schema_version absent de l'export : {sorted(document)}"
+        assert len(document["entites"]) == len(avant), \
+            f"export incomplet : {len(document['entites'])} entités pour {len(avant)}"
+
+        # Base réinitialisée : les entités sont restaurées à l'identique.
+        for entite in avant:
+            assert db.supprimer(entite["type"], entite["nom"], chemin_db=chemin), \
+                f"suppression impossible : {entite['nom']}"
+        assert db.lister("agent", chemin) == [] and db.lister("skill", chemin) == [], \
+            "la base doit être vide avant restauration"
+
+        retour = db.importer_json(export, chemin)
+        assert retour["restaures"] == len(avant), f"restauration incomplète : {retour}"
+        apres = db.lister("agent", chemin) + db.lister("skill", chemin)
+        assert apres == avant, "contenu ou version altéré par la restauration"
+        assert version_de(apres, "e21-export") == 2, \
+            "la version exportée doit être restaurée sans incrément"
+
+        # Export vers le dossier par défaut (nom horodaté) puis relecture.
+        horodate = db.exporter_json(chemin_db=chemin)
+        try:
+            assert horodate.name.startswith(db.PREFIXE_EXPORT), \
+                f"nom d'export inattendu : {horodate.name}"
+            assert horodate.suffix == ".json", f"extension inattendue : {horodate.name}"
+            assert horodate.is_file(), f"export par défaut non écrit : {horodate}"
+        finally:
+            horodate.unlink(missing_ok=True)
+        # Fichier illisible ou mal formé : refus explicite, aucun import partiel.
+        mauvais = racine / "mauvais.json"
+        mauvais.write_text("{ pas du json", encoding="utf-8")
+        leverer(lambda: db.importer_json(mauvais, chemin), ValueError, "invalide")
+        leverer(lambda: db.importer_json(racine / "absent.json", chemin), ValueError, "illisible")
+    passer("STUDIO-05", "export horodaté · restauration à l'identique · refus JSON invalide")
+
+
+# --------------------------------------------------------------------------- STUDIO-06
+def test_studio_06():
+    """STUDIO-06 : suppression, tri par nom et refus des types invalides."""
+    with tempfile.TemporaryDirectory() as tmp:
+        chemin = base_temporaire(Path(tmp))
+        db.init(chemin).close()
+        for nom in ("zeta", "alpha", "mu"):
+            db.sauvegarder("agent", nom, CONTENU, chemin_db=chemin)
+        noms = [entite["nom"] for entite in db.lister("agent", chemin)]
+        assert noms == ["alpha", "mu", "zeta"], f"lister doit trier par nom : {noms}"
+
+        assert db.supprimer("agent", "mu", chemin_db=chemin) is True, "suppression non confirmée"
+        assert db.supprimer("agent", "mu", chemin_db=chemin) is False, \
+            "la seconde suppression doit renvoyer False"
+        assert db.lire("agent", "mu", chemin_db=chemin) is None, "l'entité doit avoir disparu"
+        assert [e["nom"] for e in db.lister("agent", chemin)] == ["alpha", "zeta"], \
+            "liste après suppression inattendue"
+        assert db.lire("agent", "absent", chemin_db=chemin) is None, \
+            "lire une entité absente doit renvoyer None"
+
+        # Type invalide : refus explicite (fail closed) sur toutes les entrées-sorties.
+        for action in (
+            lambda: db.lister("plugin", chemin),
+            lambda: db.lire("plugin", "alpha", chemin),
+            lambda: db.sauvegarder("plugin", "x", "y", chemin_db=chemin),
+            lambda: db.supprimer("plugin", "alpha", chemin),
+        ):
+            leverer(action, ValueError, "Type d'entité refusé")
+
+        # Nom piégé : un nom est une partie de chemin, il ne peut pas s'en évader.
+        for nom_piege in ("../evasion", "a/b", "..", "", "  "):
+            leverer(
+                lambda nom_piege=nom_piege: db.sauvegarder(
+                    "agent", nom_piege, "x", chemin_db=chemin
+                ),
+                ValueError,
+                "Nom d'entité",
+            )
+        message = leverer(
+            lambda: db.sauvegarder("agent", "../evasion", "x", chemin_db=chemin),
+            ValueError,
+            "séparateur de chemin",
+        )
+        assert ".." in message, f"le message doit citer « .. » : « {message} »"
+    passer("STUDIO-06", "suppression · tri par nom · type et nom invalides refusés")
+
+
+# ------------------------------------------------------------------------ exécution
+def executer_tests() -> int:
+    """Exécute STUDIO-01 → STUDIO-06 ; renvoie 0 si aucun FAIL."""
+    tests = [
+        test_studio_01, test_studio_02, test_studio_03,
+        test_studio_04, test_studio_05, test_studio_06,
+    ]
+    for test in tests:
+        tid = test.__name__.replace("test_studio_", "STUDIO-")
+        try:
+            test()
+        except SkipTest as exc:
+            sauter_test(tid, str(exc))
+        except AssertionError as exc:
+            echouer(tid, str(exc) or "assertion sans message")
+        except Exception as exc:
+            echouer(tid, f"{type(exc).__name__}: {exc}")
+    print(f"STUDIO: {n_pass} PASS, {n_fail} FAIL, {n_skip} SKIP")
+    return 0 if n_fail == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(executer_tests())

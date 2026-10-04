@@ -13,12 +13,24 @@ contenu d'intrant ne passe sur la ligne de commande, les intrants restent des
 données jamais exécutées. Écriture bornée à `analyses/**`, journaux de chaîne
 compris dans `analyses/**/intrants/` (dossier gitignoré) ; les exports partent dans
 un dossier temporaire.
+
+L'onglet « Studio E21 » édite la **source de vérité** des agents et des skills : la
+base locale `stockage_local/e21.sqlite3` (hors git), alimentée par `tools/studio/db.py`.
+Chaque modification est écrite en base PUIS déployée vers `.opencode/` (copie que lit
+opencode) ; son versionnement git passe par une branche (`studio-<HHMMSS>`) et une
+pull request — jamais de push direct sur `main`. Le bloc d'état Ollama est une sonde
+locale, courte et non bloquante ; le versionnement n'exécute que des commandes FIXES,
+en liste d'arguments et sans shell.
 """
 from __future__ import annotations
 
+import json
+import sqlite3
+import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 import streamlit as st
@@ -33,6 +45,7 @@ from tools.export import export as export_tool  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import parse_file  # noqa: E402
 from tools.ingest.parsers import commun  # noqa: E402
+from tools.studio import db  # noqa: E402  (base locale, source de vérité du studio)
 
 TITRE_PAGE = "E21 — Analyses de risques"
 
@@ -77,6 +90,199 @@ def memoiser_documents(fichiers) -> list[dict]:
     return documents
 
 
+# --------------------------------------------- page 5 : studio E21 (constantes, outils)
+# Bloc Ollama : sonde STRICTEMENT locale (`localhost`) et courte — aucune donnée ne sort
+# de la machine, le délai d'une seconde et l'absorption de toute erreur garantissent un
+# bloc purement informatif qui ne doit ni ralentir ni faire échouer la page.
+URL_OLLAMA = "http://localhost:11434/api/tags"
+DELAI_OLLAMA = 1
+MAX_MODELES_AFFICHES = 6
+
+# Versionnement git du studio : uniquement des commandes FIXES, en liste d'arguments.
+PREFIXE_BRANCHE_STUDIO = "studio-"
+CHEMINS_VERSIONNES = (".opencode", "tools/studio")
+MSG_COMMIT_STUDIO = "studio: mise à jour agents et skills depuis l'interface"
+TITRE_PR_STUDIO = "studio: mise à jour agents et skills"
+DELAI_GIT = 120
+
+
+def modeles_ollama() -> list[str]:
+    """Noms des modèles Ollama locaux, ou [] si le service ne répond pas.
+
+    Sonde `/api/tags` avec un délai d'une seconde. Toute erreur (réseau, HTTP, JSON)
+    est avalée : ce bloc est informatif, jamais bloquant pour la page.
+    """
+    try:
+        with urllib.request.urlopen(URL_OLLAMA, timeout=DELAI_OLLAMA) as reponse:
+            document = json.loads(reponse.read().decode("utf-8", "replace"))
+    except Exception:  # garde-fou : un bloc informatif ne doit jamais casser la page
+        return []
+    modeles = document.get("models") if isinstance(document, dict) else None
+    if not isinstance(modeles, list):
+        return []
+    return [
+        nom for nom in
+        (str(modele.get("name", "")) for modele in modeles if isinstance(modele, dict))
+        if nom
+    ]
+
+
+def executer_commande(argv: list[str]) -> tuple[int, str]:
+    """Exécute une commande par LISTE d'arguments, jamais via un shell (`shell=False`).
+
+    Renvoie `(code_retour, sortie)`. Exécutable absent (`gh` non installé), refus ou
+    délai dépassé sont convertis en code 1 et un message lisible : l'appelant décide
+    de l'affichage, la page ne casse jamais.
+    """
+    try:
+        fini = subprocess.run(
+            argv,
+            cwd=str(RACINE),
+            capture_output=True,
+            text=True,
+            timeout=DELAI_GIT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 1, f"exécution impossible — {exc}"
+    return fini.returncode, ((fini.stdout or "") + (fini.stderr or "")).strip()
+
+
+def url_pull_request(sortie: str) -> str:
+    """URL de pull request annoncée par `gh pr create` ("" si elle n'y figure pas)."""
+    for ligne in sortie.splitlines():
+        propre = ligne.strip()
+        if propre.startswith("https://"):
+            return propre
+    return ""
+
+
+def versionner_sur_git() -> dict:
+    """Branche + commit + push + pull request pour les écritures du studio.
+
+    Ordre fixe : `git checkout -b studio-<HHMMSS>`, `git add .opencode tools/studio`,
+    `git diff --cached --quiet`, `git commit`, `git push -u origin <branche>` puis
+    `gh pr create`. Toutes les commandes passent par `executer_commande` (liste
+    d'arguments, **jamais** de shell) et les chemins comme les messages sont FIXES :
+    aucun contenu d'agent ou de skill — donc aucune consigne malveillante — n'entre
+    dans une ligne de commande ; seul le nom de branche horodaté est calculé ici.
+
+    S'arrête au premier échec (une étape non franchie ne déclare pas la page « verte »)
+    et renvoie toujours toutes les clés : `branche`, `etapes`, `rien_a_committer`,
+    `pr_url`, `pr_sortie` et `echec` (message d'erreur, vide si tout a réussi).
+    """
+    branche = PREFIXE_BRANCHE_STUDIO + time.strftime("%H%M%S")
+    etapes: list[dict] = []
+    bilan: dict = {
+        "branche": branche,
+        "etapes": etapes,
+        "rien_a_committer": False,
+        "pr_url": "",
+        "pr_sortie": "",
+        "echec": "",
+    }
+
+    code, sortie = executer_commande(["git", "checkout", "-b", branche])
+    if code == 0:
+        etapes.append({"etape": f"branche {branche} créée", "code": 0, "sortie": ""})
+    else:
+        # La branche peut déjà exister (opération relancée) : on vérifie qu'on est dessus
+        # avant d'écrire, plutôt que de supposer le succès.
+        code_courant, sortie_courante = executer_commande(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+        )
+        if code_courant != 0 or branche not in sortie_courante:
+            bilan["echec"] = f"branche {branche} indisponible — {sortie}"
+            return bilan
+        etapes.append({"etape": f"branche {branche} déjà active", "code": 0, "sortie": ""})
+
+    code, sortie = executer_commande(["git", "add", *CHEMINS_VERSIONNES])
+    if code != 0:
+        bilan["echec"] = f"git add {' '.join(CHEMINS_VERSIONNES)} a échoué — {sortie}"
+        return bilan
+    etapes.append({
+        "etape": f"index : {' '.join(CHEMINS_VERSIONNES)}",
+        "code": 0,
+        "sortie": "",
+    })
+
+    # `--quiet` : code 0 = rien d'indexé, 1 = différences indexées. Un autre code
+    # (dépôt absent…) est traité comme « à committer » : le commit échouera et le
+    # message du commit sera alors affiché tel quel.
+    code, _ = executer_commande(["git", "diff", "--cached", "--quiet"])
+    if code == 0:
+        bilan["rien_a_committer"] = True
+        etapes.append({"etape": "aucune modification indexée", "code": 0, "sortie": ""})
+        return bilan
+
+    code, sortie = executer_commande(["git", "commit", "-m", MSG_COMMIT_STUDIO])
+    if code != 0:
+        bilan["echec"] = f"commit refusé — {sortie}"
+        return bilan
+    etapes.append({"etape": f"commit « {MSG_COMMIT_STUDIO} »", "code": 0, "sortie": sortie})
+
+    code, sortie = executer_commande(["git", "push", "-u", "origin", branche])
+    if code != 0:
+        bilan["echec"] = f"push de {branche} refusé — {sortie}"
+        return bilan
+    etapes.append({"etape": f"branche {branche} poussée sur origin", "code": 0, "sortie": ""})
+
+    corps = (
+        "Modifié depuis l'interface Studio (source de vérité : base locale). "
+        f"Branche : {branche}."
+    )
+    code, sortie = executer_commande(
+        ["gh", "pr", "create", "--title", TITRE_PR_STUDIO, "--body", corps]
+    )
+    etapes.append({
+        "etape": "ouverture de la pull request (gh pr create)",
+        "code": code,
+        "sortie": sortie,
+    })
+    bilan["pr_sortie"] = sortie
+    if code != 0:
+        bilan["echec"] = f"gh pr create a échoué — {sortie}"
+        return bilan
+    bilan["pr_url"] = url_pull_request(sortie)
+    return bilan
+
+
+def enregistrer_entite(type_: str, nom: str, contenu: str) -> bool:
+    """Enregistre l'entité en base (source de vérité) puis la déploie dans `.opencode/`.
+
+    Le déploiement est toujours exécuté APRÈS l'écriture en base : la copie lue par
+    opencode ne peut jamais être en avance sur la source de vérité. Renvoie `True` si
+    l'écriture a réussi (message d'erreur déjà affiché sinon).
+    """
+    try:
+        db.sauvegarder(type_, nom, contenu)
+        res = db.deployer_vers_opencode()
+    except ValueError as exc:
+        st.error(f"Enregistrement refusé : {exc}")
+        return False
+    except sqlite3.Error as exc:
+        st.error(f"Base locale inaccessible : {exc}")
+        return False
+    st.session_state["studio_dernier_deploiement"] = res
+    st.success(
+        f"Enregistré — {res['ecrits']} fichier(s) déployé(s) dans .opencode/, "
+        f"{res['inchangees']} inchangé(s)."
+    )
+    return True
+
+
+def supprimer_entite(type_: str, nom: str) -> None:
+    """Supprime l'entité en base puis redéploie (la base reste la référence)."""
+    try:
+        db.supprimer(type_, nom)
+        res = db.deployer_vers_opencode()
+    except (ValueError, sqlite3.Error) as exc:
+        st.error(f"Suppression refusée : {exc}")
+        return
+    st.session_state["studio_dernier_deploiement"] = res
+    st.rerun()
+
+
 # --------------------------------------------------------------------- sidebar
 st.sidebar.title("E21")
 st.sidebar.caption("Analyses de risques — prototype local")
@@ -85,13 +291,15 @@ PAGES = [
     "Préparer un cas",
     "Bibliothèque des analyses",
     "Lancer la chaîne",
+    "Studio E21",
     "À propos / Garde-fous",
 ]
 page = st.sidebar.radio("Navigation", PAGES)
 st.sidebar.divider()
 st.sidebar.caption(
     "Données fictives uniquement · application locale sur `localhost` · "
-    "écriture bornée à `analyses/**`."
+    "écriture bornée à `analyses/**`, `stockage_local/**` (base du studio) et "
+    "`.opencode/**` (copie déployée des agents et skills)."
 )
 
 # ---------------------------------------------------------------- page 1 : ingestion
@@ -446,7 +654,238 @@ elif page == PAGES[3]:
             time.sleep(1.2)
             st.rerun()
 
-# --------------------------------------------------------------- page 5 : garde-fous
+# --------------------------------------------------------------- page 5 : studio E21
+elif page == PAGES[4]:
+    st.title("Studio E21")
+    st.markdown(
+        '<div class="e21-note">La base locale <code>stockage_local/e21.sqlite3</code> est la '
+        "<b>source de vérité</b> des agents et des skills. Les fichiers "
+        "<code>.opencode/agents/</code> et <code>.opencode/skills/</code> sont la "
+        "<b>copie déployée</b> (celle que lit opencode) : toute modification est appliquée "
+        "à la base PUIS déployée, et peut être versionnée sur git en branche + PR "
+        "(jamais de push direct sur main).</div>",
+        unsafe_allow_html=True,
+    )
+
+    # (c) État Ollama : informatif, non bloquant (sonde locale d'une seconde).
+    modeles = modeles_ollama()
+    if modeles:
+        st.success(
+            f"Ollama détecté sur localhost:11434 — {len(modeles)} modèle(s) local(aux)"
+        )
+        affiches = modeles[:MAX_MODELES_AFFICHES]
+        reste = len(modeles) - len(affiches)
+        st.caption(
+            "Modèles : " + ", ".join(f"`{nom}`" for nom in affiches)
+            + (f" (+{reste} autre(s))." if reste else ".")
+        )
+    else:
+        st.info(
+            "Ollama non détecté sur localhost:11434 (démarrez-le pour un fonctionnement "
+            "100 % local)."
+        )
+
+    # (b) Bootstrap : base vide -> amorçage depuis les fichiers `.opencode/` présents.
+    try:
+        par_type = {type_: db.lister(type_) for type_ in db.TYPES_VALIDES}
+    except sqlite3.Error as exc:
+        st.error(f"Base locale inaccessible : {exc}")
+        st.stop()
+    base_vide = not par_type["agent"] and not par_type["skill"]
+    if base_vide:
+        st.warning(
+            "Base locale vide : aucun agent ni skill en base. Importez les fichiers "
+            "`.opencode/` existants pour les garder comme source de vérité."
+        )
+        if st.button(
+            "Importer agents et skills depuis .opencode",
+            key="studio_bootstrap",
+            type="primary",
+        ):
+            try:
+                bilan = db.importer_depuis_opencode()
+            except (ValueError, sqlite3.Error) as exc:
+                st.error(f"Import impossible : {exc}")
+            else:
+                st.session_state["studio_bilan_import"] = bilan
+                st.rerun()
+    bilan_import = st.session_state.get("studio_bilan_import")
+    if bilan_import:
+        st.success(
+            f"Import terminé — {bilan_import['importes']} entité(s) importée(s), "
+            f"{bilan_import['mis_a_jour']} mise(s) à jour, "
+            f"{bilan_import['inchangees']} inchangée(s) — {bilan_import['total']} en base."
+        )
+
+    # (d) Édition des agents et des skills (ordre des onglets = ordre de db.TYPES_VALIDES).
+    st.subheader("Agents et skills")
+    for onglet, type_ in zip(st.tabs(["Agents", "Skills"]), db.TYPES_VALIDES):
+        with onglet:
+            entites = par_type.get(type_, [])
+            if not entites:
+                st.info("Aucune entité — ajoutez-en une ci-dessous.")
+            else:
+                nom = st.selectbox(
+                    "Entité", [entite["nom"] for entite in entites], key=f"sel_{type_}"
+                )
+                entite = next(e for e in entites if e["nom"] == nom)
+                st.caption(
+                    f"version {entite['version']} · source {entite['source']} · "
+                    f"modifié le {entite['modifie_le']}"
+                )
+                contenu = st.text_area(
+                    "Contenu (Markdown)",
+                    value=entite["contenu"],
+                    height=300,
+                    key=f"ed_{type_}_{nom}",
+                )
+                col_enregistrer, col_supprimer = st.columns(2)
+                if col_enregistrer.button(
+                    "Enregistrer dans la base (source de vérité)",
+                    key=f"save_{type_}",
+                    use_container_width=True,
+                ):
+                    enregistrer_entite(type_, nom, contenu)
+                # La confirmation est liée au NOM de l'entité : changer d'entité dans la
+                # liste désarme le bouton (sinon un simple changement de sélection
+                # laisserait une suppression validée pour une autre entité).
+                if col_supprimer.button(
+                    "Supprimer", key=f"del_{type_}", use_container_width=True
+                ):
+                    st.session_state[f"suppression_{type_}_{nom}"] = True
+                if st.session_state.get(f"suppression_{type_}_{nom}"):
+                    st.warning(
+                        f"Suppression de « {nom} » : l'entrée disparaît de la base "
+                        "(source de vérité). Le fichier déjà déployé dans `.opencode/` "
+                        "reste sur le disque — supprimez-le (ou restaurez la version "
+                        "précédente via git) pour que la chaîne lise la suppression."
+                    )
+                    if st.checkbox("Confirmer la suppression", key=f"conf_del_{type_}_{nom}"):
+                        if st.button(
+                            "Supprimer définitivement",
+                            key=f"del_ok_{type_}_{nom}",
+                            type="primary",
+                        ):
+                            supprimer_entite(type_, nom)
+
+            # Ajout : nom validé par la base (fail closed), puis déploiement.
+            st.divider()
+            with st.form(f"form_ajout_{type_}"):
+                st.caption("Ajouter un agent ou un skill — puis le déployer dans `.opencode/`.")
+                nouveau_nom = st.text_input(
+                    "Nom (slug)",
+                    placeholder="ex. e21-nouvel-agent",
+                    key=f"ajout_nom_{type_}",
+                    help="Lettres, chiffres, point, tiret et tiret bas : le nom valide une "
+                         "partie de chemin (aucun « / », aucun « .. »).",
+                )
+                nouveau_contenu = st.text_area(
+                    "Contenu (Markdown)", height=200, key=f"ajout_contenu_{type_}"
+                )
+                ajouter = st.form_submit_button("Ajouter + déployer", key=f"ajout_ok_{type_}")
+            if ajouter:
+                if not (nouveau_nom or "").strip():
+                    st.error("Donnez un nom (slug) à l'entité à ajouter.")
+                elif not (nouveau_contenu or "").strip():
+                    st.error("Donnez un contenu (Markdown) à l'entité à ajouter.")
+                elif enregistrer_entite(type_, nouveau_nom, nouveau_contenu):
+                    st.rerun()
+
+    dernier = st.session_state.get("studio_dernier_deploiement")
+    if dernier:
+        st.caption(
+            f"Dernier déploiement : {dernier['ecrits']} fichier(s) écrit(s) — cible "
+            "`.opencode/agents` et `.opencode/skills/<nom>/SKILL.md`. opencode relit la "
+            "copie déployée APRÈS l'écriture en base : utilisez « Actualiser » ou "
+            "relancez la chaîne (« Lancer la chaîne ») pour que le changement soit pris."
+        )
+
+    # (e) Versionnement git : branche + PR, jamais de push direct sur main.
+    st.divider()
+    with st.expander("Versionner les agents/skills sur git"):
+        st.warning(
+            "Le studio écrit dans .opencode/ : les modifications sont suivies par git. "
+            "Aucun push direct sur main (convention du dépôt)."
+        )
+        st.caption(
+            "Commandes fixes, passées en liste d'arguments (jamais de shell) : seuls le "
+            "nom de branche horodaté et les chemins fixes `.opencode` / `tools/studio` "
+            "figurent dans la ligne de commande — aucun contenu d'agent n'y entre."
+        )
+        if st.button("Créer une branche + PR", key="studio_pr", type="primary"):
+            with st.spinner("Branche, commit, push et ouverture de la pull request…"):
+                st.session_state["studio_git"] = versionner_sur_git()
+        bilan_git = st.session_state.get("studio_git")
+        if bilan_git:
+            for etape in bilan_git["etapes"]:
+                marque = "✓" if etape["code"] == 0 else "○"
+                detail = etape["sortie"] if etape["code"] == 0 else (etape["sortie"] or "échec")
+                st.caption(f"{marque} {etape['etape']} — {detail or 'ok'}")
+            if bilan_git["rien_a_committer"]:
+                st.info("Rien de nouveau à versionner (aucune modification).")
+            elif bilan_git["echec"]:
+                st.error(f"Versionnement interrompu : {bilan_git['echec']}")
+            else:
+                st.success(
+                    f"Branche {bilan_git['branche']} commitée et poussée — "
+                    "la pull request attend une relecture humaine."
+                )
+            if bilan_git["pr_sortie"]:
+                st.caption("Sortie de `gh pr create` :")
+                st.code(bilan_git["pr_sortie"], language="text")
+            if bilan_git["pr_url"]:
+                st.link_button("Ouvrir la pull request", bilan_git["pr_url"])
+
+    # (f) Export / import : sauvegarde portable de la base, hors git et hors .opencode/.
+    with st.expander("Exporter / importer la base (JSON)"):
+        st.caption(
+            "L'export est écrit dans `stockage_local/` (dossier local, hors git) puis "
+            "proposé au téléchargement. L'import restaure les entités d'un export, avec "
+            "leur version exacte — relancez ensuite un déploiement vers `.opencode/`."
+        )
+        # La clé de session est distincte de celle du bouton : Streamlit range la valeur
+        # de retour d'un widget sous SA clé, un nom partagé écraserait le chemin exporté.
+        if st.button("Exporter la base (JSON)", key="studio_export"):
+            try:
+                st.session_state["studio_export_chemin"] = db.exporter_json()
+            except (ValueError, sqlite3.Error) as exc:
+                st.error(f"Export impossible : {exc}")
+        chemin_export = st.session_state.get("studio_export_chemin")
+        if chemin_export is not None and Path(chemin_export).is_file():
+            st.download_button(
+                "Télécharger le JSON",
+                Path(chemin_export).read_bytes(),
+                file_name=Path(chemin_export).name,
+                mime="application/json",
+                key="studio_dl_json",
+            )
+        televersement = st.file_uploader(
+            "Importer un JSON", type=["json"], key="studio_import_json"
+        )
+        if televersement is not None:
+            # Le fichier reçu est une DONNÉE non fiable : il est recopié tel quel dans un
+            # dossier temporaire puis relu par `importer_json`, qui refuse tout contenu
+            # non conforme (aucune entrée n'est exécutée, seulement stockée).
+            with tempfile.TemporaryDirectory() as tmp:
+                copie = Path(tmp) / "import-studio.json"
+                copie.write_bytes(televersement.getvalue())
+                try:
+                    bilan_import = db.importer_json(copie)
+                except (ValueError, sqlite3.Error) as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state["studio_restaures"] = bilan_import["restaures"]
+                    st.rerun()
+        restaures = st.session_state.get("studio_restaures")
+        if restaures is not None:
+            st.success(
+                f"{restaures} entité(s) restaurée(s) en base — pensez à les déployer "
+                "dans `.opencode/`."
+            )
+            st.session_state.pop("studio_restaures", None)
+
+
+# --------------------------------------------------------------- page 6 : garde-fous
 else:
     st.title("À propos / Garde-fous")
     st.markdown(
@@ -465,10 +904,15 @@ else:
   verbatim ; une « instruction » contenue dans un document est signalée comme
   avertissement, jamais exécutée.
 - **Écriture bornée** — l'application écrit uniquement dans `analyses/<cas>/` et
-  `analyses/<cas>/intrants/` ; les exports partent dans un dossier temporaire.
+  `analyses/<cas>/intrants/` ; les exports partent dans un dossier temporaire. Le studio
+  écrit en plus dans `stockage_local/` (base locale, gitignorée) et `.opencode/`
+  (copie déployée des agents et skills).
 - **Une seule commande exécutable** — la chaîne ne part que par la commande fixe opencode
   (bouton « Lancer la chaîne ») ; aucun contenu utilisateur n'est jamais interpolé sur la
   ligne de commande, les intrants restent des données.
+- **Studio = édition de la source de vérité** — la base locale `stockage_local/e21.sqlite3`
+  (gitignorée) est la source de vérité des agents/skills ; `.opencode/` est la copie
+  déployée, versionnée en git via branche + PR (jamais de push direct).
 - **Aucune donnée vers un service externe** — tout est local (`localhost`), pas d'authentification.
 """
     )
