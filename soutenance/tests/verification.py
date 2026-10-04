@@ -265,9 +265,20 @@ def t08_valide_par():
 
 # ----------------------------------------------------------------------- T-09 hygiene git / merge
 def t09_git():
+    import os
     import subprocess
     branche = subprocess.run(["git", "branch", "--show-current"],
                              capture_output=True, text=True).stdout.strip()
+    # En CI, `actions/checkout` sur une PR laisse un HEAD détaché (refs/pull/N/merge) :
+    # la branche réelle est alors portée par GITHUB_HEAD_REF — la valider, sinon laisser
+    # le test en SKIP documenté (ce n'est pas un travail « hors branche autorisée »).
+    if not branche:
+        branche_ci = os.environ.get("GITHUB_HEAD_REF", "").strip()
+        if branche_ci:
+            branche = branche_ci
+        else:
+            return enregistrer("T-09", "SKIP",
+                               "HEAD détaché hors CI (pas de branche courante) — contrôle branche non applicable")
     if not branche.startswith(("corrections/", "docs/", "feat/")) and branche != "main":
         return enregistrer("T-09", "FAIL",
                            f"branche courante '{branche}' (attendues : main, docs/*, corrections/*, feat/* — pas de travail sur autre branche)")
