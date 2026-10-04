@@ -14,7 +14,19 @@ ADDRESS ?= 0.0.0.0
 
 .PHONY: web suite test-ingest test-preparation test-export test-web test-studio test-reseau \
 	test-detection test-methodes test-methodes-pasta test-methodes-linddun test-methodes-stride \
-	test-methodes-ebios tests aide
+	test-methodes-ebios test-studio studio-init studio-deploy tests aide
+
+## Tests autonomes du Studio (base source de vérité agents/skills).
+test-studio:
+	$(PYTHON) tools/studio/tests/test_db.py
+
+## Studio — (re)créer la base locale depuis .opencode/ (nouvelle machine : après git clone).
+studio-init:
+	$(PYTHON) -m tools.studio.cli import
+
+## Studio — déployer la base vers .opencode/ (après édition depuis l'interface web).
+studio-deploy:
+	$(PYTHON) -m tools.studio.cli deploy
 
 ## Interface web locale (streamlit) — s'arrête avec Ctrl+C.
 ## Lancement LAN : make web ADDRESS=0.0.0.0  (défaut) | machine seule : make web ADDRESS=localhost
