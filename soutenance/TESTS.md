@@ -2,12 +2,13 @@
 
 > Suite de tests **rejouable** : `python3 soutenance/tests/verification.py` (code 0 = OK ; `SKIP` = test documenté mais non exécuté ici — jamais accepté comme PASS).
 > Source de méthode : `documentation/technique/06-plan-de-test.md` (§ 2, 3, 4, 5).
-> Passe du **2026-09-24 après remediation de l'audit** : **10 PASS + 1 SKIP (T-11) → `RESULTAT GLOBAL: OK (1 SAUT(S) documente(s))`**.
+> **État au 2026-10-04 : 17 PASS + 0 SKIP (T-01 → T-18).** T-11 exécuté et archivé dans `soutenance/tests/injection/resultats/` (`VERDICT: PAS DE CONSIGNE EXECUTEE`). Le workflow CI (`.github/workflows/suite.yml`) rejoue la suite sur chaque push/PR vers `main`.
+> Passe antérieure du **2026-09-24 après remediation de l'audit** : **10 PASS + 1 SKIP (T-11) → `RESULTAT GLOBAL: OK (1 SAUT(S) documente(s))`**.
 > Correction (audit) : la suite a été fiabilisée — plus de « WARN attendu » compté comme PASS, plus de compteur en dur (13) remplacé par des invariants génériques.
 
 ## 1. Tableau des tests
 
-| ID | Test | Vérifie | Statut (2026-09-24) |
+| ID | Test | Vérifie | Statut (2026-10-04) |
 |---|---|---|---|
 | T-01 | `npm audit --audit-level=moderate` (`.opencode/package.json`) | Le manifeste des plugins **existe et est versionné** (corrige l'ancien « SKIP-PASS ») et 0 vulnérabilité | ✅ PASS — manifeste suivi, 0 vulnérabilité |
 | T-02 | `registre_risques.json` (schéma, enums, unicité, cohérence MD↔JSON) | Format du skill `registre-risques`, IDs uniques, enums bornées, niveau = matrice, `sources` non vides, `mesures` non vides, `traitement` renseigné, `valide_par` présent — **comptage dynamique** (plus de 13 en dur) | ✅ PASS — 14 risques conformes |
@@ -28,7 +29,7 @@
 | T-17 | **Détection amont + inventaire local** (chantier #29) | `tools/reseau/` : inventaire 100 % local avec rapport **anonymisé** (aucune IP/MAC/hostname réel dans le rapport, brutes en dossier gitignoré) ; détecteur déterministe — 12 règles DET-xx couvrant 8 familles de menaces (MITRE ATT&CK T-codes), événements bénins 0 alerte, déclencheurs verbatim, reproductible | ✅ PASS — 6 + 8 |
 | T-18 | **CI active** (workflow GitHub Actions) | `.github/workflows/suite.yml` présent et complet (push/PR vers main, `verification.py` + `make suite`, tesseract, streamlit, weasyprint, `/tmp/opencode` créé) ; le workflow a réellement tourné sur le dépôt | ✅ PASS — workflow présent |
 
-> Convention : un **SKIP doit rester visible** dans le résultat global. Si tous les tests doivent passer en vert strict (démonstration finale), exécuter d'abord T-11 (voir `soutenance/tests/injection/PROTOCOLE.md`).
+> Convention : un **SKIP doit rester visible** dans le résultat global. Depuis le 2026-10-04, T-11 est **PASS** (exécution archivée) ; pour rejouer la démonstration, voir `soutenance/tests/injection/PROTOCOLE.md`.
 
 ## 2. Scénario de test « document piégé » / injection de prompt
 
@@ -44,7 +45,7 @@
 
 | Test | Résultat | Trace |
 |---|---|---|
-| Analyse manuelle de référence (jalon 1, `06-plan-de-test.md` § 1) | ⚠️ **Non réalisée** — à faire (comparatif « agents vs main ») ; somme connue : le registre agents (14 risques) est cohérent avec les incidents cités dans `etude-de-cas.md` | issue #17 |
+| Analyse manuelle de référence (jalon 1, `06-plan-de-test.md` § 1) | ✅ **Réalisée le 04/10** — `analyses/2026-09-23_boutique-en-ligne/reference-manuelle.md` : 12 menaces humaines, comparaison IA vs manuel (écarts chiffrés), le registre agents (14 risques) reste cohérent avec les incidents cités dans `etude-de-cas.md` | issue #17 (Done) |
 | `npm audit` complet (32 deps, agent `security`) | 0 vulnérabilité | `AUDIT-SYSTEME.md` § 2.1 |
 | Contrôle de chaque étape de la chaîne (case `e21-controle`) | WARN 0 / REJET 0 bloquant → 7/7 étapes poussées | `analyses/2026-09-23_boutique-en-ligne/RAPPORT-CONTROLE.md` |
 | Décision humaine effective (étape 6) | R-13 **retenu** (rejet initial du 23/09 = essai du circuit, reconsidéré le 24/09), R-14 **modifié** → `valide_par` « Melvin RAIMBAULT · 2026-09-24 » | `06-validation.md` |
@@ -54,5 +55,6 @@
 ## 4. Artefacts sur `main`
 
 - Chaîne complète : `analyses/2026-09-23_boutique-en-ligne/` (11 livrables) — **PR #10 merged** (issue #9 Done), remédiation audit fusionnée (**PR #21** + nominatif **PR #22**).
-- Suite de tests : `soutenance/tests/verification.py` + `document-piege.md` + `injection/` (protocole T-11).
+- Suite de tests : `soutenance/tests/verification.py` + fixture `soutenance/tests/document-piege.md` + `soutenance/tests/injection/` (protocole T-11 + `resultats/` archivés).
+- Outillage livré (chantiers #25–#31) : `tools/ingest/`, `tools/export/`, `web/`, `tools/methodes/`, `tools/reseau/`, `.github/workflows/suite.yml`.
 - Tests pytest pérennes prévus par `06-plan-de-test.md` § 2 (`test_registre.py`, `test_sources.py`, `test_matrice.py`, `test_format_md.py`) — priorité P2 de l'audit (issue #18).

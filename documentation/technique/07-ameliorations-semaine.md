@@ -1,5 +1,6 @@
 # Semaine d'amélioration — 2026-10-05 → 2026-10-09
 > « Rendre l'outil le plus utile et utilisable possible » — plan de la semaine, enchaînement des chantiers, décisions du jour.
+> **Exécution effective : le 2026-10-04** (préparation soutenance) — la planification 05→09 octobre reste la cible visée ; bilan ci-dessous à l'état du 2026-10-04.
 > Source d'état : `ROADMAP.md`, `soutenance/MODIFICATIONS.md`, `AUDIT-SYSTEME.md`, `06-plan-de-test.md`, issues #15–#24 (remédiation fusionnée), issues #25–#31 (chantiers).
 > Règle du jeu inchangée : **humain décideur final**, données **fictives**, une branche + une issue par chantier, suite de tests toujours verte avant merge.
 > Les recommandations techniques de la section 5 ont été **vérifiées par recherches web le 04/10/2026** (version, maintenance, disponibilité) avant lancement des chantiers.
@@ -9,7 +10,7 @@
 ### ✅ Acquis (validé, fusionné sur main)
 - Chaîne des 6 étapes opérationnelle sur le cas A (ShoPix, 14 risques validés, `valide_par` nominatif).
 - Garde-fous en place : `e21-controle`, permissions bornées à `analyses/**`, sources ⊆ index, index ISO 27002:2022 canonique.
-- Suite de tests T-01…T-11 (10 PASS + 1 SKIP), POC piloté par consignes, artefacts soutenance.
+- Suite de tests T-01…T-18 (**17 PASS + 0 SKIP**), POC piloté par consignes, artefacts soutenance.
 
 ### ⚠️ Manques identifiés (ce qui limite « l'utilisabilité »)
 | Manque | Conséquence concrète |
@@ -98,7 +99,7 @@ Objectif : **amener la donnée « terrain » avant l'analyse** (inventaire + sig
 - **Zéro donnée réelle/sensible vers un service externe** : l'app web tourne en local, les scans réseau sont limités au périmètre déclaré par l'utilisateur et opt-in.
 - **Espace de travail borné** : le web n'écrit que dans `analyses/**` ; pas d'outil d'exécution générale exposé.
 - **Chaque sortie reste sourcée** : toute nouvelle fichier (`07-detection.md`, EBIOS A1–A5) cite des IDs de `knowledge_base/`.
-- **Merge uniquement suite verte** (T-01…T-17) + revue humaine des décisions (`valide_par` reste nominatif).
+- **Merge uniquement suite verte** (T-01…T-18, 17 PASS + 0 SKIP) + revue humaine des décisions (`valide_par` reste nominatif).
 
 ## 5. Décisions techniques — vérifiées par recherches (04/10/2026)
 
@@ -113,7 +114,7 @@ Chaque choix ci-dessous a été contrôlé (version, maintenance, licence, limit
 | 5 | **Office (Word/Excel/PPT)** | **python-docx 1.2.0** (juin 2025, MIT, maintenu, py3.13), **openpyxl** (XLSX, actif), **python-pptx 0.6.22** (stable), CSV → stdlib/pandas. Lecture XLSX volumineux : `python-calamine` (Rust, rapide) en option. Tous maintenus. | ✅ |
 | 6 | **Scans réseau actifs (P2)** | Uniquement **local / bac à sable / périmètre déclaré par l'utilisateur** (imports d'exports, `nmap -sn` sur le LAN déclaré), jamais automatique ni externe. **Homelab = vraies données** → inventaire en local, mapping menace→signaux **générique** (ATT&CK en connaissance, pas de données réelles vers un service externe). | 🔒 (décidé : local homelab) |
 | 7 | **Cas pilote** | **ShoPix (cas A)** pour la démo web/rapports/ingestion (registre le plus riche, 14 risques) ; **détection testée depuis le homelab** de l'analyste ; mini-cas EBIOS optionnel pour #29 (méthodes approfondies). | 🔒 (décidé par l'analyste) |
-| 8 | **CI GitHub Actions** | **D'abord minimal** : `verification.py` (suite T-01…T-17) exécutée sur chaque PR — le fichier est déjà le référé. **Ensuite CI/CD complet** (vision analyste 04/10) : plan de test + **déploiement automatique sur un serveur avec un agent** (cible : la future app web P1) — à chiffrer en P3. | 🔒 décidé 04/10 — **minimal maintenant, auto-déploiement serveur+agent ensuite** |
+| 8 | **CI GitHub Actions** | **D'abord minimal** : `verification.py` (suite T-01…T-18, 17 PASS + 0 SKIP) exécutée sur chaque PR — le fichier est déjà le référé. **Ensuite CI/CD complet** (vision analyste 04/10) : plan de test + **déploiement automatique sur un serveur avec un agent** (cible : la future app web P1) — à chiffrer en P3. | 🔒 décidé 04/10 — **minimal maintenant, auto-déploiement serveur+agent ensuite** |
 
 Rappels en attente : **#20 arbitrage cyber-assurance** (2 000 € vs enveloppe 2 500 €) à trancher ; **#17 analyse manuelle de référence** (brouillon autorisé, validation humaine finale).
 
