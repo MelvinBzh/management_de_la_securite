@@ -447,11 +447,46 @@ def t15_injection_web():
                        "upload piégé reproduit verbatim dans les données ; la commande de lancement reste fixe")
 
 
+# ------------------------------------------------ T-16 méthodes opérationnelles (chantier #28)
+def t16_methodes():
+    import subprocess
+    runners = [
+        ("EBIOS", RACINE / "tools" / "methodes" / "ebios" / "tests" / "test_ebios.py"),
+        ("PASTA", RACINE / "tools" / "methodes" / "pasta" / "tests" / "test_pasta.py"),
+        ("LINDDUN", RACINE / "tools" / "methodes" / "linddun" / "tests" / "test_linddun.py"),
+        ("STRIDE", RACINE / "tools" / "methodes" / "stride" / "tests" / "test_check_dfd.py"),
+    ]
+    bilans = []
+    for nom, script in runners:
+        if not script.exists():
+            bilans.append(f"{nom}: ABSENT")
+            continue
+        import os
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(RACINE)
+        run = subprocess.run(["python3", str(script)], capture_output=True, text=True,
+                             cwd=str(RACINE), env=env)
+        m = re.search(rf"{nom}:\s*(\d+)\s*PASS,\s*(\d+)\s*FAIL,\s*(\d+)\s*SKIP", run.stdout or "")
+        if not m:
+            bilans.append(f"{nom}: illisible (exit {run.returncode})")
+        elif int(m.group(2)):
+            bilans.append(f"{nom}: {m.group(2)} FAIL")
+        elif int(m.group(3)):
+            bilans.append(f"{nom}: {m.group(3)} SKIP")
+        else:
+            bilans.append(f"{nom}: {m.group(1)} PASS")
+    if all(b.startswith(("EBIOS", "PASTA", "LINDDUN", "STRIDE")) and "PASS" in b for b in bilans):
+        return enregistrer("T-16", "PASS", " ; ".join(bilans)
+                           + " (ateliers EBIOS A1-A5, PASTA 01-07, 7 fiches LINDDUN+DPF, DFD STRIDE)")
+    return enregistrer("T-16", "FAIL", " ; ".join(bilans))
+
+
 # ----------------------------------------------------------------------------------- rapport
 def main():
     for fn in (t01_npm_audit, t02_registre_json, t03_dread, t04_matrice, t05_sources,
                t06_mermaid, t07_injection, t08_valide_par, t09_git, t10_iso_canonique,
-               t11_injection_active, t12_ingestion, t13_preparation, t14_web, t15_injection_web):
+               t11_injection_active, t12_ingestion, t13_preparation, t14_web, t15_injection_web,
+               t16_methodes):
         fn()
 
     largeur = max(len(t) for t, _, _ in RESULTATS)

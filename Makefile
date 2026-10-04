@@ -9,7 +9,9 @@
 PYTHON ?= python3
 PORT ?= 8501
 
-.PHONY: web suite test-ingest test-preparation test-export test-web tests aide
+.PHONY: web suite test-ingest test-preparation test-export test-web test-methodes \
+	test-methodes-pasta test-methodes-linddun test-methodes-stride test-methodes-ebios \
+	tests aide
 
 ## Interface web locale (streamlit) — s'arrête avec Ctrl+C.
 web:
@@ -38,8 +40,27 @@ test-export:
 test-web:
 	$(PYTHON) web/tests/test_web.py
 
+## Tests autonomes de la méthode EBIOS RM (ateliers générés).
+test-methodes-ebios:
+	PYTHONPATH=$(CURDIR) $(PYTHON) tools/methodes/ebios/tests/test_ebios.py
+
+## Tests autonomes de la méthode PASTA (7 étapes générées).
+test-methodes-pasta:
+	$(PYTHON) tools/methodes/pasta/tests/test_pasta.py
+
+## Tests autonomes de la méthode LINDDUN (7 fiches + DPF générés).
+test-methodes-linddun:
+	$(PYTHON) tools/methodes/linddun/tests/test_linddun.py
+
+## Tests autonomes du validateur de DFD STRIDE.
+test-methodes-stride:
+	$(PYTHON) tools/methodes/stride/tests/test_check_dfd.py
+
+## Les quatre runners de méthodes (chantier #28).
+test-methodes: test-methodes-ebios test-methodes-pasta test-methodes-linddun test-methodes-stride
+
 ## Tous les runners autonomes, puis la suite de référence.
-tests: test-ingest test-preparation test-export test-web suite
+tests: test-ingest test-preparation test-export test-web test-methodes suite
 
 ## Rappel des cibles disponibles.
 aide:
