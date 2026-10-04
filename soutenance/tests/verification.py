@@ -282,6 +282,10 @@ def t09_git():
     if not branche.startswith(("corrections/", "docs/", "feat/")) and branche != "main":
         return enregistrer("T-09", "FAIL",
                            f"branche courante '{branche}' (attendues : main, docs/*, corrections/*, feat/* — pas de travail sur autre branche)")
+    if subprocess.run(["git", "rev-parse", "--verify", "main"],
+                      capture_output=True, text=True).returncode != 0:
+        return enregistrer("T-09", "SKIP",
+                           "ref 'main' absente du checkout (CI PR en checkout shallow) — verification du registre sur main non applicable")
     erreurs = []
     for f in ("00-description.md", "01-actifs.md", "registre-risques.md", "SYNTHESE.md", "RAPPORT-CONTROLE.md"):
         if not (DOSSIER / f).exists():
