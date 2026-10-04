@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Sorties d'ingestion (donnees issues de documents — jamais commitees)
+analyses/**/intrants/
+
+# Environnements
+.venv/
+venv/
+
+# OS / éditeur
+.DS_Store

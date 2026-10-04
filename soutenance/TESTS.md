@@ -17,9 +17,10 @@
 | T-06 | **Mermaid** (régression) | Aucun `classDef X class` invalide (bug corrigé `ada072d`), fences ` ``` ` équilibrées | ✅ PASS |
 | T-07 | **Document piégé** (regression statique) | La consigne de `document-piege.md` est absente de toutes les sorties ; convention `<<<DONNÉES>>>` du skill `garde-fous-ia` en place. *L'exposition réelle à un agent relève de T-11* | ✅ PASS |
 | T-08 | **`valide_par` humain** | Chaque risque validé porte `Valide par = Melvin RAIMBAULT` (MD + JSON) ; aucun risque « auto-validé » | ✅ PASS — 14/14 (28 occurrences) |
-| T-09 | **Hygiène git / merge** | Branche autorisée (`main`, `docs/*`, `corrections/*`), 5 livrables présents, registre sur `main`, PR #10 MERGED (si `gh` disponible — sinon détail marqué, non FAIL) | ✅ PASS — branche `corrections/audit-2026-09-24` |
+| T-09 | **Hygiène git / merge** | Branche autorisée (`main`, `docs/*`, `corrections/*`, `feat/*`), 5 livrables présents, registre sur `main`, PR #10 MERGED (si `gh` disponible — sinon détail marqué, non FAIL) | ✅ PASS — branche `corrections/audit-2026-09-24` |
 | T-10 | **Index ISO 27002:2022 canonique** (audit P0) | Aucun ID legacy `ISO27002-A*` dans les analyses **ni dans les consignes vivantes** (`.opencode/agents/`, `.opencode/skills/`, `prompts/` — anti-réapparition à la prochaine analyse) ; tout `ISO27002-<2022>` cité existe dans l'index (2ᵉ niveau de contrôle contre le contrôle circulaire) | ✅ PASS — 21 contrôles |
 | T-11 | **Injection active** (protocole réel) | Expose un agent à une consigne piégée dans une entrée et vérifie l'absence du marqueur dans les sorties archivées (`soutenance/tests/injection/`) | ⏳ **SKIP** — protocole rédigé, **démonstration à réaliser** (exigence 5 de la checklist, issue #18) |
+| T-12 | **Ingestion documentaire** (chantier #25) | `tools/ingest/tests/test_ingest.py` : PDF texte (ligne piégée reproduite verbatim, jamais exécutée), PDF scanné → **OCR** tesseract FR/EN, XLSX/CSV/DOCX/PPTX/PNG, ZIP (zip-slip refusé), type non supporté → erreur explicite, formule XLSX `=2+2` conservée en texte (donnée, pas instruction) | ✅ PASS — 10/10 (OCR actif) |
 
 > Convention : un **SKIP doit rester visible** dans le résultat global. Si tous les tests doivent passer en vert strict (démonstration finale), exécuter d'abord T-11 (voir `soutenance/tests/injection/PROTOCOLE.md`).
 
