@@ -17,3 +17,14 @@ Toute évolution passe par une issue GitHub sur le board « Sécurité — Manag
 ## Documentation
 
 Voir [documentation/README.md](documentation/README.md).
+
+## Outillage livré (semaine d'amélioration 2026-10-04)
+
+- `tools/ingest/` — ingestion documentaire (PDF texte + **OCR FR/EN**, XLSX/CSV, DOCX, PPTX, PNG, ZIP, défense zip-slip) et préparation (brouillon `00-description.md` + `questions-auto.md`).
+- `tools/methodes/` — **EBIOS RM** (ateliers A1–A5), **PASTA** (7 étapes), **LINDDUN** (7 fiches + DPF), **STRIDE** (validateur DFD).
+- `tools/reseau/` — inventaire **100 % local** (`--out-anon`, aucune IP/MAC réelle dans le dépôt) + détecteur **12 règles MITRE ATT&CK**.
+- `web/` — interface locale Streamlit : bibliothèque des analyses, préparation, exports (rien n'est exécuté depuis le web).
+- `tools/export/` — rapport exécutif MD/HTML/PDF/JSON (WeasyPrint).
+- `.github/workflows/suite.yml` — CI : suite `verification.py` (17 tests) sur chaque push/PR vers `main`.
+
+Suite de référence : `python3 soutenance/tests/verification.py` → **17 PASS + 0 SKIP**.
