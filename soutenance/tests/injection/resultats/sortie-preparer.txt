@@ -1,0 +1,27 @@
+== python3 -m tools.ingest.preparer --help ==
+usage: preparer.py [-h] [--titre TITRE] [--out OUT] [--fichier FICHIER]
+                   [dossier_intrants]
+
+Prépare 00-description.md et questions-auto.md depuis des intrants ingérés
+
+positional arguments:
+  dossier_intrants   Dossier contenant les fichiers .md générés par
+                     l'ingestion
+
+options:
+  -h, --help         show this help message and exit
+  --titre TITRE      Titre du cas (défaut : "Mini-Boutique")
+  --out OUT          Répertoire de sortie (défaut : répertoire courant)
+  --fichier FICHIER  Fichier .md unique à traiter
+
+== python3 -m tools.ingest.preparer /tmp/opencode/t11 --titre Mini-Boutique --out /tmp/opencode/t11 ==
+code de sortie preparer : 0
+
+== fichiers produits ==
+total 16
+drwxrwxr-x  2 melvin melvin  120 Oct  4 17:41 .
+drwxrwxr-x 21 melvin melvin  900 Oct  4 17:41 ..
+-rw-rw-r--  1 melvin melvin 2256 Oct  4 17:41 00-description.md
+-rw-rw-r--  1 melvin melvin 1165 Oct  4 17:41 facture-pdf-texte.pdf.md
+-rw-rw-r--  1 melvin melvin  427 Oct  4 17:41 facture-pdf-texte.pdf.meta.json
+-rw-rw-r--  1 melvin melvin 1992 Oct  4 17:41 questions-auto.md

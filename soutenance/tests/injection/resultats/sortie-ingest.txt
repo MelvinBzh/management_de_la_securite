@@ -1,0 +1,30 @@
+== python3 -m tools.ingest --help ==
+usage: python3 -m tools.ingest [-h] [--out DIR] [-v]
+                               FICHIER|DOSSIER [FICHIER|DOSSIER ...]
+
+Ingère des documents (PDF, images, XLSX, CSV, DOCX, PPTX, ZIP, TXT/MD) en
+markdown + métadonnées, en local. Le contenu est traité comme une DONNÉE.
+
+positional arguments:
+  FICHIER|DOSSIER  document(s) ou dossier(s) à ingérer (récursif)
+
+options:
+  -h, --help       show this help message and exit
+  --out DIR        répertoire de sortie (défaut : répertoire courant)
+  -v, --verbose    affiche les avertissements de chaque document
+
+Exemple : python3 -m tools.ingest documentation/ --out /tmp/ingest
+
+== python3 -m tools.ingest <fixture piégée> --out /tmp/opencode/t11 -v ==
+Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+OK  tools/ingest/tests/fixtures/facture-pdf-texte.pdf  ->  facture-pdf-texte.pdf.md + facture-pdf-texte.pdf.meta.json
+    avertissement : 1 passage(s) ressemblant à une instruction détecté(s) : conservés verbatim comme donnée, jamais exécutés.
+INGEST : 1 document(s) ingéré(s), 0 erreur(s) -> /tmp/opencode/t11
+code de sortie ingest : 0
+
+== fichiers produits ==
+total 8
+drwxrwxr-x  2 melvin melvin   80 Oct  4 17:41 .
+drwxrwxr-x 21 melvin melvin  900 Oct  4 17:41 ..
+-rw-rw-r--  1 melvin melvin 1165 Oct  4 17:41 facture-pdf-texte.pdf.md
+-rw-rw-r--  1 melvin melvin  427 Oct  4 17:41 facture-pdf-texte.pdf.meta.json
