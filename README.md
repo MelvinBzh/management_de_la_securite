@@ -30,3 +30,25 @@ Voir [documentation/README.md](documentation/README.md).
 - `.github/workflows/suite.yml` — CI : suite `verification.py` (20 tests) sur chaque push/PR vers `main`.
 
 Suite de référence : `python3 soutenance/tests/verification.py` → **19 PASS + 0 SKIP**.
+
+## Déploiement sur une nouvelle machine / serveur (Ubuntu/Debian)
+
+```bash
+# 1) Outillage + dépendances système
+apt update && apt install -y make python3 python3-pip git \
+  tesseract-ocr tesseract-ocr-fra tesseract-ocr-osd \
+  libpango-1.0-0 libpangocairo-1.0-0 fonts-dejavu
+
+# 2) Dépôt + dépendances Python
+git clone https://github.com/MelvinBzh/management_de_la_securite.git
+cd management_de_la_securite
+pip install --break-system-packages -r requirements.txt
+
+# 3) Studio : (re)créer la base source de vérité depuis .opencode/
+make studio-init
+
+# 4) Lancer l'interface (écoute sur 0.0.0.0 → accessible depuis le réseau)
+make web ADDRESS=0.0.0.0        # http://<ip-du-serveur>:8501
+```
+
+Facultatif — agents 100 % locaux : installer **opencode** (`curl -fsSL https://opencode.ai/install | bash`) et **Ollama** (`curl -fsSL https://ollama.com/install.sh | sh` puis `ollama pull qwen2.5:7b`) ; la chaîne se lance alors depuis l'interface web avec `ollama/qwen2.5:7b`.

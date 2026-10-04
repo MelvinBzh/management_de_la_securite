@@ -1,0 +1,15 @@
+# Dépendances Python de l'application E21 (interface web, ingestions, exports).
+# Installer : pip install -r requirements.txt
+# (sur Debian/Ubuntu récent : pip install --break-system-packages -r requirements.txt)
+#
+# Dépendances système requises (Ubuntu/Debian) :
+#   apt install -y tesseract-ocr tesseract-ocr-fra tesseract-ocr-osd \
+#     libpango-1.0-0 libpangocairo-1.0-0 fonts-dejavu
+pymupdf
+openpyxl
+python-docx
+python-pptx
+pillow
+pytesseract
+streamlit
+weasyprint==70.0
