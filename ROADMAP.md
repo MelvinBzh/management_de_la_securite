@@ -63,5 +63,6 @@
 
 ## Liens
 
+- **Semaine d'amélioration (2026-09-28 → 10-02)** : plan des chantiers P0→P3 (ingestion, web, méthodes, détection, consolidation) dans `documentation/technique/07-ameliorations-semaine.md` (issues #25→#31).
 - GitHub issues : https://github.com/MelvinBzh/management_de_la_securite/issues
 - Documentation technique : `documentation/technique/`
