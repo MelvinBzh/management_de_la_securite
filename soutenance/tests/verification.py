@@ -268,8 +268,7 @@ def t09_git():
     import subprocess
     branche = subprocess.run(["git", "branch", "--show-current"],
                              capture_output=True, text=True).stdout.strip()
-    autorisees = {"main", "docs/soutenance", "docs/"}
-    if not branche.startswith("corrections/") and branche not in autorisees:
+    if not branche.startswith(("corrections/", "docs/")) and branche != "main":
         return enregistrer("T-09", "FAIL",
                            f"branche courante '{branche}' (attendues : main, docs/*, corrections/* — pas de travail sur autre branche)")
     erreurs = []

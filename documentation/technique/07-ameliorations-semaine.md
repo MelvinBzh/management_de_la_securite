@@ -1,7 +1,8 @@
-# Semaine d'amélioration — 2026-09-28 → 2026-10-02
+# Semaine d'amélioration — 2026-10-05 → 2026-10-09
 > « Rendre l'outil le plus utile et utilisable possible » — plan de la semaine, enchaînement des chantiers, décisions du jour.
-> Source d'état : `ROADMAP.md`, `soutenance/MODIFICATIONS.md`, `AUDIT-SYSTEME.md`, `06-plan-de-test.md`, issues #15–#24 (remédiation fusionnée).
+> Source d'état : `ROADMAP.md`, `soutenance/MODIFICATIONS.md`, `AUDIT-SYSTEME.md`, `06-plan-de-test.md`, issues #15–#24 (remédiation fusionnée), issues #25–#31 (chantiers).
 > Règle du jeu inchangée : **humain décideur final**, données **fictives**, une branche + une issue par chantier, suite de tests toujours verte avant merge.
+> Les recommandations techniques de la section 5 ont été **vérifiées par recherches web le 04/10/2026** (version, maintenance, disponibilité) avant lancement des chantiers.
 
 ## 1. État des lieux (ce qui est acquis, ce qui manque)
 
@@ -84,12 +85,12 @@ Objectif : **amener la donnée « terrain » avant l'analyse** (inventaire + sig
 
 | Jour | Chantier | Sortie attendue | Test sortant |
 |---|---|---|---|
-| Lun. 28/09 | P0 Ingestion (parseurs PDF/OCR/Word/Excel/Image + ZIP) | `tools/ingest/` + fixtures | T-12 |
-| Mar. 29/09 | P0 Description auto + questions automatiques | `00-description.md` pré-générée + skill | T-13 |
-| Mer. 30/09 | P1 Interface web + bibliothèque des analyses | site local, liste + lecture des rapports | T-14 |
-| Jeu. 01/10 | P1 Rapports (PDF/exécutif) + méthodes (EBIOS RM opérationnel, PASTA) | exports + skill EBIOS ateliers | T-15, T-16 |
-| Ven. 02/10 | P2 Détection/inventaire réseau + mapping détections | `07-detection.md` sur un cas + prompts | T-17 |
-| Sam./Dim. | P3 : T-11 réel, #17, #20, CI, dossier, démos soutenance | traces archivées, décisions consignées | suite complète 16 tests |
+| Lun. 05/10 | P0 Ingestion (parseurs PDF/OCR/Word/Excel/Image + ZIP) | `tools/ingest/` + fixtures | T-12 |
+| Mar. 06/10 | P0 Description auto + questions automatiques | `00-description.md` pré-générée + skill | T-13 |
+| Mer. 07/10 | P1 Interface web + bibliothèque des analyses | site local, liste + lecture des rapports | T-14 |
+| Jeu. 08/10 | P1 Rapports (PDF/exécutif) + méthodes (EBIOS RM opérationnel, PASTA) | exports + skill EBIOS ateliers | T-15, T-16 |
+| Ven. 09/10 | P2 Détection/inventaire réseau + mapping détections | `07-detection.md` sur un cas + prompts | T-17 |
+| Sam./Dim. 10–11/10 | P3 : T-11 réel, #17, #20, CI, dossier, démos soutenance | traces archivées, décisions consignées | suite complète 16 tests |
 
 ## 4. Garde-fous spécifiques aux nouveaux chantiers
 
@@ -99,26 +100,34 @@ Objectif : **amener la donnée « terrain » avant l'analyse** (inventaire + sig
 - **Chaque sortie reste sourcée** : toute nouvelle fichier (`07-detection.md`, EBIOS A1–A5) cite des IDs de `knowledge_base/`.
 - **Merge uniquement suite verte** (T-01…T-17) + revue humaine des décisions (`valide_par` reste nominatif).
 
-## 5. Décisions à trancher (par l'analyste)
+## 5. Décisions techniques — vérifiées par recherches (04/10/2026)
 
-1. **Stack de l'interface web** : recommandation **Streamlit** (rapide, upload+tableaux+PDF out-of-the-box) vs **FastAPI + Jinja** (plus contrôlé). → à valider.
-2. **Exports PDF** : weasyprint (contrôle CSS) vs pandoc→LaTeX (plus lourd). → à valider.
-3. **Scans réseau actifs** : autorisés **uniquement en local/bac à sable sur périmètre déclaré** (jamais d'externe) ? → à confirmer.
-4. **Cas pilote d'application** : continuer sur le cas A ShoPix pour la démo web/rapports, ou créer un **cas B (téléconsultation médicale)** pour prouver la généricité + un mini-cas EBIOS ? → à choisir.
-5. **CI GitHub Actions** : autorisée sur ce dépôt (public) ? → à confirmer.
-6. A rappeler : **#20 arbitrage cyber-assurance** (2 000 €/2 500 €) à trancher cette semaine.
+Chaque choix ci-dessous a été contrôlé (version, maintenance, licence, limites) avant validation. Statut : ✅ vérifié / 🟡 à valider par l'analyste / 🔒 décidé par l'analyste.
+
+| # | Décision | Recommandation (sourcée) | Statut |
+|---|---|---|---|
+| 1 | **Stack interface web** | **Streamlit** (v1.55+, avril 2026, développé activement sous Snowflake, releases bimensuelles) — parfait pour app locale/proto : upload, tableaux, PDF out-of-the-box ; limites connues : re-run complet à chaque interaction (câbler `@st.cache_data`), pas d'auth native (OK scope local), pas de push serveur natif. **FastAPI** seulement si API REST/async nécessaire — pas notre besoin. L'interface reste un **wrapper de présentation** (le cœur = POC piloté par consignes). | 🟡 (recommandation : Streamlit) |
+| 2 | **Export PDF** | **WeasyPrint v69** (juin 2026, actif, BSD, Python 3.10+, Pango 1.44+) — rendu print-grade CSS Paged Media (numérotation, PDF/A, accessibilité). Pandoc ≥ 3.4 a fait de weasyprint son moteur HTML→PDF par défaut. **wkhtmltopdf = archivé, à éviter.** LaTeX = multi-GB, surdimensionné. Limites : n'exécute pas le JS (OK, HTML généré par nos gabarits) ; concurrency ~dizaines (OK, local). Attention : CVE juin 2026 (injection CSS via HTML non fiable) → n'appliquer que sur l'HTML produit par nos propres gabarits. | 🟡 (recommandation : WeasyPrint) |
+| 3 | **Parsing PDF** | **PyMuPDF v1.28.0** (juin 2026, maintenu par Artifex, très actif — ~50 M téléchargements/mois ; wheels Python 3.10–3.14). `import pymupdf` (alias `fitz` legacy) ; `find_tables()` → tableaux en markdown ; hook OCR Tesseract intégré (`get_textpage_ocr()`) ; PyMuPDF4LLM → markdown prêt IA. | ✅ |
+| 4 | **OCR FR/EN** | **Tesseract 5.5.3** (juil. 2026, CPU seul, léger, Apache 2.0) en défaut : scans propres FR ~7–10 % WER, modèle `best` + prétraitement (deskew, contraste) ; **PaddleOCR 3.7.0 / PP-OCRv6** (juin 2026) en option (photos, tableaux, multilingue : CER −39 % vs Tesseract sur reçus ; modèle **tiny ~6 Mo, CPU OK**, mais dépendance PaddlePaddle lourde). Sur notre machine (~1 Go RAM libre) : Tesseract par défaut, PaddleOCR-tiny optionnel. | ✅ |
+| 5 | **Office (Word/Excel/PPT)** | **python-docx 1.2.0** (juin 2025, MIT, maintenu, py3.13), **openpyxl** (XLSX, actif), **python-pptx 0.6.22** (stable), CSV → stdlib/pandas. Lecture XLSX volumineux : `python-calamine` (Rust, rapide) en option. Tous maintenus. | ✅ |
+| 6 | **Scans réseau actifs (P2)** | Uniquement **local / bac à sable / périmètre déclaré par l'utilisateur** (imports d'exports, `nmap -sn` sur le LAN déclaré), jamais automatique ni externe. **Homelab = vraies données** → inventaire en local, mapping menace→signaux **générique** (ATT&CK en connaissance, pas de données réelles vers un service externe). | 🔒 (décidé : local homelab) |
+| 7 | **Cas pilote** | **ShoPix (cas A)** pour la démo web/rapports/ingestion (registre le plus riche, 14 risques) ; **détection testée depuis le homelab** de l'analyste ; mini-cas EBIOS optionnel pour #29 (méthodes approfondies). | 🔒 (décidé par l'analyste) |
+| 8 | **CI GitHub Actions** | `verification.py` (suite T-01…T-17) exécutée sur chaque PR — le fichier est déjà le référé de la suite. | 🟡 |
+
+Rappels en attente : **#20 arbitrage cyber-assurance** (2 000 € vs enveloppe 2 500 €) à trancher ; **#17 analyse manuelle de référence** (brouillon autorisé, validation humaine finale).
 
 ## 6. Suivi (issues)
 
 | Issue | Titre | Chantier |
 |---|---|---|
 | #25 | P0 ingestion documentaire (PDF/OCR/Word/Excel/Image/ZIP → description structurée) | P0 |
-| #26 | P0 questions automatiques + collecte structurée à partir des intrants | P0 |
-| #27 | P1 interface web locale + bibliothèque des analyses | P1 |
-| #28 | P1 rapports exportables (PDF/exécutif) accessibles sur le site | P1 |
-| #29 | P1 méthodes approfondies opérationnelles (EBIOS RM 5 ateliers, PASTA, LINDDUN, STRIDE) | P1 |
-| #30 | P2 inventaire réseau + détection amont (mapping menace→signaux, `07-detection.md`) | P2 |
-| #31 | P3 consolidation : T-11 réel, analyse manuelle #17, arbitrage #20, CI #4, dossier/soutenance | P3 |
+| #31 | P0 questions automatiques + collecte structurée à partir des intrants | P0 |
+| #26 | P1 interface web locale + bibliothèque des analyses | P1 |
+| #27 | P1 rapports exportables (PDF/exécutif) accessibles sur le site | P1 |
+| #28 | P1 méthodes approfondies opérationnelles (EBIOS RM 5 ateliers, PASTA, LINDDUN, STRIDE) | P1 |
+| #29 | P2 inventaire réseau + détection amont (mapping menace→signaux, `07-detection.md`) | P2 |
+| #30 | P3 consolidation : T-11 réel, analyse manuelle #17, arbitrage #20, CI #4, dossier/soutenance | P3 |
 
 ## Liens
 - Dépôt : https://github.com/MelvinBzh/management_de_la_securite · Board : https://github.com/users/MelvinBzh/projects/6
