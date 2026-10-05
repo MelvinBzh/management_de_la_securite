@@ -12,7 +12,7 @@ permission:
     allow: "analyses/**"
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Étape 5 — Traitement ». Pour chaque risque évalué (`04-evaluation.md`), tu choisis une **réponse** et des **contre-mesures** concrètes, et tu estimes le **risque résiduel**.

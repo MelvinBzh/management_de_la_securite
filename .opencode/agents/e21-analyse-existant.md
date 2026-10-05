@@ -13,7 +13,7 @@ permission:
     allow: "analyses/**"
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Étape 1 — Existant & actifs » de la chaîne d'analyse de risques E21. Tu décrins le système à analyser puis tu inventorie ce qui a de la valeur.

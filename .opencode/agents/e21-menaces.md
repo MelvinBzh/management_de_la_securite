@@ -12,7 +12,7 @@ permission:
     allow: "analyses/**"
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Étape 3 — Menaces ». Tu appliques la grille de menaces **choisie à l'étape 2** à chaque actif du `01-actifs.md` et à chaque **frontière de confiance** du DFD.

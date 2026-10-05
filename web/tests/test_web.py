@@ -74,6 +74,7 @@ if str(RACINE) not in sys.path:
 
 from tools.studio import db  # noqa: E402
 from tools.studio import entetes  # noqa: E402
+from tools.studio import modeles_agents  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import parse_file  # noqa: E402
 from tools.ingest.parsers.commun import DEBUT_DONNEES, FIN_DONNEES  # noqa: E402
@@ -1452,10 +1453,32 @@ def test_web_23():
     # 8) le chemin réel (sonde + alignement par défaut) doit être câblé : un appel
     #    sans injection ne peut pas partir sur le secours par mégarde.
     #    Un port fermé est utilisé car il échoue vite et déterministe.
+    #    L'alignement par défaut est redirigé vers une base et un dossier
+    #    temporaires : sinon ce test réécrit les vrais `.opencode/agents/*.md` depuis
+    #    la base locale et efface toute correction encore absente de cette base —
+    #    le dépôt n'est jamais une cible d'écriture de la suite (voir l'en-tête).
     reel = reglages.defauts()
     reel["profils"]["ollama"]["endpoint"] = "http://127.0.0.1:9"
     reel["profil_actif"] = "ollama"
-    d = reglages.decider_lancement(reel)
+    empreinte = {p: p.read_text(encoding="utf-8") for p in db.DOSSIER_AGENTS.glob("*.md")}
+    with tempfile.TemporaryDirectory() as tmp_iso:
+        iso = Path(tmp_iso)
+        agents_iso = iso / "agents"
+        agents_iso.mkdir()
+
+        def aligneur_iso(profil, **options):
+            return modeles_agents.appliquer_profil(
+                profil,
+                chemin_db=iso / "e21.sqlite3",
+                dossier_agents=agents_iso,
+                **options,
+            )
+
+        with mock.patch.object(modeles_agents, "appliquer_profil", aligneur_iso):
+            d = reglages.decider_lancement(reel)
+    modifies = [p.name for p, c in empreinte.items()
+                if p.read_text(encoding="utf-8") != c]
+    assert not modifies, f"le test a réécrit les agents du dépôt : {modifies}"
     assert d["repli"] is True, f"port fermé → repli attendu : {d}"
     assert d["modele"] == reglages.MODELE_SECOURS, \
         f"le modèle de secours ne doit jamais être écrasé par une valeur vide : {d}"

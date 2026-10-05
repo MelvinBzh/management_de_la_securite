@@ -87,6 +87,34 @@ def verifier_mode(contenu: str) -> str:
     return mode
 
 
+# En YAML, une clé qui commence par `*` est un **alias**. Écrit tel quel,
+#     permission:
+#       bash:
+#         *: deny
+# opencode 1.18.34 n'enregistre pas l'agent — sans message, sans code d'erreur :
+# `opencode run --agent orchestrator` bascule sur l'agent par défaut et la chaîne
+# démarre sans ses consignes. Constaté puis reproduit en isolement (dossier neuf,
+# agent de contrôle) : la même permission écrite `'*': deny` est acceptée, et
+# l'agent répond. D'où la règle : toute clé de permission contient son `*` entre
+# guillemets.
+RE_CLE_YAML_ETOILE = re.compile(r"^(\s+)\*:(?:\s|$)", re.M)
+
+
+def verifier_permission(contenu: str) -> list[str]:
+    """Renvoie la liste des clés de permission que opencode refuserait.
+
+    todayne **tout** l'agent parce qu'une seule clé est mal écrite — le pire des
+    modes de panne, puisque rien ne signale que le fichier a été écarté.
+    """
+    problemes = []
+    for numero, ligne in enumerate(contenu.splitlines(), 1):
+        if RE_CLE_YAML_ETOILE.match(ligne):
+            problemes.append(
+                f"ligne {numero} : clé « * » nue — écrivez-la entre guillemets ('*')"
+            )
+    return problemes
+
+
 def modele(contenu: str) -> str:
     """Renvoie le modèle déclaré par l'en-tête, ou `""`."""
     return lire(contenu).get("model", "")
@@ -115,6 +143,7 @@ def controles(contenu: str, type_: str = "agent") -> list[str]:
     valeur = tete.get("model", "")
     if valeur and not RE_MODELE.match(valeur):
         problemes.append(f"model « {valeur} » illisible")
+    problemes.extend(verifier_permission(contenu))
     if type_ == "skill" and not tete.get("name"):
         problemes.append("name absent ou vide")
     return problemes
@@ -129,4 +158,5 @@ __all__ = [
     "lire",
     "modele",
     "verifier_mode",
+    "verifier_permission",
 ]

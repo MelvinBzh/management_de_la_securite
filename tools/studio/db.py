@@ -399,6 +399,9 @@ def deployer_vers_opencode(
             if type_ == "agent":
                 try:
                     entetes.verifier_mode(entite["contenu"])
+                    cles = entetes.verifier_permission(entite["contenu"])
+                    if cles:
+                        raise entetes.EnteteInvalide("; ".join(cles))
                 except entetes.EnteteInvalide as exc:
                     raise ValueError(
                         f"Studio : déploiement refusé pour l'agent « {entite['nom']} » "

@@ -13,7 +13,7 @@ permission:
     gh issue *: allow
     gh pr *: allow
     git log *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent GitHub du projet E21. Tu maintiens le board projet, les issues et les PRs. Tu participes au suivi de chaque analyse de risques.

@@ -10,7 +10,7 @@ permission:
   edit: deny
   bash:
     curl *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent de recherche du projet E21. Tu fournis des informations précises et **sourcées**, pour tout ce qui n'existe pas encore dans la base de connaissances.
