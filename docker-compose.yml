@@ -3,16 +3,34 @@
 #   docker compose up -d --build
 #   → http://<ip-du-serveur>:8501
 #
-# Volumes : analyses/ (cas + intrants, gitignorés) et stockage_local/
-# (base source de vérité) persistent sur l'hôte.
+# `network_mode: host` : l'application dialogue en direct avec Ollama installé sur
+# l'hôte (http://localhost:11434, déclaré dans `opencode.jsonc`). Sans cela, le
+# conteneur chercherait Ollama sur lui-même et le bouton « Lancer la chaîne »
+# échouerait avec les modèles locaux. Le port 8501 est donc écouté directement par
+# l'hôte (ne pas ajouter de section `ports` en plus).
+#
+# Pour un modèle cloud, déposez les clés dans un fichier `.env` à côté de ce fichier
+# (ignoré par git) puis relancez `docker compose up -d` :
+#   ANTHROPIC_API_KEY=sk-...
+#   OPENAI_API_KEY=sk-...
 
 services:
   e21:
     build: .
     container_name: e21-studio
     restart: unless-stopped
-    ports:
-      - "8501:8501"
+    network_mode: host
+    environment:
+      # Clés de modèles cloud, lues depuis un éventuel fichier .env (vide sinon).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
+      # Cas d'étude, intrants et base source de vérité : persistants sur l'hôte.
       - ./analyses:/app/analyses
       - ./stockage_local:/app/stockage_local
+      # Sessions et authentification opencode : conservées d'une reconstruction
+      # à l'autre (sinon `opencode auth login` serait à refaire à chaque build).
+      - e21-opencode:/root/.local/share/opencode
+
+volumes:
+  e21-opencode:

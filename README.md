@@ -59,6 +59,23 @@ Facultatif — agents 100 % locaux : installer **opencode** (`curl -fsSL https:/
 docker compose up -d --build     # déploie l'application → http://<ip>:8501
 ```
 
+L'image embarque **tout**, y compris le CLI **opencode** : rien à installer sur la
+machine hôte. Vérification :
+
+```bash
+docker exec e21-studio opencode --version     # doit afficher une version
+```
+
+- **Réseau** : `network_mode: host` → l'application joint Ollama installé sur
+  l'hôte (`http://localhost:11434`, déclaré dans `opencode.jsonc`). Si le build
+  échoue sur le téléchargement d'opencode (réseau restreint), construire avec
+  `docker compose build --build-arg INSTALL_OPENCODE=0` : l'application fonctionne,
+  seul le bouton « Lancer la chaîne » est indisponible.
+- **Modèles cloud** : copiez `.env.exemple` en `.env` (ignoré par git) et
+  renseignez `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`.
+- **Identifiants opencode** : conservés dans le volume `e21-opencode` (pas de
+  `opencode auth login` à refaire après chaque reconstruction).
+
 **Mise à jour d'une version future** (le code est embarqué dans l'image, un
 simple `git pull` ne suffit pas) :
 

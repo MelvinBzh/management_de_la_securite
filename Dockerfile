@@ -20,15 +20,32 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONIOENCODING=utf-8
 
 # Dépendances système : OCR (tesseract FR/EN/OSD), Polices, Pango (PDF WeasyPrint),
-# outils (make, git, pip).
+# outils (make, git, pip), runtime du binaire opencode (libstdc++, certificats).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        make git \
+        make git curl ca-certificates libstdc++6 \
         tesseract-ocr tesseract-ocr-fra tesseract-ocr-osd \
         libpango-1.0-0 libpangocairo-1.0-0 fonts-dejavu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# opencode CLI (binaire autonome : Node n'est pas requis) — c'est lui qui exécute
+# la chaîne d'agents depuis le bouton « Lancer la chaîne » de l'interface.
+# Version non figée : le script d'installation choisit la dernière version publiée,
+# donc le conteneur dispose toujours du même CLI que le poste de développement.
+# Si le réseau du serveur bloque le téléchargement, construire avec
+# `--build-arg INSTALL_OPENCODE=0` : l'application fonctionne, seul le lancement
+# de la chaîne depuis l'interface est indisponible.
+ARG INSTALL_OPENCODE=1
+RUN if [ "$INSTALL_OPENCODE" = "1" ]; then \
+        set -eux; \
+        curl -fsSL https://opencode.ai/install | bash; \
+        ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode; \
+        opencode --version; \
+    else \
+        echo "opencode non installé (INSTALL_OPENCODE=0) — la chaîne ne sera pas lançable."; \
+    fi
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
