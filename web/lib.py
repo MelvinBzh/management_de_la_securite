@@ -16,6 +16,10 @@ Garde-fous appliqués :
   `prompt_orchestrateur` en est la source unique : c'est ce texte fixe, jamais
   un extrait d'intrant, que `web/run_agent.py` exécute dans un sous-processus
   (liste d'arguments, sans shell).
+- **Lot tolérant aux pannes** (`collecter_fichiers_uploads`, `ingérer_en_lot`) :
+  une entrée parasite (chemin inexistant, dossier illisible, document cassé)
+  n'arrête jamais le traitement — le motif du fichier et la raison du refus
+  sont renvoyés à l'appelant pour un message honnête, et la chaîne continue.
 """
 from __future__ import annotations
 
@@ -23,6 +27,7 @@ import json
 import re
 import shutil
 import sys
+import tempfile
 import unicodedata
 from datetime import date
 from pathlib import Path
@@ -34,6 +39,7 @@ if str(RACINE) not in sys.path:  # import possible depuis n'importe où (web/, t
     sys.path.insert(0, str(RACINE))
 
 from tools.ingest.ingest import nom_sur  # noqa: E402  (réutilisation, pas de réécriture)
+from tools.ingest.ingest import parse_file  # noqa: E402  (ingestion réelle, une seule source)
 
 SUFFIXE_MD = ".md"
 SUFFIXE_META = ".meta.json"
@@ -59,6 +65,19 @@ TYPES_UPLOAD = [
     "pdf", "png", "jpg", "jpeg", "webp", "xlsx", "csv",
     "docx", "pptx", "zip", "txt", "md",
 ]
+
+# Upload en lot : extensions acceptées (comparaison insensible à la casse) et
+# plafond de taille par fichier. Le plafond de 50 Mo est aligné sur la limite de
+# décompression des archives (`tools/ingest/parsers/archive.py`) : au-delà, le
+# fichier est refusé AVANT extraction (garde-fou mémoire, aucun travail inutile).
+SUFFIXES_UPLOAD = {f".{type_}" for type_ in TYPES_UPLOAD}
+TAILLE_MAX_UPLOAD = 50 * 1024 * 1024  # 50 Mo
+
+# Motifs de refus renvoyés à l'utilisateur (« <nom> : <raison> ») : un refus
+# n'est jamais muet, c'est un message honnête (garde-fous-ia : l'humain décide).
+RAISON_TYPE = "type non pris en charge"
+RAISON_ILLISIBLE = "fichier illisible"
+RAISON_VOLUMINEUX = "trop volumineux"
 
 # Étapes de la chaîne d'agents E21 : libellé affiché -> livrables attendus.
 # Sert à l'affichage d'avancement (et non à la sécurité) : un fichier présent
@@ -326,6 +345,194 @@ def meta_en_json(meta: dict) -> str:
     return json.dumps(meta, ensure_ascii=False, indent=2) + "\n"
 
 
+# --------------------------------------------------- dépôt en un clic (fichiers + dossiers)
+def _raison_de(entree: str) -> tuple[str, str]:
+    """Sépare « <nom> : <raison> » → `(nom, raison)`.
+
+    Le motif est un nom de fichier : il peut contenir « : » (la raison, elle, en
+    est dépourvue) — d'où `rpartition`, qui découpe sur la dernière occurrence.
+    """
+    motif, separateur, raison = entree.rpartition(" : ")
+    return (motif, raison) if separateur else (entree, "non retenu")
+
+
+def _base_libre(base: str, produits: list[Path]) -> str:
+    """Base de nom unique dans un lot (« a.pdf », puis « a-2.pdf », « a-3.pdf »…).
+
+    Deux fichiers homonymes déposés dans des dossiers différents ne s'écrasent
+    donc pas : chacun garde son intrant, comme le fait la CLI `tools.ingest`.
+    """
+    utilises = {chemin.name for chemin in produits}
+    if f"{base}{SUFFIXE_MD}" not in utilises:
+        return base
+    index = 2
+    while f"{base}-{index}{SUFFIXE_MD}" in utilises:
+        index += 1
+    return f"{base}-{index}"
+
+
+def collecter_fichiers_uploads(chemins) -> tuple[list[str], list[str]]:
+    """Aplatit un mélange de fichiers et de dossiers en deux listes.
+
+    `chemins` : itérable de chemins (fichiers et/ou dossiers, chemin temporaire
+    de Streamlit ou chemin réel — les deux sont acceptés).
+
+    Renvoie `(fichiers, ignores)` :
+    - `fichiers` : chemins des fichiers **supportés par l'ingestion**
+      (mêmes extensions que `lib.TYPES_UPLOAD`, comparaison insensible à la casse),
+      dans un ordre déterministe (trié), sans doublon ;
+    - `ignores` : motifs des fichiers ignorés, avec leur raison, **dédupliqués et
+      triés** (ex. `archive.zip : type non pris en charge` ou
+      `photo.png : trop volumineux`), pour un message utilisateur honnête.
+
+    Un dossier est parcouru **récursivement** (`rglob`), dans l'ordre du tri.
+    Un chemin inexistant, illisible ou qui n'est pas un fichier/dossier est ignoré
+    silencieusement (aucune exception ne doit remonter : l'interface ne doit pas
+    planter sur une entrée parasite).
+
+    Garde-fous (présentés ici ET dans les commentaires ci-dessous) :
+    - **Entrée hostile** : tout est traité comme une DONNÉE. Aucun `OSError` ni
+      `TypeError` ne se propage (permission refusée, lien cassé, entrée exotique),
+      l'appelant reçoit toujours deux listes — un dépôt ne fait jamais planter la
+      page, et le refus est annoncé par `ignores` plutôt que caché.
+    - **Jamais de chemin d'écriture** : les seuls filtres portent sur le NOM du
+      fichier et sa taille. Aucun chemin reçu n'est ouvert en écriture, aucune
+      entrée fournie ne peut faire écrire hors `analyses/<cas>/`.
+    - **Motifs, pas chemins** : un refus est signalé par son nom de fichier seul
+      (jamais le chemin complet du serveur), et le filtrage d'extension ne dit
+      rien du contenu — c'est `tools.ingest.parse_file` qui juge ensuite si le
+      document est exploitable, et toujours comme une donnée non fiable.
+    """
+    # Tolérance : un simple chemin (et non une liste) est accepté tel quel.
+    if isinstance(chemins, (str, Path)):
+        chemins = [chemins]
+    suffixes = SUFFIXES_UPLOAD
+    fichiers: set[str] = set()  # `set` + `sorted` : dédoublonnage et ordre déterministe
+    ignores: set[str] = set()
+
+    def retenir(chemin: Path) -> None:
+        """Ajoute au lot si l'extension et la taille conviennent, sinon motive le refus."""
+        motif = chemin.name
+        if chemin.suffix.lower() not in suffixes:
+            ignores.add(f"{motif} : {RAISON_TYPE}")
+            return
+        try:
+            taille = chemin.stat().st_size
+        except OSError:  # fichier supprimé entre-temps ou permission refusée
+            ignores.add(f"{motif} : {RAISON_ILLISIBLE}")
+            return
+        if taille > TAILLE_MAX_UPLOAD:
+            ignores.add(f"{motif} : {RAISON_VOLUMINEUX}")
+            return
+        fichiers.add(str(chemin))
+
+    def exploitable(chemin: Path) -> bool:
+        """Écarte le bruit de parcours : sortie du tool, fichier caché, `__pycache__`.
+
+        Même règle que `tools.ingest.ingest.collecter` : ces fichiers ne sont pas
+        des documents déposés par l'utilisateur. Le filtre ne s'applique qu'aux
+        fichiers TROUVÉS dans un dossier — un fichier déposé explicitement garde
+        son chemin, même s'il vit sous un dossier caché du système.
+        """
+        if chemin.name.endswith(SUFFIXE_META):
+            return False
+        return not any(
+            part.startswith(".") or part == "__pycache__" for part in chemin.parts
+        )
+
+    for brut in chemins or []:
+        try:
+            chemin = Path(brut)
+            if chemin.is_file():
+                retenir(chemin)
+                continue
+            if not chemin.is_dir():
+                continue  # inexistant ou ni fichier ni dossier : ignoré silencieusement
+            candidats = sorted(chemin.rglob("*"))
+        except (OSError, TypeError, ValueError):  # entrée parasite : jamais d'exception
+            continue
+        for candidat in candidats:
+            try:
+                if not candidat.is_file() or not exploitable(candidat):
+                    continue
+            except OSError:
+                continue
+            retenir(candidat)
+    return sorted(fichiers), sorted(ignores)
+
+
+def ingérer_en_lot(
+    chemins, nom_cas: str, jour: date | None = None
+) -> tuple[list[tuple[Path, Path]], list[str]]:
+    """Ingère en one shot des fichiers et des dossiers, puis les copie dans le cas.
+
+    Appelle `collecter_fichiers_uploads`, ingère chaque fichier via la même
+    fonction que la page actuelle (celle qui produit le `.md` + `.meta.json`,
+    probablement `tools.ingest.ingest.ingerer` — vérifie son nom exact), puis
+    `copier_intrants` pour tout déposer dans `analyses/<cas>/intrants/`.
+
+    Renvoie `(copies, messages)` :
+    - `copies` : la valeur renvoyée par `copier_intrants` (couples source/destination) ;
+    - `messages` : une ligne lisible par fichier ingéré (`« <nom> : <N> car. »`)
+      ou par fichier ignoré (`« <nom> : ignoré (<raison>) »`), prête à afficher.
+
+    Le nom du cas passe par `nom_cas_sur` (fail closed, `ValueError` explicite).
+    Un échec d'ingestion sur UN fichier ne doit pas interrompre le lot : le
+    fichier est listé dans `messages` avec la raison et le traitement continue.
+
+    Note : la fonction d'ingestion n'est pas `ingerer` mais `parse_file`
+    (`tools.ingest.ingest`) — c'est elle que l'onglet « Ingérer des documents »
+    appelle ; elle renvoie le markdown et les métadonnées, l'écriture des deux
+    fichiers est faite ici avant `copier_intrants`.
+
+    Garde-fous (présentés ici ET dans les commentaires ci-dessous) :
+    - **Fail closed** : le nom de cas est assaini (`nom_cas_sur`) AVANT toute
+      écriture ; un nom piégé (`<<<IGNORE…>>>`, `../evasion`) lève une
+      `ValueError` et rien n'est écrit.
+    - **Écriture bornée** : les `.md`/`.meta.json` intermédiaires sont écrits dans
+      un dossier temporaire jetable ; le seul dépôt durable est
+      `analyses/<cas>/intrants/`, effectué par `copier_intrants` (jamais écrasé).
+    - **Lot indolore** : une exception d'extraction sur un fichier est convertie en
+      ligne de message ; les autres fichiers du lot sont ingérés et copiés.
+    """
+    cas = nom_cas_sur(nom_cas)  # fail closed : validé avant le moindre octet écrit
+    fichiers, ignores = collecter_fichiers_uploads(chemins)
+    messages: list[str] = []
+    produits: list[Path] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        sortie = Path(tmp)
+        for brut in fichiers:
+            chemin = Path(brut)
+            # `parse_file` n'est censé lever aucune exception (échec = `meta["ok"]`
+            # à `False`) ; le filet reste là : un seul document ne doit jamais
+            # priver le cas de tous les autres intrants du lot.
+            try:
+                resultat = parse_file(chemin)
+            except Exception as exc:  # noqa: BLE001 — message honnête, on continue
+                messages.append(f"{chemin.name} : ignoré (ingestion impossible — {exc})")
+                continue
+            meta = resultat["meta"]
+            if not meta.get("ok"):
+                messages.append(
+                    f"{chemin.name} : ignoré ({meta.get('message') or 'extraction impossible'})"
+                )
+                continue
+            base = _base_libre(nom_sur(chemin.name), produits)
+            for suffixe, contenu in (
+                (SUFFIXE_MD, resultat["markdown"]),
+                (SUFFIXE_META, meta_en_json(meta)),
+            ):
+                ecrit = sortie / f"{base}{suffixe}"
+                ecrit.write_text(contenu, encoding="utf-8")
+                produits.append(ecrit)
+            messages.append(f"{chemin.name} : {len(resultat['markdown'])} car.")
+        # Copie AVANT la sortie du dossier temporaire : les `.md`/`.meta.json`
+        # intermédiaires n'existent que le temps du dépôt dans le cas.
+        copies = copier_intrants(produits, cas, jour)
+    messages += [f"{motif} : ignoré ({raison})" for motif, raison in map(_raison_de, ignores)]
+    return copies, messages
+
+
 __all__ = [
     "RACINE",
     "DOSSIER_ANALYSES",
@@ -345,4 +552,6 @@ __all__ = [
     "avancement_chaine",
     "intrants_prepars",
     "meta_en_json",
+    "collecter_fichiers_uploads",
+    "ingérer_en_lot",
 ]

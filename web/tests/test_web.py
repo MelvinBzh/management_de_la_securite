@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-11).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-13).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -27,6 +27,11 @@ Studio (WEB-11) : la page « Studio E21 » est couverte comme les autres par WEB
 ne sont en revanche pas cliqués via `AppTest` — le socle `tools/studio/db.py` est
 donc testé directement, en base et en cibles TEMPORAIRES : rien n'est écrit dans
 `.opencode/` ni dans `stockage_local/` par ce test.
+
+Dépôt en un clic (WEB-12, WEB-13) : le socle `web/lib.py` est testé directement —
+`collecter_fichiers_uploads` (lot récursif, trié, motivé) et `ingérer_en_lot`
+(échec isolé, dépôt borné). `DOSSIER_ANALYSES` est redirigé vers un dossier
+temporaire : aucun de ces tests n'écrit dans `analyses/` du dépôt.
 """
 from __future__ import annotations
 
@@ -485,11 +490,158 @@ def test_web_11():
     )
 
 
+# --------------------------------------------------------------------------- WEB-12
+def test_web_12():
+    """WEB-12 : `collecter_fichiers_uploads` — lot récursif, trié, motivé, tolérant."""
+    with tempfile.TemporaryDirectory() as tmp:
+        lot = Path(tmp) / "lot"
+        (lot / "sous" / "profond").mkdir(parents=True)
+        # Rappel : TOUS les types de `lib.TYPES_UPLOAD` sont supportés, donc
+        # `image.png` et `archive.zip` sont conservés ; seuls `.exe`/`.exe2` sont
+        # refusés. `sans_extension.txt` porte bien une extension (`.txt`).
+        deposes = {
+            "a.pdf": b"%PDF-1.4 factice",
+            "image.png": b"\x89PNG\r\n\x1a\n",
+            "archive.zip": b"PK\x03\x04",
+            "sans_extension.txt": "Serveur web, base de donnees.\n",
+            "outil.exe": b"MZ",
+            "outil.exe2": b"MZ",
+            "sous/b.docx": b"factice",
+            "sous/profond/c.csv": b"a,b\n1,2\n",
+            "sous/profond/c.meta.json": b"{}",  # sortie du tool : jamais ré-ingérée
+            ".cache/cache.txt": "cache\n",  # fichier caché : jamais ré-ingéré
+        }
+        for relatif, contenu in deposes.items():
+            chemin = lot / relatif
+            chemin.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(contenu, bytes):
+                chemin.write_bytes(contenu)
+            else:
+                chemin.write_text(contenu, encoding="utf-8")
+
+        # a) entrées parasites : fichier inexistant, dossier absent, `None`, entier.
+        #    Aucune exception ne doit remonter (garde-fou « l'interface ne plante pas »).
+        fichiers, ignores = lib.collecter_fichiers_uploads([
+            lot, lot / "a.pdf", lot / "inexistant.pdf", Path(tmp) / "pas-un-dossier",
+            None, 42,
+        ])
+
+        # b) parcours récursif + tri : `sous/b.docx` et `sous/profond/c.csv` sont
+        #    trouvés, `a.pdf` présent une seule fois malgré les deux entrées.
+        attendus = [
+            "a.pdf", "archive.zip", "image.png", "sans_extension.txt",
+            "sous/b.docx", "sous/profond/c.csv",
+        ]
+        assert fichiers == [str(lot / nom) for nom in attendus], \
+            f"lot inattendu : {[Path(f).name for f in fichiers]}"
+        assert fichiers == sorted(fichiers), f"ordre non déterministe : {fichiers}"
+        assert len(fichiers) == len(set(fichiers)), "doublons non supprimés"
+
+        # c) bruit de parcours écarté : sortie `.meta.json`, fichier caché, dossier.
+        for bruit in ("c.meta.json", "cache.txt", "cache"):
+            assert not any(bruit in chemin for chemin in fichiers), \
+                f"bruit de parcours retenu : {bruit}"
+
+        # d) refus motivés, dédupliqués et triés (« <nom> : <raison> »).
+        assert ignores == [
+            "outil.exe : type non pris en charge",
+            "outil.exe2 : type non pris en charge",
+        ], f"motifs ignorés inattendus : {ignores}"
+        assert ignores == sorted(ignores), f"motifs ignorés non triés : {ignores}"
+
+        # e) un chemin inexistant n'est ni retenu ni signalé (ignoré silencieusement).
+        assert not any("inexistant" in chemin for chemin in fichiers), \
+            "un chemin inexistant ne doit jamais être retenu"
+        assert not any("inexistant" in motif for motif in ignores), \
+            "un chemin inexistant ne doit pas produire de message"
+
+        # f) plafond de taille : refus motivé SANS écrire 50 Mo (seuil abaissé).
+        with mock.patch.object(lib, "TAILLE_MAX_UPLOAD", 4):
+            gros, motifs = lib.collecter_fichiers_uploads([lot / "a.pdf"])
+        assert gros == [], "un fichier au-dessus du plafond ne doit pas être retenu"
+        assert motifs == ["a.pdf : trop volumineux"], f"raison inattendue : {motifs}"
+
+        # g) tolérance : un chemin seul (et non une liste) est accepté tel quel.
+        seul, motifs_seul = lib.collecter_fichiers_uploads(lot / "image.png")
+        assert seul == [str(lot / "image.png")], f"chemin unique mal traité : {seul}"
+        assert motifs_seul == [], f"refus inattendu sur un fichier supporté : {motifs_seul}"
+    passer(
+        "WEB-12",
+        f"{len(attendus)} fichiers supportés (récursif, trié, sans doublon) · "
+        f"{len(ignores)} motifs motivés · plafond et entrées parasites tolérées",
+    )
+
+
+# --------------------------------------------------------------------------- WEB-13
+def test_web_13():
+    """WEB-13 : `ingérer_en_lot` — un document illisible n'interrompt pas le lot."""
+    with tempfile.TemporaryDirectory() as tmp:
+        lot = Path(tmp) / "intrants"
+        lot.mkdir()
+        (lot / "casse.pdf").write_bytes(b"pas un pdf")  # PDF valide en octets, illisible
+        (lot / "bon.txt").write_text("Serveur web, base de donnees.\n", encoding="utf-8")
+        (lot / "outil.exe").write_bytes(b"MZ")  # extension non supportée
+        analyses = Path(tmp) / "analyses"  # cible temporaire : le dépôt n'est pas écrit
+        jour = date(2026, 1, 2)
+        with mock.patch.object(lib, "DOSSIER_ANALYSES", analyses):
+            copies, messages = lib.ingérer_en_lot(
+                [lot / "casse.pdf", lot / "bon.txt", lot / "outil.exe"], "Mon Cas", jour
+            )
+
+        # a) le PDF illisible n'a pas arrêté le lot : `bon.txt` est bien ingéré.
+        reussites = [ligne for ligne in messages if " : ignoré (" not in ligne]
+        assert len(reussites) == 1 and reussites[0].startswith("bon.txt : "), \
+            f"le lot n'a pas continué après l'échec : {messages}"
+        assert reussites[0].endswith(" car."), f"message ingéré illisible : {reussites[0]}"
+
+        # b) l'échec est annoncé honnêtement, avec la raison de l'extraction.
+        en_echec = [ligne for ligne in messages if ligne.startswith("casse.pdf : ignoré (")]
+        assert len(en_echec) == 1, f"raison du PDF illisible absente : {messages}"
+        assert "Extraction impossible" in en_echec[0], f"raison trop vague : {en_echec[0]}"
+
+        # c) extension non supportée : refus motivé, lui aussi annoncé.
+        refuses = [ligne for ligne in messages if ligne.startswith("outil.exe : ignoré (")]
+        assert len(refuses) == 1 and "type non pris en charge" in refuses[0], \
+            f"refus d'extension non annoncé : {messages}"
+
+        # d) dépôt effectif dans le cas : `.md` + `.meta.json`, et rien d'autre.
+        intrants = analyses / f"{jour.isoformat()}_mon-cas" / lib.DOSSIER_INTRANTS
+        assert {Path(dst).name for _, dst in copies} == {
+            "bon.txt.md", "bon.txt.meta.json",
+        }, f"copies inattendues : {copies}"
+        assert all(Path(dst).parent == intrants for _, dst in copies), \
+            f"écriture hors de analyses/<cas>/intrants/ : {copies}"
+        assert (intrants / "bon.txt.md").is_file(), "intrant déposé absent"
+        assert (intrants / "bon.txt.meta.json").is_file(), "métadonnées déposées absentes"
+        assert not (intrants / "casse.pdf.md").exists(), \
+            "un document illisible ne doit jamais être déposé"
+        depose = (intrants / "bon.txt.md").read_text(encoding="utf-8")
+        assert DEBUT_DONNEES in depose and FIN_DONNEES in depose, \
+            "intrant déposé non encadré comme DONNÉE"
+
+        # e) fail closed : nom de cas piégé -> ValueError et aucune écriture.
+        with mock.patch.object(lib, "DOSSIER_ANALYSES", analyses):
+            try:
+                lib.ingérer_en_lot([lot / "bon.txt"], PIEGE, jour)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("nom de cas piégé accepté par ingérer_en_lot")
+        assert [dossier.name for dossier in analyses.iterdir()] == \
+            [f"{jour.isoformat()}_mon-cas"], "un dépôt a été créé pour un cas refusé"
+    passer(
+        "WEB-13",
+        "1 échec isolé du lot · 2 couples copiés dans analyses/<cas>/intrants/ · "
+        "nom de cas piégé refusé",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
+        test_web_12, test_web_13,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()
