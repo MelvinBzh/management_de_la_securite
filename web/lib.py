@@ -461,6 +461,72 @@ def collecter_fichiers_uploads(chemins) -> tuple[list[str], list[str]]:
     return sorted(fichiers), sorted(ignores)
 
 
+def lister_intrants(nom_cas: str, jour: date | None = None) -> list[dict]:
+    """Intrants réellement déposés dans `analyses/<cas>/intrants/`.
+
+    Renvoie une liste triée de dictionnaires : `{"base", "md", "meta", "meta_ok",
+    "taille"}`. `meta_ok` indique si le jumeau `.meta.json` existe (un intrant
+    sans métadonnées est signalé à l'analyste plutôt que passé sous silence).
+
+    Source de vérité = **le disque** : c'est le seul endroit où un intrant survit
+    à un rechargement de session, et donc le seul endroit où une suppression est
+    définitive.
+    """
+    dossier = intrants_du_cas(nom_cas, jour)
+    intrants: list[dict] = []
+    if not dossier.is_dir():
+        return intrants
+    for chemin in sorted(dossier.glob("*.md")):
+        if not chemin.is_file() or chemin.is_symlink():
+            continue
+        jumeau = chemin.with_name(chemin.name[: -len(SUFFIXE_MD)] + SUFFIXE_META)
+        intrants.append({
+            "base": chemin.name[: -len(SUFFIXE_MD)],
+            "md": chemin,
+            "meta": jumeau if jumeau.is_file() else None,
+            "meta_ok": jumeau.is_file(),
+            "taille": chemin.stat().st_size,
+        })
+    return intrants
+
+
+def supprimer_intrant(nom_cas: str, base: str, jour: date | None = None) -> list[str]:
+    """Supprime un intrant (`<base>.md` + `<base>.meta.json`) d'un cas d'analyse.
+
+    Renvoie la liste des fichiers réellement supprimés (vide si rien à supprimer).
+
+    Garde-fous (fail closed) :
+    - `base` doit être un **nom de fichier simple**, pris tel quel (casse
+      comprise) : ni `/`, ni `\`, ni `..`, ni nom absolu. On n'assainit pas ici —
+      assainir redirigerait une suppression vers un AUTRE fichier du cas, ce
+      qu'une opération destructive ne doit jamais faire ;
+    - la cible est résolue et vérifiée **à l'intérieur** du dossier `intrants/` du
+      cas : aucune traversée de répertoire, même via un lien symbolique ;
+    - un lien symbolique est **refusé** (il pourrait viser un fichier hors du cas) ;
+    - rien n'est supprimé si le nom n'existe pas : l'appelant reçoit une liste
+      vide plutôt qu'un succès trompeur.
+    """
+    nom = str(base)
+    if not nom or nom != Path(nom).name or nom in {".", ".."} or "/" in nom or "\\" in nom:
+        raise ValueError(
+            f"Nom d'intrant refusé : « {nom} » n'est pas un nom de fichier simple "
+            "(ni chemin, ni séparateur, ni « .. »)."
+        )
+    base_sure = nom
+    dossier = intrants_du_cas(nom_cas, jour).resolve()
+    supprimes: list[str] = []
+    for nom in (f"{base_sure}{SUFFIXE_MD}", f"{base_sure}{SUFFIXE_META}"):
+        cible = dossier / nom
+        if cible.is_symlink() or not cible.is_file():
+            continue  # rien à supprimer, ou lien symbolique : jamais suivi
+        resolu = cible.resolve()
+        if not resolu.is_relative_to(dossier):
+            continue  # garde-fou : la cible sort du cas -> refus silencieux
+        resolu.unlink()
+        supprimes.append(str(resolu))
+    return supprimes
+
+
 def jour_depuis_dossier(dossier) -> date:
     """Date de création d'un dossier d'analyse (`analyses/AAAA-MM-JJ_<cas>/`).
 
@@ -575,6 +641,8 @@ __all__ = [
     "intrants_prepars",
     "meta_en_json",
     "collecter_fichiers_uploads",
+    "lister_intrants",
+    "supprimer_intrant",
     "ingérer_en_lot",
     "jour_depuis_dossier",
 ]
