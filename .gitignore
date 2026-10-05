@@ -8,6 +8,11 @@ analyses/**/intrants/
 # Données locales privées — jamais commitées, jamais poussées sur GitHub
 # (documents réels, brouillons générés depuis ces documents, journaux de chaîne)
 stockage_local/
+
+# Secrets de déploiement : clés de modèles cloud (jamais versionnées).
+.env
+.env.*
+!.env.exemple
 *.sqlite3
 analyses/**/00-description.brouillon.md
 analyses/**/questions-auto.md
