@@ -52,3 +52,21 @@ make web ADDRESS=0.0.0.0        # http://<ip-du-serveur>:8501
 ```
 
 Facultatif — agents 100 % locaux : installer **opencode** (`curl -fsSL https://opencode.ai/install | bash`) et **Ollama** (`curl -fsSL https://ollama.com/install.sh | sh` puis `ollama pull qwen2.5:7b`) ; la chaîne se lance alors depuis l'interface web avec `ollama/qwen2.5:7b`.
+
+### Déploiement Docker (alternatif, pour un hôte Docker)
+
+```bash
+docker compose up -d --build     # déploie l'application → http://<ip>:8501
+```
+
+**Mise à jour d'une version future** (le code est embarqué dans l'image, un
+simple `git pull` ne suffit pas) :
+
+```bash
+./scripts/update-docker.sh        # git pull + rebuild + relance + prune
+# équivaut à : git pull && docker compose up -d --build
+```
+
+Les volumes `analyses/` et `stockage_local/` (bases de données, cas d'étude)
+persistent sur l'hôte : la mise à jour ne les touche jamais. Au redémarrage,
+l'image réimporte les nouveaux agents/skills du dépôt dans la base (idempotent).
