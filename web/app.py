@@ -1123,11 +1123,79 @@ elif page == PAGES[5]:
     )
     courants = reglages.charger()
 
+    # ---------------------------------------------------------- profils de réglages
+    st.subheader("Profil de connexion")
+    st.caption(
+        "Deux configurations sont proposées côte à côte, chacune avec son endpoint, "
+        "sa clé et son modèle : **opencode** (la configuration déjà présente dans le "
+        "conteneur Docker, aucune surcharge) et **ollama** (un serveur Ollama, local ou "
+        "sur une autre machine). Le profil actif est celui utilisé au prochain "
+        "lancement de la chaîne."
+    )
+    noms = reglages.nom_profils(courants)
+    libelles = {nom: f"{nom} — {reglages.libelle_profil(nom, courants)}" for nom in noms}
+    col_profil, col_action = st.columns([3, 2])
+    with col_profil:
+        profil_choisi = st.selectbox(
+            "Profil actif",
+            options=noms,
+            index=0,
+            format_func=lambda n: libelles.get(n, n),
+            key="regl_profil_actif",
+        )
+    # la liste place le profil actif en premier : ouvrir la page n'écrit donc rien ;
+    # seul un changement explicite de la part de l'analyste bascule le profil.
+    if profil_choisi != courants["profil_actif"]:
+        try:
+            with st.spinner("Bascule du profil…"):
+                reglages.activer_profil(profil_choisi)
+        except ValueError as exc:
+            st.error(f"Profil non activable : {exc}")
+        else:
+            st.rerun()
+    with col_action:
+        st.caption(
+            f"Actif : **{reglages.libelle_profil(profil_choisi, courants)}** — "
+            f"modèle « {courants['modele_chaine'] or 'non imposé'} »."
+        )
+    with st.expander("Créer ou supprimer un profil"):
+        nouveau_nom = st.text_input(
+            "Nom du nouveau profil",
+            value="",
+            placeholder="ex. gpu-nuit",
+            key="regl_nouveau_profil",
+            help="Minuscules, chiffres, tiret et souligné uniquement (ex. « gpu-nuit »).",
+        )
+        if st.button("Créer ce profil", key="regl_creer_profil"):
+            try:
+                with st.spinner("Création…"):
+                    etat = reglages.creer_profil(nouveau_nom)
+            except ValueError as exc:
+                st.error(f"Profil non créé : {exc}")
+            else:
+                st.success(f"Profil « {nouveau_nom} » créé : complétez son endpoint.")
+                st.rerun()
+        if noms and st.button("Supprimer le profil actif", key="regl_suppr_profil"):
+            if len(noms) <= 1:
+                st.error("Impossible de supprimer le dernier profil.")
+            else:
+                try:
+                    with st.spinner("Suppression…"):
+                        etat = reglages.supprimer_profil(profil_choisi)
+                except ValueError as exc:
+                    st.error(f"Profil non supprimé : {exc}")
+                else:
+                    st.success(f"Profil « {profil_choisi} » supprimé.")
+                    st.rerun()
+
+    st.divider()
     st.subheader("Connexion à l'API des modèles")
     st.caption(
         "Ollama peut tourner sur une autre machine du réseau : indiquez son adresse, "
         "par exemple `http://192.168.1.50:11434`. Rien n'est envoyé en dehors de "
-        "cette adresse, et aucune donnée d'analyse n'y transite."
+        "cette adresse, et aucune donnée d'analyse n'y transite. **Laissez l'adresse "
+        "vide** dans le profil « opencode » : opencode lira alors sa propre "
+        "configuration, aucune surcharge ne sera envoyée."
     )
     with st.form("form_reglages"):
         endpoint_saisi = st.text_input(
@@ -1167,8 +1235,9 @@ elif page == PAGES[5]:
             st.error(f"Réglages refusés : {exc}")
         else:
             st.success(
-                f"Réglages enregistrés dans `{reglages.NOM_FICHIER}` — endpoint "
-                f"{enregistres['endpoint']} · clé "
+                f"Réglages du profil « {enregistres['profil_actif']} » enregistrés dans "
+                f"`{reglages.NOM_FICHIER}` — endpoint "
+                f"{enregistres['endpoint'] or 'aucun (config opencode du conteneur)'} · clé "
                 + (f"{reglages.masquer(enregistres['cle'])}" if enregistres["cle"]
                    else "aucune")
                 + f" · modèle de chaîne : {enregistres['modele_chaine'] or 'aucun'}."
@@ -1181,7 +1250,13 @@ elif page == PAGES[5]:
         f"Sonde bornée (délai {int(reglages.DELAI_SONDE)} s) sur "
         "`<endpoint>/api/tags` : aucune redirection suivie, aucun secret affiché."
     )
-    if st.button("Tester la connexion", key="regl_tester"):
+    if not courants["endpoint"]:
+        st.info(
+            "Profil « opencode » : aucune adresse à tester — opencode lira sa propre "
+            "configuration au lancement. Passez au profil « ollama » pour vérifier un "
+            "serveur Ollama distant."
+        )
+    elif st.button("Tester la connexion", key="regl_tester"):
         with st.spinner("Sonde de l'endpoint…"):
             resultat = reglages.sonder(endpoint_saisi or courants["endpoint"])
         if resultat["joignable"]:

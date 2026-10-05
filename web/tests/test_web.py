@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-19).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-21).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -804,7 +804,7 @@ def test_web_16():
             "http://localhost:11434\nX-Inject: 1",
             "localhost:11434",
             "file:///etc/passwd",
-            "",
+            "   ",  # espaces seuls : saisie fautive, pas un choix « pas d'endpoint »
         ):
             try:
                 reglages.valider({"endpoint": interdit})
@@ -819,6 +819,17 @@ def test_web_16():
             f"endpoint réseau local refusé : {accepte['endpoint']}"
         assert accepte["cle"] == "" and accepte["modele_chaine"] == "", \
             "les champs absents doivent garder leur valeur par défaut"
+        # endpoint VIDE = profil « opencode » : opencode lit sa propre configuration.
+        # C'est le seul cas où une adresse absente est acceptée (cf. WEB-20).
+        sans_endpoint = reglages.valider({"endpoint": ""})
+        assert sans_endpoint["endpoint"] == "", \
+            f"endpoint vide non conservé : {sans_endpoint['endpoint']!r}"
+        try:
+            reglages.valider({"profil_actif": "ollama", "endpoint": ""})
+        except ValueError as exc:
+            assert "endpoint" in str(exc), f"champ non nommé : {exc}"
+        else:
+            raise AssertionError("le profil « ollama » ne peut pas avoir un endpoint vide")
 
         # b) modèles : identifiant attendu, commande refusée.
         assert reglages.valider({
@@ -1130,13 +1141,157 @@ def test_web_19():
     )
 
 
+# --------------------------------------------------------------------------- WEB-20
+def test_web_20():
+    """WEB-20 : deux profils de connexion + tags Ollama « nom:tag » acceptés.
+
+    Demande explicite : « deux configurations, l'une avec opencode déjà configuré
+    dans le Docker, l'autre avec Ollama ». Points verrouillés :
+    - les deux profils existent par défaut, indépendants, l'un des deux lisible ;
+    - le profil `opencode` (endpoint vide) n'écrit **aucune** configuration
+      opencode (`None`) donc aucun `OPENCODE_CONFIG` n'est forcé ;
+    - le profil `ollama` écrit bien sa config pointant sur son endpoint ;
+    - un tag Ollama `llama3.1:8b` est accepté (le séparateur `:` fait partie du tag,
+      il était refusé par la version précédente) ;
+    - migration d'un ancien fichier plat, et refus des noms de profil piégés.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "stockage_local"
+        with mock.patch.object(reglages, "DOSSIER_LOCAL", local):
+            etat = reglages.charger()
+            noms = reglages.nom_profils(etat)
+            assert noms == [reglages.PROFIL_OPENCODE, reglages.PROFIL_OLLAMA], \
+                f"profils par défaut inattendus : {noms}"
+            assert etat["profils"][reglages.PROFIL_OPENCODE]["endpoint"] == "", \
+                "le profil opencode doit démarrer SANS endpoint (config du conteneur)"
+
+            # a) les deux profils sont réellement séparés
+            reglages.enregistrer({"modele_chaine": "big-pickle"}, profil="opencode")
+            reglages.enregistrer(
+                {"endpoint": "http://192.168.2.144:11434", "modele_chaine": "qwen3-vl:8b"},
+                profil="ollama",
+            )
+            etat = reglages.charger()
+            assert etat["profils"]["opencode"] == {
+                "endpoint": "", "cle": "", "modele_chaine": "big-pickle"
+            }, f"profil opencode altéré : {etat['profils']['opencode']}"
+            assert etat["profils"]["ollama"]["modele_chaine"] == "qwen3-vl:8b", \
+                f"profil ollama altéré : {etat['profils']['ollama']}"
+
+            # b) profil opencode : aucune config écrite -> aucun OPENCODE_CONFIG
+            with mock.patch("web.run_agent.opencode_cli", return_value=FAUX_CLI), \
+                    mock.patch("web.run_agent.subprocess.Popen") as faux_popen:
+                assert run_agent.fichier_config_opencode(etat) is None, \
+                    "un profil sans endpoint ne doit écrire aucune config opencode"
+                dossier = Path(tmp) / "cas"
+                dossier.mkdir()
+                (dossier / lib.DOSSIER_INTRANTS).mkdir()
+                run_agent.lancer("mon-cas", dossier=dossier, modele="big-pickle")
+            argv = faux_popen.call_args.args[0]
+            assert argv[4:6] == ["--model", "big-pickle"], f"argv inattendu : {argv[4:6]}"
+            assert faux_popen.call_args.kwargs.get("env") in (None, {}), \
+                "aucune surcharge OPENCODE_CONFIG ne doit être envoyée"
+
+            # c) profil ollama : config écrite, endpoint et tag « nom:tag » pris
+            avec_ollama = reglages.activer_profil("ollama")
+            chemin = run_agent.fichier_config_opencode(avec_ollama)
+            assert chemin is not None and Path(chemin).is_file(), "config ollama absente"
+            fragment = json.loads(Path(chemin).read_text(encoding="utf-8"))
+            base = fragment["provider"]["ollama"]["options"]["baseURL"]
+            assert base == "http://192.168.2.144:11434/v1", f"baseURL inattendue : {base}"
+            for tag in ("llama3.1:8b", "nomic-embed-text:latest", "qwen3-vl:8b"):
+                assert reglages.modele_valide(tag), f"tag Ollama refusé : {tag}"
+            relu = reglages.enregistrer({"modele_chaine": "llama3.1:8b"}, profil="ollama")
+            assert relu["modele_chaine"] == "llama3.1:8b", "tag Ollama non enregistré"
+            assert relu["profil_actif"] == "ollama", "le profil actif a changé de côté"
+
+            # d) migration d'un ancien fichier plat (endpoint + modèle, sans profils)
+            local.mkdir(parents=True, exist_ok=True)
+            (local / reglages.NOM_FICHIER).write_text(json.dumps({
+                "endpoint": "http://192.168.2.144:11434", "cle": "",
+                "modele_chaine": "mistral:7b", "modeles_agents": {},
+            }, ensure_ascii=False), encoding="utf-8")
+            migre = reglages.charger()
+            assert migre["profil_actif"] == "ollama", \
+                f"la migration doit activer le profil ollama : {migre['profil_actif']}"
+            assert migre["modele_chaine"] == "mistral:7b", \
+                f"modèle migré perdu : {migre['modele_chaine']}"
+
+            # e) noms de profils piégés -> refus (fail closed)
+            for piege in ("../evasion", "GPU!", "x" * 40, "avec espace"):
+                try:
+                    reglages.creer_profil(piege)
+                except ValueError:
+                    continue
+                raise AssertionError(f"nom de profil piégé accepté : « {piege} »")
+            try:
+                reglages.enregistrer({"endpoint": "http://x"}, profil="fantome")
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("écriture dans un profil inexistant acceptée")
+    passer(
+        "WEB-20",
+        "profils opencode/ollama indépendants · profil opencode sans OPENCODE_CONFIG · "
+        "tag Ollama nom:tag accepté · migration ancien fichier · noms piégés refusés",
+    )
+
+
+# --------------------------------------------------------------------------- WEB-21
+def test_web_21():
+    """WEB-21 : la page « Réglages modèles » propose les deux profils et n'écrit rien.
+
+    Verrouille la demande « deux configurations : opencode (déjà dans le Docker) et
+    Ollama », et le garde-fou découvert au passage : **ouvrir la page ne doit rien
+    écrire** sur le disque (une simple visite ne doit pas modifier les réglages de
+    l'analyste).
+    """
+    from streamlit.testing.v1 import AppTest
+
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "stockage_local"
+        with mock.patch.object(reglages, "DOSSIER_LOCAL", local):
+            app = AppTest.from_file(str(APP), default_timeout=90)
+            app.run()
+            assert not app.exception, f"exception au lancement : {app.exception[0].message}"
+            app.radio[0].set_value("Réglages modèles").run()
+            assert not app.exception, f"page Réglages : {app.exception[0].message}"
+
+            sous_titres = [element.value for element in app.subheader]
+            assert "Profil de connexion" in sous_titres, \
+                f"section profil absente : {sous_titres}"
+
+            # le sélecteur de profil expose bien les deux configurations
+            profil = next((s for s in app.selectbox if "profil actif" in s.label.lower()), None)
+            assert profil is not None, f"sélecteur de profil absent : {[s.label for s in app.selectbox]}"
+            options = " ".join(str(o) for o in profil.options)
+            assert "opencode" in options and "ollama" in options, \
+                f"les deux profils doivent être proposés : {profil.options}"
+            assert "config du conteneur" in options, \
+                f"le profil opencode doit dire ce qu'il fait : {profil.options}"
+
+            # le modèle peut être saisi librement (big-pickle n'est pas un tag Ollama)
+            assert any(
+                "big-pickle" in (s.help or "") for s in app.text_input
+            ), "la saisie manuelle du modèle doit citer big-pickle"
+
+            # ouvrir la page n'écrit rien
+            assert not (local / reglages.NOM_FICHIER).exists(), \
+                "ouvrir la page Réglages ne doit créer aucun fichier de réglages"
+    passer(
+        "WEB-21",
+        "page Réglages modèles : profils opencode + ollama proposés · saisie manuelle · "
+        "aucune écriture à l'ouverture",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
-        test_web_18, test_web_19,
+        test_web_18, test_web_19, test_web_20, test_web_21,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()
