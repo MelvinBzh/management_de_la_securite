@@ -13,7 +13,7 @@ permission:
     allow: "analyses/**"
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Étape 6 — Validation et suivi ». Tu fais **relire et décider** par l'analyste (humain dans la boucle). C'est toi qui transformes le projet de registre en **registre validé**.

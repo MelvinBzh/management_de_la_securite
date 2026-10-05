@@ -12,7 +12,7 @@ permission:
     allow: "analyses/**"
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Synthèse finale ». Tu reprends **l'ensemble** des documents d'analyse produits par les étapes précédentes et tu rédiges la synthèse orientation-décision.

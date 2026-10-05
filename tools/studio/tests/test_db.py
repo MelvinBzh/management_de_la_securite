@@ -22,6 +22,7 @@ hors dossier temporaire est l'export horodaté de STUDIO-05, dans `stockage_loca
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import sys
 import tempfile
@@ -32,6 +33,7 @@ if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
 from tools.studio import db  # noqa: E402  (import après ajustement de sys.path)
+from tools.studio import entetes  # noqa: E402
 from tools.studio import modeles_agents  # noqa: E402
 from web import modeles_ollama  # noqa: E402
 
@@ -605,12 +607,93 @@ def test_studio_08():
     )
 
 
+def test_studio_09():
+    """STUDIO-09 : une clé de permission « * » nue est refusée au déploiement.
+
+    Régression du 05/10/2026, celle qui a fait échouer toutes les chaînes :
+    en YAML, une clé qui commence par `*` est un **alias**. Les douze agents
+    écrivaient
+
+        permission:
+          bash:
+            *: deny
+
+    opencode 1.18.34 n'enregistre alors **aucun** de ces agents — sans message,
+    sans code d'erreur. `opencode run --agent orchestrator` affiche seulement
+    « agent not found. Falling back to default agent », la chaîne démarre sans les
+    consignes de l'orchestrateur, sort en code 0, et l'agent générique improvise
+    à la place (il a proposé un `e21.txt` et une session inexistante).
+
+    La correction — écrire `'*': deny` — a été validée en isolement : à en-tête
+    identique, le fichier avec `*` nu n'est pas enregistré et l'appel bascule sur
+    l'agent par défaut ; le même fichier avec `'*'` est enregistré et répond.
+
+    STUDIO-08 vérifiait le `mode`. Un `mode` correct ne sauvait rien : c'est la
+    deuxième façon, indépendante, d'éteindre tout le dépôt en silence.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp)
+        chemin = base_temporaire(racine)
+        agents = racine / "agents"
+        skills = racine / "skills"
+        db.init(chemin).close()
+
+        def entete(cle: str) -> str:
+            return (
+                "---\ndescription: agent de test\nmode: primary\n"
+                "permission:\n  read: allow\n  bash:\n"
+                f"    {cle}: deny\n    gh *: allow\n---\n\nCorps.\n"
+            )
+
+        db.sauvegarder("agent", "e21-nu", entete("*"), chemin_db=chemin)
+        message = leverer(
+            lambda: db.deployer_vers_opencode(agents, skills, chemin_db=chemin),
+            ValueError,
+            "e21-nu",
+        )
+        assert not (agents / "e21-nu.md").exists(), \
+            "un en-tête que opencode écarterait ne doit pas atteindre le disque"
+        assert "entre guillemets" in message, \
+            f"le message doit dire quoi corriger : « {message} »"
+
+        # la même permission, protégée : elle est acceptée telle quelle
+        assert entetes.verifier_permission(entete("'*'")) == [], \
+            "une clé protégée est valide"
+        assert entetes.verifier_permission(entete("*")), \
+            "la clé nue doit être signalée"
+        db.sauvegarder("agent", "e21-nu", entete("'*'"), chemin_db=chemin)
+        bilan = db.deployer_vers_opencode(agents, skills, chemin_db=chemin)
+        assert bilan["ecrits"] == 1 and (agents / "e21-nu.md").is_file(), bilan
+
+        # et le dépôt livré lui-même ne contient plus aucune clé nue
+        racine_repo = Path(__file__).resolve().parents[3]
+        fautives = []
+        for agent in sorted((racine_repo / ".opencode" / "agents").glob("*.md")):
+            fautives += [
+                f"{agent.name} ligne {n}"
+                for n, ligne in enumerate(
+                    agent.read_text(encoding="utf-8").splitlines(), 1
+                )
+                if re.match(r"^\s+\*:(?:\s|$)", ligne)
+            ]
+        assert not fautives, (
+            "les agents du dépôt ne doivent contenir aucune clé YAML « * » nue — "
+            f"opencode les écarterait tous : {fautives}"
+        )
+    passer(
+        "STUDIO-09",
+        "clé de permission « * » nue : déploiement refusé (clé nue = alias YAML) · "
+        "même permission protégée acceptée · dépôt livré sans aucune clé nue",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
-    """Exécute STUDIO-01 → STUDIO-08 ; renvoie 0 si aucun FAIL."""
+    """Exécute STUDIO-01 → STUDIO-09 ; renvoie 0 si aucun FAIL."""
     tests = [
         test_studio_01, test_studio_02, test_studio_03,
         test_studio_04, test_studio_05, test_studio_06, test_studio_07, test_studio_08,
+        test_studio_09,
     ]
     for test in tests:
         tid = test.__name__.replace("test_studio_", "STUDIO-")

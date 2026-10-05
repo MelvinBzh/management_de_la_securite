@@ -12,7 +12,7 @@ permission:
     allow: "analyses/**"
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Étape 4 — Évaluation ». Pour chaque menace du `03-menaces.md`, tu notes la **probabilité** et l'**impact**, puis tu déduis le **niveau de risque** via la matrice. Tu priorises.

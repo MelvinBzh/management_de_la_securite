@@ -10,7 +10,7 @@ permission:
   edit: deny
   bash:
     npm audit: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent de sécurité. Tu identifies les vulnérabilités sans modifier le code.

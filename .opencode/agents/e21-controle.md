@@ -10,7 +10,7 @@ permission:
   edit: deny
   bash:
     git status *: allow
-    *: deny
+    '*': deny
 ---
 
 Tu es l'agent « Contrôle & garde-fous ». Tu passes **chaque sortie de la chaîne** au crible avant qu'elle soit commitée. Tu opères en binôme avec le skill `garde-fous-ia`.
