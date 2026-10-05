@@ -15,9 +15,24 @@ Garde-fous appliqués :
   `analyses/<cas>/intrants/` (dossier gitignoré), jamais ailleurs.
 - **Maîtrise du processus** : la chaîne tourne dans une session détachée
   (`start_new_session`) et reste arrêtable à la demande (`terminer`).
+
+Paramètres ajoutés pour la page « Réglages modèles » (`web/reglages.py`) :
+- `lancer(..., modele=…)` ajoute `--model <modele>` **uniquement** si un modèle est
+  fourni : `argv` reste donc à 5 éléments par défaut (WEB-09). Le modèle est validé
+  par `reglages.valider` — le validateur est **importé**, jamais dupliqué — afin
+  qu'aucune chaîne de commande ne puisse être injectée par ce champ.
+- `lancer(..., env=…)` transmet un dictionnaire d'environnement au sous-processus
+  (utilisé par l'appelant pour `OPENCODE_CONFIG`). Rien n'est imposé par défaut :
+  le processus hérite de l'environnement courant.
+- `fichier_config_opencode(reglages)` écrit un fragment de configuration opencode
+  (`stockage_local/opencode-runtime.json`, gitignoré) pointant le fournisseur
+  `ollama` sur l'`endpoint` réglé. C'est **l'appelant** qui le passe à opencode via
+  `OPENCODE_CONFIG` ; ce module ne prétend pas garantir la résolution de cette
+  variable côté opencode.
 """
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -30,11 +45,14 @@ if str(RACINE) not in sys.path:  # import possible depuis n'importe où (web/, t
     sys.path.insert(0, str(RACINE))
 
 from web import lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import reglages  # noqa: E402  (validateur de modèle — source unique)
 
 # Attente maximale donnée au processus lors d'un arrêt demandé (secondes).
 DELAI_ARRET = 5
 # Nombre de lignes de journal renvoyées par défaut à l'interface.
 LIGNES_JOURNAL = 40
+# Nom du fichier de configuration opencode dérivé des réglages (stockage local).
+NOM_CONFIG_RUNTIME = "opencode-runtime.json"
 
 
 class ChaineError(Exception):
@@ -68,17 +86,87 @@ def _ecrire_journal(fichier_log: Path, proc) -> None:
         print(f"[run_agent] journal inaccessible : {fichier_log} ({exc})")
 
 
-def lancer(cas: str, dossier: Path | None = None) -> dict:
+def _modele_valide(modele: str) -> str:
+    """Valide `modele` avec le validateur de `web.reglages` (source unique).
+
+    Le modèle ne se retrouve jamais « assaini » : un identifiant qui ne ressemble
+    pas à un modèle est **refusé** (`ChaineError`), car il finit sur la ligne de
+    commande (fail closed — rien qui puisse être interprété par un shell).
+    """
+    nom = str(modele).strip()
+    try:
+        valide = reglages.valider({"modele_chaine": nom})["modele_chaine"]
+    except ValueError as exc:
+        raise ChaineError(f"Modèle refusé : {exc}") from exc
+    if valide != nom:
+        raise ChaineError(
+            f"Modèle refusé : « {modele} » ne correspond pas exactement à un "
+            "identifiant de modèle."
+        )
+    return nom
+
+
+def fichier_config_opencode(reglages_: dict | None = None) -> Path:
+    """Écrit `stockage_local/opencode-runtime.json` et renvoie son chemin.
+
+    Contenu : un fragment de configuration opencode déclarant le fournisseur
+    `ollama` sur l'`endpoint` réglé, avec `apiKey` = la clé enregistrée (ou
+    `"ollama"` si aucune — valeur conventionnelle du fournisseur local).
+
+    Écriture **idempotente** : si le fichier existe déjà avec le même contenu,
+    il n'est pas réécrit (pas de journalisation inutile, pas de modification de
+    date). Le fichier est dans `stockage_local/`, donc gitignoré : une clé
+    d'API n'est jamais versionnée.
+
+    L'appelant passe ce chemin à opencode via `OPENCODE_CONFIG` ; ce module ne
+    prétend pas garantir la résolution de cette variable côté opencode.
+    """
+    valeurs = reglages.valider(reglages_ if reglages_ is not None else reglages.charger())
+    chemin = reglages.chemin_fichier().parent / NOM_CONFIG_RUNTIME
+    fragment = {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {
+            "ollama": {
+                "options": {
+                    "baseURL": f"{valeurs['endpoint']}/v1",
+                    "apiKey": valeurs["cle"] or "ollama",
+                },
+            },
+        },
+    }
+    contenu = json.dumps(fragment, ensure_ascii=False, indent=2) + "\n"
+    if chemin.is_file() and chemin.read_text(encoding="utf-8") == contenu:
+        return chemin  # inchangé : pas de réécriture
+    chemin.write_text(contenu, encoding="utf-8")
+    return chemin
+
+
+def lancer(
+    cas: str,
+    dossier: Path | None = None,
+    modele: str | None = None,
+    env: dict | None = None,
+) -> dict:
     """Lance la chaîne d'agents sur un cas et renvoie les infos de pilotage.
 
     `dossier` : dossier d'analyse à utiliser (par défaut `lib.dossier_cas(cas)`).
+    `modele` : identifiant de modèle opencode (ex. `ollama/qwen2.5:7b`). Ajoute
+    `--model <modele>` **uniquement s'il est fourni** — `argv` reste donc à
+    5 éléments par défaut, 7 avec le modèle. Il est validé par
+    `web.reglages.valider` (validateur importé, jamais dupliqué) ; un modèle
+    invalide lève une `ChaineError` explicite en français.
+    `env` : environnement du sous-processus. `None` = héritage de l'ambiance
+    courante (comportement historique) ; un dictionnaire est transmis tel quel
+    (utilisé par l'appelant pour `OPENCODE_CONFIG`).
+
     Le processus démarre en arrière-plan (session détachée) et sa sortie est
     copiée dans un journal horodaté sous `intrants/`.
 
-    Renvoie `{"pid", "fichier_log", "dossier", "proc", "commande"}`.
+    Renvoie `{"pid", "fichier_log", "dossier", "proc", "commande", "modele"}`.
 
-    Lève `ChaineError` si le dossier d'analyse manque ou si opencode est absent ;
-    un nom de cas refusé par `lib.nom_cas_sur` remonte une `ValueError` (fail closed).
+    Lève `ChaineError` si le dossier d'analyse manque, si opencode est absent ou
+    si le modèle est refusé ; un nom de cas refusé par `lib.nom_cas_sur` remonte
+    une `ValueError` (fail closed).
     """
     nom = lib.nom_cas_sur(cas)
     dossier_reel = Path(dossier) if dossier is not None else lib.dossier_cas(nom)
@@ -93,19 +181,26 @@ def lancer(cas: str, dossier: Path | None = None) -> dict:
             "opencode introuvable : installez opencode (voir .opencode/) puis relancez."
         )
     prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)
-    argv = [cli, "run", "--agent", "orchestrator", prompt]
+    argv = [cli, "run", "--agent", "orchestrator"]
+    modele_reel = ""
+    if modele and str(modele).strip():
+        modele_reel = _modele_valide(modele)
+        argv += ["--model", modele_reel]
+    argv.append(prompt)
     fichier_log = _fichier_journal(dossier_reel, datetime.now())
     fichier_log.parent.mkdir(parents=True, exist_ok=True)
     fichier_log.touch()
-    proc = subprocess.Popen(
-        argv,
-        cwd=str(lib.RACINE),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        start_new_session=True,
-    )
+    options = {
+        "cwd": str(lib.RACINE),
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "text": True,
+        "bufsize": 1,
+        "start_new_session": True,
+    }
+    if env is not None:
+        options["env"] = dict(env)
+    proc = subprocess.Popen(argv, **options)
     redacteur = threading.Thread(
         target=_ecrire_journal,
         args=(fichier_log, proc),
@@ -119,6 +214,7 @@ def lancer(cas: str, dossier: Path | None = None) -> dict:
         "dossier": str(dossier_reel),
         "proc": proc,
         "commande": " ".join(argv),
+        "modele": modele_reel,
     }
 
 
@@ -160,9 +256,11 @@ __all__ = [
     "RACINE",
     "DELAI_ARRET",
     "LIGNES_JOURNAL",
+    "NOM_CONFIG_RUNTIME",
     "ChaineError",
     "opencode_cli",
     "lancer",
+    "fichier_config_opencode",
     "est_vivant",
     "terminer",
     "lire_log",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-15).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-18).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -32,9 +32,18 @@ Dépôt en un clic (WEB-12, WEB-13) : le socle `web/lib.py` est testé directeme
 `collecter_fichiers_uploads` (lot récursif, trié, motivé) et `ingérer_en_lot`
 (échec isolé, dépôt borné). `DOSSIER_ANALYSES` est redirigé vers un dossier
 temporaire : aucun de ces tests n'écrit dans `analyses/` du dépôt.
+
+Réglages modèles (WEB-16, WEB-17) : `web/reglages.py` (validation, fusion, lecture
+tolérante aux pannes) et le lancement avec modèle (`run_agent.lancer`, `--model`,
+fichier de configuration opencode) sont testés **dans des dossiers temporaires** :
+`reglages.chemin_fichier` et `reglages.DOSSIER_LOCAL` sont redirigés, donc aucun
+réglage ni clé n'est écrit dans le `stockage_local/` du dépôt. Aucun modèle n'est
+exécuté : `subprocess.Popen` est simulé et seule la construction de `argv` est
+vérifiée.
 """
 from __future__ import annotations
 
+import json
 import socket
 import subprocess
 import sys
@@ -67,6 +76,7 @@ from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import parse_file  # noqa: E402
 from tools.ingest.parsers.commun import DEBUT_DONNEES, FIN_DONNEES  # noqa: E402
 from web import lib  # noqa: E402
+from web import reglages  # noqa: E402  (réglages modèles, stockage local temporaire)
 from web import run_agent  # noqa: E402
 
 try:
@@ -144,7 +154,7 @@ def lever_chaine_error(action, fragment: str):
 
 # --------------------------------------------------------------------------- WEB-01
 def test_web_01():
-    """WEB-01 : l'application Streamlit se lance et ses 6 pages s'affichent sans exception."""
+    """WEB-01 : l'application Streamlit se lance et ses 7 pages s'affichent sans exception."""
     from streamlit.testing.v1 import AppTest
 
     app = AppTest.from_file(str(APP), default_timeout=90)
@@ -157,7 +167,7 @@ def test_web_01():
         "aucun en-tête affiché"
     assert app.radio, "navigation absente de la barre latérale"
     assert app.file_uploader, "téléverseur de documents absent"
-    assert len(app.radio[0].options) == 6, f"6 entrées attendues : {app.radio[0].options}"
+    assert len(app.radio[0].options) == 7, f"7 entrées attendues : {app.radio[0].options}"
     # Chaque page de la navigation doit s'afficher sans exception.
     for nom in app.radio[0].options:
         app.radio[0].set_value(nom).run()
@@ -165,7 +175,7 @@ def test_web_01():
         pages = [element.value for element in app.title]
         assert any(nom.split(" ")[0] in titre for titre in pages), \
             f"titre de la page « {nom} » absent : {pages}"
-    passer("WEB-01", f"6 pages affichées · titres {titres} · navigation · file_uploader")
+    passer("WEB-01", f"7 pages affichées · titres {titres} · navigation · file_uploader")
 
 
 # --------------------------------------------------------------------------- WEB-02
@@ -383,6 +393,11 @@ def test_web_09():
         assert argv[4] == lib.prompt_orchestrateur("mon-cas", dossier.name), \
             "la consigne transmise n'est pas le prompt fixe"
         assert PIEGE not in argv[4], "la ligne piégée atteint la ligne de commande"
+        # Sans modèle demandé : argv strictement inchangé (5 éléments, pas de --model).
+        assert len(argv) == 5, f"argv par défaut attendu à 5 éléments : {argv}"
+        assert "--model" not in argv, "aucun modèle ne doit être ajouté par défaut"
+        assert faux_popen.call_args.kwargs.get("env") is None, \
+            "aucun environnement ne doit être imposé par défaut"
         assert faux_popen.call_args.kwargs.get("shell", False) is False, \
             "le lancement ne doit pas passer par un shell"
         assert faux_popen.call_args.kwargs.get("start_new_session") is True, \
@@ -747,12 +762,314 @@ def test_web_15():
     )
 
 
+# --------------------------------------------------------------------------- WEB-16
+def test_web_16():
+    """WEB-16 : réglages modèles — validation fail closed, fusion, lecture tolérante."""
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "stockage_local"
+
+        def dans_stockage_temporaire(fonction):
+            """Redirige le stockage local vers le dossier temporaire du test."""
+            def enveloppe(*args, **kwargs):
+                with mock.patch.object(reglages, "DOSSIER_LOCAL", local):
+                    return fonction(*args, **kwargs)
+            return enveloppe
+
+        charger_local = dans_stockage_temporaire(reglages.charger)
+        enregistrer_local = dans_stockage_temporaire(reglages.enregistrer)
+        fichier_local = dans_stockage_temporaire(reglages.chemin_fichier)
+
+        # a) endpoint : format correct + refus de tout caractère « shell ».
+        for interdit in (
+            "http://localhost:11434 ; rm -rf /",
+            "http://localhost:11434 && curl evil",
+            "http://localhost:11434 > /tmp/x",
+            "http://local host:11434",
+            "http://localhost:11434\nX-Inject: 1",
+            "localhost:11434",
+            "file:///etc/passwd",
+            "",
+        ):
+            try:
+                reglages.valider({"endpoint": interdit})
+            except ValueError as exc:
+                message = str(exc)
+                assert message.strip(), f"ValueError sans message pour « {interdit} »"
+                assert "endpoint" in message, f"champ fautif non nommé : « {message} »"
+                continue
+            raise AssertionError(f"endpoint piégé accepté : « {interdit} »")
+        accepte = reglages.valider({"endpoint": "http://192.168.1.50:11434"})
+        assert accepte["endpoint"] == "http://192.168.1.50:11434", \
+            f"endpoint réseau local refusé : {accepte['endpoint']}"
+        assert accepte["cle"] == "" and accepte["modele_chaine"] == "", \
+            "les champs absents doivent garder leur valeur par défaut"
+
+        # b) modèles : identifiant attendu, commande refusée.
+        assert reglages.valider({
+            "modele_chaine": "ollama/qwen2.5:7b"
+        })["modele_chaine"] == "ollama/qwen2.5:7b", "modèle local refusé"
+        assert reglages.valider({
+            "modele_chaine": "anthropic/claude-sonnet-4-5"
+        })["modele_chaine"] == "anthropic/claude-sonnet-4-5", "modèle cloud refusé"
+        for invalide in ("rm -rf /", "a b", "modele;id", "../../secret", "x" * 65):
+            try:
+                reglages.valider({"modele_chaine": invalide})
+            except ValueError as exc:
+                assert "modele_chaine" in str(exc), \
+                    f"champ fautif non nommé : « {exc} »"
+                continue
+            raise AssertionError(f"modèle piégé accepté : « {invalide} »")
+        try:
+            reglages.valider({"modeles_agents": {"e21-x": "rm -rf /"}})
+        except ValueError as exc:
+            assert "modeles_agents" in str(exc), f"champ fautif non nommé : « {exc} »"
+        else:
+            raise AssertionError("modèle d'agent piégé accepté")
+
+        # c) clé : longueur bornée, masquage côté interface.
+        assert len(reglages.valider({"cle": "k" * 200})["cle"]) == 200, \
+            "clé de 200 caractères refusée"
+        try:
+            reglages.valider({"cle": "k" * 201})
+        except ValueError as exc:
+            assert "cle" in str(exc), f"champ fautif non nommé : « {exc} »"
+        else:
+            raise AssertionError("clé trop longue acceptée")
+        assert reglages.masquer("secret-123") == reglages.MASQUE_CLE, \
+            "la clé doit être masquée dans l'interface"
+        assert reglages.masquer("") == "" and reglages.masquer("  ") == "", \
+            "une clé vide ne doit pas être masquée"
+        assert "secret-123" not in json.dumps(reglages.defauts()), \
+            "les défauts ne doivent contenir aucun secret"
+
+        # d) écriture réelle dans un dossier TEMPORAIRE, puis FUSION.
+        premier = enregistrer_local({
+            "endpoint": "http://192.168.1.50:11434",
+            "cle": "cle-locale-1",
+            "modele_chaine": "ollama/qwen2.5:7b",
+        })
+        assert premier["endpoint"] == "http://192.168.1.50:11434", f"endpoint : {premier}"
+        assert premier["cle"] == "cle-locale-1", "la clé doit être enregistrée"
+        assert premier["modele_chaine"] == "ollama/qwen2.5:7b", f"modèle : {premier}"
+        # Fusion : seul l'endpoint est fourni — clé et modèle doivent survivre.
+        second = enregistrer_local({"endpoint": "http://10.0.0.5:11434"})
+        assert second["endpoint"] == "http://10.0.0.5:11434", f"endpoint : {second}"
+        assert second["cle"] == "cle-locale-1", \
+            "une clé non fournie ne doit pas être réinitialisée"
+        assert second["modele_chaine"] == "ollama/qwen2.5:7b", \
+            "un modèle non fourni ne doit pas être réinitialisé"
+        relu = charger_local()
+        assert relu == second, f"relecture incohérente : {relu}"
+        # La fusion est bien celle du fichier sur disque (relue par chemin).
+        chemin = fichier_local()
+        assert chemin.parent == local, f"écriture hors du dossier temporaire : {chemin}"
+        sur_disque = json.loads(chemin.read_text(encoding="utf-8"))
+        assert sur_disque["cle"] == "cle-locale-1", f"clé absente du fichier : {sur_disque}"
+
+        # e) fichier CORROMPU : les défauts, sans aucune exception.
+        chemin.write_text("{ ceci n'est pas du json", encoding="utf-8")
+        assert charger_local() == reglages.defauts(), \
+            "un fichier corrompu doit rendre les défauts"
+        chemin.write_text('["pas", "un", "dictionnaire"]', encoding="utf-8")
+        assert charger_local() == reglages.defauts(), \
+            "un JSON inattendu doit rendre les défauts"
+        # Un champ invalide ne doit pas non plus casser la lecture.
+        chemin.write_text(
+            json.dumps({"endpoint": "oops ; id", "cle": "k", "modele_chaine": ""}),
+            encoding="utf-8",
+        )
+        tolere = charger_local()
+        assert tolere["endpoint"] == reglages.defauts()["endpoint"], \
+            f"endpoint invalide conservé : {tolere['endpoint']}"
+        assert tolere["cle"] == "k", "un champ valide doit survivre à un champ cassé"
+
+        # g) fichier absent : les défauts, toujours sans exception.
+        chemin.unlink()
+        assert charger_local() == reglages.defauts(), "fichier absent : défauts attendus"
+        assert local.is_dir(), "le dossier de stockage temporaire n'a pas été créé"
+        assert not list(local.iterdir()), \
+            f"des fichiers ont survécu au test : {[p.name for p in local.iterdir()]}"
+        # h) contrôle du périmètre : le chemin PAR DÉFAUT est bien le dossier
+        #    local gitignoré du dépôt (les écritures du test, elles, sont allées
+        #    dans le dossier temporaire ci-dessus).
+        defaut = reglages.chemin_fichier()
+        assert defaut == RACINE / "stockage_local" / reglages.NOM_FICHIER, \
+            f"chemin de réglages inattendu : {defaut}"
+        gitignore = (RACINE / ".gitignore").read_text(encoding="utf-8")
+        assert "stockage_local/" in gitignore, \
+            "le dossier des réglages doit rester gitignoré"
+    passer(
+        "WEB-16",
+        "endpoint réseau accepté · shell/modèle refusés · fusion sans réinit · "
+        "fichier corrompu → défauts",
+    )
+
+
+# --------------------------------------------------------------------------- WEB-17
+def test_web_17():
+    """WEB-17 : lancement avec modèle (`--model`, `env`) + config opencode idempotente."""
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "stockage_local"
+        dossier = Path(tmp) / "cas"
+        dossier.mkdir()
+        (dossier / lib.DOSSIER_INTRANTS).mkdir()
+
+        # a) modèle refusé : `ChaineError` explicite, AUCUN processus lancé.
+        for invalide in ("rm -rf /", "ollama/qwen2.5:7b;id", "a b", "ollama/<id>", "x" * 65):
+            with mock.patch("web.run_agent.opencode_cli", return_value=FAUX_CLI), \
+                    mock.patch("web.run_agent.subprocess.Popen") as faux_popen:
+                lever_chaine_error(
+                    lambda m=invalide: run_agent.lancer(
+                        "mon-cas", dossier=dossier, modele=m
+                    ),
+                    "Modèle refusé",
+                )
+                assert faux_popen.call_count == 0, \
+                    "aucun processus ne doit être lancé pour un modèle refusé"
+
+        # b) modèle valide : argv à 7 éléments, `--model` avant la consigne fixe,
+        #    `env` transmis, toujours `shell=False` et session détachée.
+        env_test = {"OPENCODE_CONFIG": str(local / "opencode-runtime.json")}
+        with mock.patch("web.run_agent.opencode_cli", return_value=FAUX_CLI), \
+                mock.patch("web.run_agent.subprocess.Popen") as faux_popen:
+            retour = run_agent.lancer(
+                "mon-cas", dossier=dossier, modele="ollama/qwen2.5:7b", env=env_test
+            )
+        argv = faux_popen.call_args.args[0]
+        assert len(argv) == 7, f"7 éléments attendus avec un modèle : {argv}"
+        assert argv[0] == FAUX_CLI, f"exécutable inattendu : {argv[0]}"
+        assert argv[1:4] == ["run", "--agent", "orchestrator"], f"drapeaux : {argv[1:4]}"
+        assert argv[4:6] == ["--model", "ollama/qwen2.5:7b"], f"option modèle : {argv[4:6]}"
+        assert argv[6] == lib.prompt_orchestrateur("mon-cas", dossier.name), \
+            "la consigne fixe doit rester le dernier argument"
+        assert faux_popen.call_args.kwargs.get("env") == env_test, \
+            f"env non transmis : {faux_popen.call_args.kwargs.get('env')}"
+        assert faux_popen.call_args.kwargs.get("shell", False) is False, \
+            "le lancement ne doit jamais passer par un shell"
+        assert retour["modele"] == "ollama/qwen2.5:7b", f"modèle renvoyé : {retour['modele']}"
+
+        # c) `fichier_config_opencode` : contenu JSON et idempotence, dans le
+        #    stockage local TEMPORAIRE (aucune écriture dans le dépôt).
+        reglages_ = {
+            "endpoint": "http://192.168.1.50:11434",
+            "cle": "cle-locale-1",
+            "modele_chaine": "ollama/qwen2.5:7b",
+        }
+        with mock.patch.object(reglages, "DOSSIER_LOCAL", local):
+            chemin = run_agent.fichier_config_opencode(reglages_)
+            assert chemin == local / run_agent.NOM_CONFIG_RUNTIME, \
+                f"config écrite hors du stockage temporaire : {chemin}"
+            assert not (RACINE / "stockage_local" / run_agent.NOM_CONFIG_RUNTIME).exists(), \
+                "la configuration d'exécution ne doit pas être écrite dans le dépôt"
+            document = json.loads(chemin.read_text(encoding="utf-8"))
+            options = document["provider"]["ollama"]["options"]
+            assert options["baseURL"] == "http://192.168.1.50:11434/v1", \
+                f"baseURL inattendue : {options['baseURL']}"
+            assert options["apiKey"] == "cle-locale-1", \
+                "la clé enregistrée doit figurer dans la configuration"
+            # Seconde écriture IDENTIQUE : le fichier ne doit pas être réécrit.
+            avant = chemin.stat().st_mtime_ns
+            taille = chemin.stat().st_size
+            time.sleep(0.01)
+            second = run_agent.fichier_config_opencode(reglages_)
+            assert second == chemin, f"chemin instable : {second}"
+            assert chemin.stat().st_mtime_ns == avant, \
+                "une configuration inchangée ne doit pas être réécrite"
+            assert chemin.stat().st_size == taille, "taille du fichier modifiée"
+            # Sans clé : valeur conventionnelle du fournisseur local.
+            sans_cle = run_agent.fichier_config_opencode({
+                "endpoint": "http://localhost:11434", "cle": "",
+            })
+            options_sans_cle = json.loads(
+                sans_cle.read_text(encoding="utf-8")
+            )["provider"]["ollama"]["options"]
+            assert options_sans_cle["apiKey"] == "ollama", \
+                f"apiKey par défaut inattendue : {options_sans_cle['apiKey']}"
+            # Un endpoint refusé n'écrit rien (fail closed).
+            with mock.patch.object(reglages, "DOSSIER_LOCAL", local):
+                avant_echec = sorted(p.name for p in local.iterdir())
+                try:
+                    run_agent.fichier_config_opencode({"endpoint": "http://hote ; id"})
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError("endpoint piégé accepté par la config opencode")
+            assert sorted(p.name for p in local.iterdir()) == avant_echec, \
+                "un endpoint refusé ne doit produire aucune écriture"
+        # d) le journal de lancement reste borné au dossier du cas.
+        assert retour["fichier_log"].startswith(str(dossier / lib.DOSSIER_INTRANTS)), \
+            f"journal hors du cas : {retour['fichier_log']}"
+        time.sleep(0.2)  # laisse le thread rédacteur finir avant le nettoyage
+    passer(
+        "WEB-17",
+        "modèle invalide refusé (aucun processus) · argv 7 avec --model · "
+        "config opencode JSON correcte et idempotente",
+    )
+
+
+# --------------------------------------------------------------------------- WEB-18
+def test_web_18():
+    """WEB-18 : un modèle non servi par Ollama (`big-pickle`) est sélectionnable.
+
+    Le modèle demandé par l'utilisateur (OpenCode Zen) n'apparaît jamais dans la
+    liste renvoyée par `/api/tags` : sans saisie manuelle, il serait impossible à
+    retenir. Ce test verrouille les trois points du chemin critique :
+    validation, enregistrement/relecture, et présence de l'option « Autre
+    identifiant » dans la page (le test ne peut pas piloter un `selectbox`).
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        with mock.patch.object(reglages, "DOSSIER_LOCAL", Path(tmp) / "stockage_local"):
+            # a) un modèle d'un autre fournisseur (OpenCode Zen) est accepté malgré
+            #    la validation stricte, et les variantes d'injection sont refusées.
+            for invalide in ("big-pickle;id", "big pickle", "opencode/big-pickle/extra",
+                             "big-pickle\n--model", "x" * 65):
+                try:
+                    reglages.enregistrer({"modele_chaine": invalide})
+                except ValueError as exc:
+                    assert "Réglages refusés" in str(exc), \
+                        f"message d'erreur inattendu : {exc}"
+                    continue
+                raise AssertionError(
+                    f"modèle piégé accepté : « {invalide!r} »"
+                )
+            # ...mais l'identifiant est accepté, enregistré puis relu à l'identique.
+            for attendu in ("big-pickle", "opencode/big-pickle", "opencode/big-pickle-free"):
+                reglages.enregistrer({"modele_chaine": attendu})
+                relu = reglages.charger()["modele_chaine"]
+                assert relu == attendu, f"modèle non conservé : {attendu!r} → {relu!r}"
+
+            # b) la page doit proposer la saisie libre (modèle absent de la liste).
+            source = (RACINE / "web" / "app.py").read_text(encoding="utf-8")
+            assert "Autre identifiant" in source, \
+                "l'option de saisie manuelle du modèle a disparu de la page"
+            assert "big-pickle" in source, \
+                "la page doit citer big-pickle comme exemple de modèle non-Ollama"
+
+            # c) le lancement reprend le modèle enregistré tel quel.
+            dossier = Path(tmp) / "cas"
+            dossier.mkdir()
+            (dossier / lib.DOSSIER_INTRANTS).mkdir()
+            with mock.patch("web.run_agent.opencode_cli", return_value=FAUX_CLI), \
+                    mock.patch("web.run_agent.subprocess.Popen") as faux_popen:
+                run_agent.lancer("mon-cas", dossier=dossier,
+                                 modele=reglages.charger()["modele_chaine"])
+            argv = faux_popen.call_args.args[0]
+            assert argv[4:6] == ["--model", "opencode/big-pickle-free"], \
+                f"le modèle enregistré doit être transmis tel quel : {argv[4:6]}"
+    passer(
+        "WEB-18",
+        "big-pickle (non servi par Ollama) : validation · enregistrement/relecture · "
+        "saisie manuelle dans la page · transmission à opencode",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
-        test_web_12, test_web_13, test_web_14, test_web_15,
+        test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
+        test_web_18,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

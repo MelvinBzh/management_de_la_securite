@@ -41,6 +41,7 @@ if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
 from web import lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import reglages  # noqa: E402  (réglages modèles, stockage local hors git)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
 from tools.export import export as export_tool  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
@@ -161,6 +162,23 @@ def modeles_ollama() -> list[str]:
         (str(modele.get("name", "")) for modele in modeles if isinstance(modele, dict))
         if nom
     ]
+
+
+def modele_de_agent(contenu: str) -> str:
+    """Modèle déclaré par un agent dans son frontmatter, ou « (modèle par défaut) ».
+
+    Lecture seule : le champ `model:` des **10 premières lignes** du contenu (le
+    frontmatter est en tête de fichier). Aucune valeur n'est exécutée ni interprétée,
+    c'est un simple relevé pour affichage. La signature du modèle est validée par
+    `reglages.modele_valide` : un contenu piégé ne peut pas être présenté comme un
+    modèle configured.
+    """
+    for ligne in (contenu or "").splitlines()[:10]:
+        if not ligne.lower().startswith("model:"):
+            continue
+        valeur = ligne.split(":", 1)[1].strip().strip("\"'")
+        return valeur if reglages.modele_valide(valeur) else "(modèle par défaut)"
+    return "(modèle par défaut)"
 
 
 def executer_commande(argv: list[str]) -> tuple[int, str]:
@@ -328,6 +346,7 @@ PAGES = [
     "Bibliothèque des analyses",
     "Lancer la chaîne",
     "Studio E21",
+    "Réglages modèles",
     "À propos / Garde-fous",
 ]
 page = st.sidebar.radio("Navigation", PAGES)
@@ -756,6 +775,12 @@ elif page == PAGES[3]:
     )
 
     st.subheader("Lancement depuis l'application")
+    st.caption(
+        "Le modèle utilisé est celui enregistré dans « Réglages modèles » (aucun "
+        "modèle n'est imposé ici) ; la configuration opencode d'exécution "
+        f"(`{run_agent.NOM_CONFIG_RUNTIME}`) est générée au lancement et passée via "
+        "`OPENCODE_CONFIG`."
+    )
     if not cas:
         st.info(
             "Préparez d'abord un cas (onglet « Préparer un cas ») pour pouvoir lancer la chaîne."
@@ -764,9 +789,25 @@ elif page == PAGES[3]:
     run = st.session_state.get("run_chaine")
     if not run:
         if st.button("▶ Lancer la chaîne maintenant", type="primary", key="lancer_chaine"):
+            # Réglages modèles : le modèle de chaîne et la configuration opencode
+            # d'exécution (endpoint réglé par l'analyste). Si le fichier n'existe
+            # pas encore, on lance sans `OPENCODE_CONFIG` : opencode lit alors son
+            # propre `opencode.jsonc` — rien n'est cassé s'il ignore la variable.
+            reglages_courants = reglages.charger()
+            env = None
+            try:
+                chemin_config = run_agent.fichier_config_opencode(reglages_courants)
+            except ValueError as exc:
+                st.warning(f"Configuration opencode non écrite : {exc}")
+                chemin_config = None
+            if chemin_config is not None and Path(chemin_config).is_file():
+                env = {"OPENCODE_CONFIG": str(chemin_config)}
             try:
                 st.session_state["run_chaine"] = run_agent.lancer(
-                    cas, dossier=lib.DOSSIER_ANALYSES / cible
+                    cas,
+                    dossier=lib.DOSSIER_ANALYSES / cible,
+                    modele=reglages_courants["modele_chaine"] or None,
+                    env=env,
                 )
             except run_agent.ChaineError as exc:
                 st.error(str(exc))
@@ -1048,7 +1089,210 @@ elif page == PAGES[4]:
             st.session_state.pop("studio_restaures", None)
 
 
-# --------------------------------------------------------------- page 6 : garde-fous
+# ------------------------------------------------------- page 6 : réglages modèles
+elif page == PAGES[5]:
+    st.title("Réglages modèles")
+    st.markdown(
+        '<div class="e21-note">Ces réglages sont <b>locaux et jamais versionnés</b> '
+        f"(écrits dans <code>{reglages.DOSSIER_LOCAL.name}/{reglages.NOM_FICHIER}</code>, "
+        "dossier gitignoré). Aucune clé d'API n'est stockée ailleurs ni réaffichée en "
+        "clair. L'<b>humain reste décideur</b> : un modèle choisi ici ne remplace pas "
+        "le modèle défini agent par agent.</div>",
+        unsafe_allow_html=True,
+    )
+    courants = reglages.charger()
+
+    st.subheader("Connexion à l'API des modèles")
+    st.caption(
+        "Ollama peut tourner sur une autre machine du réseau : indiquez son adresse, "
+        "par exemple `http://192.168.1.50:11434`. Rien n'est envoyé en dehors de "
+        "cette adresse, et aucune donnée d'analyse n'y transite."
+    )
+    with st.form("form_reglages"):
+        endpoint_saisi = st.text_input(
+            "Adresse de l'API (endpoint)",
+            value=courants["endpoint"],
+            key="regl_endpoint",
+            help="Format attendu : http://hôte:port ou https://hôte "
+                 "(ex. http://192.168.1.50:11434). Ni espace, ni « ; », ni « & », "
+                 "ni chevron : ces caractères sont refusés.",
+        )
+        cle_saisie = st.text_input(
+            "Clé d'API (facultative)",
+            value=reglages.masquer(courants["cle"]),
+            type="password",
+            placeholder=reglages.MASQUE_CLE,
+            key="regl_cle",
+            help="Jamais réaffichée en clair. Laissez vide pour un fournisseur local "
+                 "sans authentification ; une clé cloud se renseigne plutôt dans le "
+                 "`.env` au déploiement Docker.",
+        )
+        enregistrer_reglages = st.form_submit_button(
+            "Enregistrer les réglages", type="primary"
+        )
+    if enregistrer_reglages:
+        # Une clé masquée renvoyée telle quelle (« •••• ») ne doit pas écraser la
+        # clé réellement enregistrée : on ne l'envoie que si elle a été retapée.
+        charge = cle_saisie.strip()
+        if not charge or charge == reglages.MASQUE_CLE:
+            charge = courants["cle"]
+        try:
+            with st.spinner("Écriture des réglages…"):
+                enregistres = reglages.enregistrer({
+                    "endpoint": endpoint_saisi,
+                    "cle": charge,
+                })
+        except ValueError as exc:
+            st.error(f"Réglages refusés : {exc}")
+        else:
+            st.success(
+                f"Réglages enregistrés dans `{reglages.NOM_FICHIER}` — endpoint "
+                f"{enregistres['endpoint']} · clé "
+                + (f"{reglages.masquer(enregistres['cle'])}" if enregistres["cle"]
+                   else "aucune")
+                + f" · modèle de chaîne : {enregistres['modele_chaine'] or 'aucun'}."
+            )
+            st.rerun()
+
+    st.divider()
+    st.subheader("Tester la connexion")
+    st.caption(
+        f"Sonde bornée (délai {int(reglages.DELAI_SONDE)} s) sur "
+        "`<endpoint>/api/tags` : aucune redirection suivie, aucun secret affiché."
+    )
+    if st.button("Tester la connexion", key="regl_tester"):
+        with st.spinner("Sonde de l'endpoint…"):
+            resultat = reglages.sonder(endpoint_saisi or courants["endpoint"])
+        if resultat["joignable"]:
+            st.success(f"{resultat['endpoint']} — {resultat['message']}")
+            if resultat["modeles"]:
+                st.dataframe(
+                    {"Modèle": resultat["modeles"]},
+                    use_container_width=True, hide_index=True,
+                )
+            else:
+                st.warning(
+                    "Le service répond mais n'annonce aucun modèle : lancez "
+                    "`ollama pull <modèle>` sur cette machine."
+                )
+        else:
+            st.error(resultat["message"] or "Endpoint injoignable.")
+        st.session_state["regl_sonde"] = resultat
+
+    st.divider()
+    st.subheader("Modèle utilisé pour lancer la chaîne")
+    sonde = st.session_state.get("regl_sonde") or {}
+    detectes = list(sonde.get("modeles") or [])
+    enregistres_chaine = courants["modele_chaine"]
+    options = sorted({nom for nom in detectes + [enregistres_chaine] if nom})
+    if not options:
+        options = [enregistres_chaine] if enregistres_chaine else []
+    PERSONNALISE = "— Autre identifiant (saisie manuelle) —"
+    choix = [PERSONNALISE] + options
+    index = options.index(enregistres_chaine) + 1 if enregistres_chaine in options else 0
+    if not options and enregistres_chaine:
+        choix = [PERSONNALISE, enregistres_chaine]
+        index = 1
+    modele_choisi = st.selectbox(
+        "Modèle utilisé pour lancer la chaîne",
+        options=choix,
+        index=index,
+        key="regl_modele_chaine",
+        help="Passé à opencode en `--model` au prochain lancement de la chaîne.",
+    )
+    if options:
+        st.caption(
+            "Modèles détectés par le test de connexion (serveur Ollama). Tout autre "
+            "fournisseur accessible à opencode — **par exemple `big-pickle` (OpenCode Zen)** "
+            "— se saisit dans « Autre identifiant » : ce modèle n'est pas servi par Ollama, "
+            "donc jamais listé automatiquement."
+        )
+    if modele_choisi == PERSONNALISE or not modele_choisi:
+        modele_choisi = st.text_input(
+            "Identifiant du modèle de la chaîne",
+            value=enregistres_chaine,
+            key="regl_modele_saisi",
+            help="Exemples : `big-pickle`, `opencode/big-pickle`, `ollama/qwen2.5:7b`, "
+                 "`anthropic/claude-sonnet-4-5`.",
+        ).strip()
+    if not options:
+        st.info(
+            "Aucun modèle détecté : testez la connexion ci-dessus pour découvrir les "
+            "modèles du serveur Ollama, ou saisissez directement un identifiant "
+            "(ex. `big-pickle`)."
+        )
+    st.caption(
+        "Ce modèle s'applique au **lancement de la chaîne** (option `--model`) ; "
+        "il **n'écrase pas** le modèle défini agent par agent dans le Studio : un "
+        "agent dont le frontmatter fixe `model:` garde le sien."
+    )
+    if st.button("Enregistrer le modèle de la chaîne", key="regl_save_modele"):
+        try:
+            with st.spinner("Écriture du modèle…"):
+                reglages.enregistrer({"modele_chaine": modele_choisi})
+        except ValueError as exc:
+            st.error(f"Modèle refusé : {exc}")
+        else:
+            st.success(
+                f"Modèle de chaîne enregistré : `{modele_choisi}` — il sera utilisé "
+                "au prochain lancement depuis « Lancer la chaîne »."
+            )
+            st.rerun()
+
+    st.caption(
+        "**Images et PDF** : leur texte est extrait **localement** (OCR Tesseract, "
+        "installé dans l'image Docker) ; aucune image n'est envoyée à un modèle externe "
+        "et aucun modèle vision payant n'est nécessaire. Si la qualité de l'OCR est "
+        "insuffisante pour un document, il vaut mieux le scanner de nouveau ou saisir "
+        "le texte à la main plutôt que brancher un modèle payant."
+    )
+
+    st.divider()
+    st.subheader("Modèle configuré par agent (lecture seule)")
+    st.caption(
+        "Lecture seule : ces valeurs viennent des agents du Studio "
+        "(`stockage_local/e21.sqlite3` puis `.opencode/agents/`). **L'édition reste "
+        "dans le Studio E21** — onglet suivant : ouvrir un agent, remplacer dans son "
+        "en-tête `model: qwen2.5:7b` par `model: big-pickle`, puis "
+        "`make studio-deploy` (le Studio est la source de vérité, `.opencode/` sa copie)."
+    )
+    st.caption(
+        "Un agent qui fixe `model:` dans son en-tête **conserve** ce modèle : le modèle "
+        "de chaîne ci-dessus ne s'applique qu'à l'agent qui lance l'analyse "
+        "(`orchestrator`). Pour que toute la chaîne utilise le même modèle, il faut le "
+        "changer dans les en-têtes des agents."
+    )
+    try:
+        agents_lus = db.lister("agent")
+    except sqlite3.Error as exc:
+        agents_lus = []
+        st.error(f"Base locale inaccessible : {exc}")
+    if agents_lus:
+        st.dataframe(
+            {
+                "Agent": [entite["nom"] for entite in agents_lus],
+                "Modèle": [
+                    modele_de_agent(entite.get("contenu", "")) for entite in agents_lus
+                ],
+            },
+            use_container_width=True, hide_index=True,
+        )
+    else:
+        st.info("Aucun agent en base : importez-les depuis `.opencode/` (Studio E21).")
+
+    st.divider()
+    st.markdown(
+        '<div class="e21-note">Où sont stockés ces réglages ? Dans '
+        f"<code>{reglages.DOSSIER_LOCAL.name}/{reglages.NOM_FICHIER}</code> et "
+        f"<code>{reglages.DOSSIER_LOCAL.name}/{run_agent.NOM_CONFIG_RUNTIME}</code>, "
+        "deux dossiers <b>gitignorés</b> : rien n'est versionné ni poussé sur GitHub. "
+        "Pour les clés de modèles <b>cloud</b> en déploiement Docker, utilisez plutôt "
+        "le fichier <code>.env</code> (jamais commité) — ces réglages ne servent qu'à "
+        "l'application web locale.</div>",
+        unsafe_allow_html=True,
+    )
+
+# --------------------------------------------------------------- page 7 : garde-fous
 else:
     st.title("À propos / Garde-fous")
     st.markdown(
