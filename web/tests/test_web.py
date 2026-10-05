@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-18).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-19).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -134,6 +134,22 @@ def document_piege() -> dict:
         chemin = Path(tmp) / "document-piege.txt"
         chemin.write_text(contenu, encoding="utf-8")
         return parse_file(chemin)
+
+
+def lever_value_error(action, fragment: str):
+    """Vérifie qu'une `ValueError` contenant `fragment` est levée (pytest ou brut)."""
+    if pytest is not None:
+        with pytest.raises(ValueError) as info:
+            action()
+        message = str(info.value)
+    else:
+        try:
+            action()
+        except ValueError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("ValueError non levée")
+    assert fragment in message, f"message d'erreur inattendu : « {message} »"
 
 
 def lever_chaine_error(action, fragment: str):
@@ -1063,13 +1079,64 @@ def test_web_18():
     )
 
 
+# --------------------------------------------------------------------------- WEB-19
+def test_web_19():
+    """WEB-19 : la suppression signale les artefacts DÉJÀ générés qui citent l'intrant.
+
+    Régression demandée explicitement : « le document supprimé réapparaît encore
+    ailleurs ». La réponse retenue : on **signale** le brouillon / les questions
+    automatiques / les livrables concernés (ils sont du travail humain, on ne les
+    efface pas), et le dossier vide ne renvoie plus rien.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp) / "analyses"
+        cas = racine / "2026-10-05_mon-cas"
+        (cas / lib.DOSSIER_INTRANTS).mkdir(parents=True)
+        (cas / lib.DOSSIER_INTRANTS / "Nordval.md").write_text("contenu", encoding="utf-8")
+        (cas / lib.DOSSIER_INTRANTS / "Autre.md").write_text("contenu", encoding="utf-8")
+        # fichiers dérivés citant l'intrant, et un fichier sans rapport
+        (cas / "00-description.brouillon.md").write_text(
+            "# Brouillon\nSources : Nordval.md\n", encoding="utf-8"
+        )
+        (cas / "questions-auto.md").write_text("- [ ] Vu Nordval ?\n", encoding="utf-8")
+        (cas / "02-methodes.md").write_text("Aucune mention ici.\n", encoding="utf-8")
+
+        with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+            cites = lib.artefacts_citant("mon-cas", "Nordval")
+            assert cites == ["00-description.brouillon.md", "questions-auto.md"], \
+                f"artefacts cités non détectés : {cites}"
+            # le nom d'intrant est refusé s'il n'est pas un nom de fichier simple
+            for piege in ("../evasion", "a/b", ""):
+                lever_value_error(
+                    lambda p=piege: lib.artefacts_citant("mon-cas", p),
+                    "Nom d'intrant refusé",
+                )
+            supprimes = lib.supprimer_intrant("mon-cas", "Nordval")
+            assert len(supprimes) == 1 and supprimes[0].endswith("Nordval.md"), \
+                f"suppression inattendue : {supprimes}"
+            # l'audit reste utile APRÈS la suppression : les fichiers dérivés
+            # continuent de citer le document, ils sont simplement signalés comme
+            # n'étant plus à jour (c'est l'information donnée à l'analyste).
+            assert lib.artefacts_citant("mon-cas", "Nordval") == cites, \
+                "les artefacts cités doivent rester signalés après suppression"
+            assert lib.artefacts_citant("mon-cas", "Autre") == [], \
+                "un intrant jamais cité ne doit produire aucun artefact"
+            restants = [i["base"] for i in lib.lister_intrants("mon-cas")]
+            assert restants == ["Autre"], f"intrants restants inattendus : {restants}"
+    passer(
+        "WEB-19",
+        "artefacts cités signalés (brouillon, questions auto) · nom d'intrant refusé · "
+        "intrant supprimé absent de la liste et des artefacts",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
-        test_web_18,
+        test_web_18, test_web_19,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

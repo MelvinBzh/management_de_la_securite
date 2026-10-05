@@ -656,13 +656,34 @@ elif page == PAGES[2]:
             )
             col_oui, col_non = st.columns(2)
             if col_oui.button("Oui, supprimer", key=f"oui_{intrant['base']}", type="primary"):
+                # Les fichiers DÉJÀ générés qui citent ce document sont relevés AVANT
+                # la suppression : ils sont signalés, jamais effacés (du travail
+                # humain), et la préparation peut être relancée pour les régénérer.
+                try:
+                    residus = lib.artefacts_citant(cas_choisi, intrant["base"], jour_choisi)
+                except ValueError as exc:
+                    residus = []
+                    st.error(str(exc))
                 supprimes = lib.supprimer_intrant(cas_choisi, intrant["base"], jour_choisi)
                 st.session_state.pop(f"conf_suppr_{intrant['base']}", None)
                 if supprimes:
                     st.success(f"Supprimé : {', '.join(Path(p).name for p in supprimes)}")
-                    st.rerun()
+                    if residus:
+                        st.warning(
+                            f"**{len(residus)} fichier(s) déjà produit(s) citent encore "
+                            f"« {intrant['base']} »** — ils sont **conservés** (ils "
+                            "représentent du travail humain) mais ne sont plus à jour :"
+                        )
+                        for nom_fichier in residus:
+                            st.markdown(f"- `{nom_fichier}`")
+                        st.info(
+                            "Pour les remettre à jour : relancez la préparation du cas "
+                            "(« Préparer un cas »), puis relancez l'étape concernée de la "
+                            "chaîne. Aucun fichier n'a été effacé automatiquement."
+                        )
                 else:
                     st.error("Aucun fichier supprimé (intrant déjà absent).")
+                st.rerun()
             if col_non.button("Annuler", key=f"non_{intrant['base']}"):
                 st.session_state.pop(f"conf_suppr_{intrant['base']}", None)
                 st.rerun()

@@ -491,7 +491,7 @@ def lister_intrants(nom_cas: str, jour: date | None = None) -> list[dict]:
 
 
 def supprimer_intrant(nom_cas: str, base: str, jour: date | None = None) -> list[str]:
-    """Supprime un intrant (`<base>.md` + `<base>.meta.json`) d'un cas d'analyse.
+    r"""Supprime un intrant (`<base>.md` + `<base>.meta.json`) d'un cas d'analyse.
 
     Renvoie la liste des fichiers réellement supprimés (vide si rien à supprimer).
 
@@ -525,6 +525,45 @@ def supprimer_intrant(nom_cas: str, base: str, jour: date | None = None) -> list
         resolu.unlink()
         supprimes.append(str(resolu))
     return supprimes
+
+
+def artefacts_citant(nom_cas: str, base: str, jour: date | None = None) -> list[str]:
+    """Fichiers **déjà générés** qui citent encore l'intrant supprimé.
+
+    Une suppression d'intrant laisse forcément des traces en aval : le brouillon
+    de description, les questions automatiques ou les livrables d'analyse ont été
+    produits **à partir** de ce document. Les effacer serait destructif (du
+    travail humain), les taire serait trompeur : on les **signale**, et l'appelant
+    propose de régénérer la préparation.
+
+    Renvoie des noms de fichiers (relatifs au dossier du cas), triés, sans doublon.
+    Un intrant cité n'est pas cherché dans les fichiers eux-mêmes mais par son nom
+    de fichier d'origine (`base`), seul marqueur stable dans un texte.
+    """
+    nom = str(base)
+    if not nom or nom != Path(nom).name or "/" in nom or "\\" in nom:
+        raise ValueError(f"Nom d'intrant refusé : « {nom} ».")
+    # On balaie le DOSSIER DU CAS (pas `intrants/`) : c'est là que vivent le
+    # brouillon, les questions automatiques et les livrables de la chaîne.
+    dossier = dossier_cas(nom_cas, jour)
+    if not dossier.is_dir():
+        return []
+    cites: set[str] = set()
+    for chemin in sorted(dossier.rglob("*.md")):
+        rel = chemin.relative_to(dossier)
+        # le contenu des intrants n'est pas un « artefact cité » : on regarde les
+        # fichiers générés, pas le document lui-même ni ses éventuels sous-dossiers
+        if rel.parts and rel.parts[0] == DOSSIER_INTRANTS:
+            continue
+        if chemin.name == f"{nom}{SUFFIXE_MD}":
+            continue
+        try:
+            texte = chemin.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if nom in texte:
+            cites.add(chemin.relative_to(dossier).as_posix())
+    return sorted(cites)
 
 
 def jour_depuis_dossier(dossier) -> date:
