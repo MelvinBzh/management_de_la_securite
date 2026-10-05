@@ -5,7 +5,9 @@
   // chaîne d'agents 100 % en local, sans appel API externe.
   //
   //   - Nécessite Ollama démarré sur la machine : `ollama serve` (port 11434).
-  //   - Télécharger un modèle : `ollama pull qwen2.5:7b` (ou llama3.2, mistral…).
+  //   - Télécharger un modèle : `ollama pull llama3.1:8b` (ou mistral:7b,
+  //     qwen3-vl:8b…). Un seul modèle chargé à la fois sur une carte 12 Go :
+  //     `OLLAMA_MAX_LOADED_MODELS=1`.
   //   - Lister les modèles disponibles depuis opencode : `opencode models`.
   //   - Sélectionner un modèle Ollama : `opencode run --model ollama/qwen2.5:7b …`,
   //     ou depuis l'interface web E21 (page « Studio E21 » → état Ollama).
@@ -22,11 +24,17 @@
         "apiKey": "ollama"
       },
       "models": {
-        // Modèle local par défaut (le plus courant ; tiré automatiquement par
-        // Ollama au premier appel si absent). Décommenter les autres si installés.
-        "qwen2.5:7b": { "name": "qwen2.5:7b" }
-        // "llama3.2":  { "name": "llama3.2" },
-        // "mistral":   { "name": "mistral" }
+        // Modèles déclarés pour que `ollama/<modèle>` soit résolvable par opencode
+        // (les agents choisissent leur modèle par `model:` dans leur en-tête, cf.
+        // `make agents-modele PROFIL=ollama`). Déclaration sans effet sur le réseau :
+        // un modèle absent du serveur Ollama n'est appelé que si un agent le réclame.
+        //
+        // Sélection par agent pour une carte 12 Go : `web/modeles_ollama.py`.
+        "llama3.1:8b": { "name": "llama3.1:8b" },   // raisonnement (par défaut E21)
+        "mistral:7b":  { "name": "mistral:7b" },    // rédaction rapide
+        "qwen3-vl:8b": { "name": "qwen3-vl:8b" },   // lecture d'images (multimodal)
+        "llava:7b":    { "name": "llava:7b" },      // vision (déprécié)
+        "qwen2.5:7b":  { "name": "qwen2.5:7b" }     // sorties structurées
       }
     }
   }

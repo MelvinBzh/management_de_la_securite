@@ -1393,11 +1393,17 @@ elif page == PAGES[5]:
         use_container_width=True, hide_index=True,
     )
     st.caption(
-        "Pour appliquer ces choix : onglet **Studio E21** → ouvrir l'agent → remplacer "
-        "`model: opencode/big-pickle` par `model: ollama/llama3.1:8b` (le préfixe "
-        "`ollama/` correspond au fournisseur déclaré dans `opencode.jsonc`), puis "
-        "`make studio-deploy`. Tant que tu ne le fais pas, les agents restent sur "
-        "**`opencode/big-pickle`** — c'est la configuration qui fonctionne par défaut."
+        "**Une commande suffit, aucun agent à ouvrir.** Depuis le dépôt (ou le serveur) :"
+    )
+    st.code("make agents-modele PROFIL=ollama      # cette table, appliquée à tous les agents\n"
+            "make agents-modele                     # retour à opencode/big-pickle (défaut)", language="bash")
+    st.caption(
+        "L'outil écrit la ligne `model:` de chaque agent **dans les deux endroits où elle "
+        "existe** (base Studio et `.opencode/agents/`), donc un `make studio-deploy` "
+        "n'annule pas le choix. La commande est déjà dans le dépôt : sur le serveur, un "
+        "`git pull` suffit si les fichiers d'agents y ont été basculés. Tant qu'elle n'est "
+        "pas lancée, les agents restent sur **`opencode/big-pickle`** — la configuration qui "
+        "fonctionne par défaut."
     )
     st.caption(
         "Deux équivalents à connaître : sur l'agent **direct**, tu peux laisser le champ "

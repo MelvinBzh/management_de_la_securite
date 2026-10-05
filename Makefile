@@ -14,7 +14,7 @@ ADDRESS ?= 0.0.0.0
 
 .PHONY: web suite test-ingest test-preparation test-export test-web test-studio test-reseau \
 	test-detection test-methodes test-methodes-pasta test-methodes-linddun test-methodes-stride \
-	test-methodes-ebios test-studio studio-init studio-deploy tests aide
+	test-methodes-ebios test-studio studio-init studio-deploy agents-modele tests aide
 
 ## Tests autonomes du Studio (base source de vérité agents/skills).
 test-studio:
@@ -27,6 +27,16 @@ studio-init:
 ## Studio — déployer la base vers .opencode/ (après édition depuis l'interface web).
 studio-deploy:
 	$(PYTHON) -m tools.studio.cli deploy
+
+## Modèle d'agent pour TOUTE la chaîne, en une commande (base Studio + .opencode/
+## alignés dans la même passe : `make studio-deploy` ne peut plus annuler le choix).
+##   make agents-modele                      -> opencode/big-pickle (défaut, gratuit)
+##   make agents-modele PROFIL=ollama        -> un modèle Ollama par agent (carte 12 Go)
+##   make agents-modele PROFIL=ollama DRY=1  -> affiche le changement sans écrire
+PROFIL ?= opencode
+DRY ?=
+agents-modele:
+	$(PYTHON) -m tools.studio.modeles_agents $(PROFIL) $(if $(DRY),--dry-run,)
 
 ## Interface web locale (streamlit) — s'arrête avec Ctrl+C.
 ## Lancement LAN : make web ADDRESS=0.0.0.0  (défaut) | machine seule : make web ADDRESS=localhost

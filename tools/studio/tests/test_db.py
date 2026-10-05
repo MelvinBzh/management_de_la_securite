@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes du socle Studio E21 (STUDIO-01 → STUDIO-06).
+"""Tests autonomes du socle Studio E21 (STUDIO-01 → STUDIO-07).
 
 Exécution sans dépendance externe :
     python3 tools/studio/tests/test_db.py
@@ -32,6 +32,8 @@ if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
 from tools.studio import db  # noqa: E402  (import après ajustement de sys.path)
+from tools.studio import modeles_agents  # noqa: E402
+from web import modeles_ollama  # noqa: E402
 
 CONTENU = "# Studio — contenu de test\n\nEntité synthétique, sans valeur E21.\n"
 
@@ -410,12 +412,119 @@ def test_studio_06():
     passer("STUDIO-06", "suppression · tri par nom · type et nom invalides refusés")
 
 
+# --------------------------------------------------------------------------- STUDIO-07
+def test_studio_07():
+    """STUDIO-07 : `agents-modele` bascule tous les agents dans les DEUX magasins.
+
+    Sans ce test, la question « où est le modèle de l'agent ? » n'a pas de réponse
+    fiable : le modèle vit dans l'en-tête, présent à la fois dans la base Studio
+    (source de vérité) et dans `.opencode/agents/*.md` (copie déployée). L'outil doit
+    écrire les deux, sinon `make studio-deploy` annule le choix en silence.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp)
+        chemin = base_temporaire(racine)
+        agents = racine / "agents"
+        agents.mkdir()
+        db.init(chemin).close()
+
+        # deux agents : l'un vient de la base, l'autre n'existe que sur disque
+        contenu = (
+            "---\n"
+            "description: agent de test\n"
+            "model: opencode/big-pickle\n"
+            "temperature: 0.1\n"
+            "---\n\n"
+            "Consignes.\n"
+        )
+        db.sauvegarder("agent", "e21-test", contenu, chemin_db=chemin)
+        (agents / "e21-test.md").write_text(contenu, encoding="utf-8")
+        seul_fichier = contenu.replace("opencode/big-pickle", "autre/modele")
+        (agents / "e21-hors-base.md").write_text(seul_fichier, encoding="utf-8")
+
+        # a) profil inconnu : refus explicite, rien n'est écrit
+        leverer(
+            lambda: modeles_agents.appliquer_profil(
+                "inconnu", chemin_db=chemin, dossier_agents=agents
+            ),
+            ValueError,
+            "Profil inconnu",
+        )
+
+        # b) bascule vers ollama : les deux magasins sont alignés
+        bilan = modeles_agents.appliquer_profil(
+            "ollama", chemin_db=chemin, dossier_agents=agents
+        )
+        assert bilan["modifies"], "aucun agent basculé"
+        attendu = f"ollama/{modeles_ollama.RECOMMANDATION_DEFAUT}"
+        contenu_fichier = (agents / "e21-test.md").read_text(encoding="utf-8")
+        contenu_base = db.lire("agent", "e21-test", chemin_db=chemin)["contenu"]
+        assert f"model: {attendu}" in contenu_fichier, \
+            f"fichier non bascule : {contenu_fichier.splitlines()[:4]}"
+        assert contenu_fichier == contenu_base, \
+            "base et fichier divergent : un deploy annulerait la bascule"
+        assert f"model: {attendu}" in (agents / "e21-hors-base.md").read_text(encoding="utf-8"), \
+            "agent présent sur disque seul : il doit être bascule aussi"
+
+        # c) le reste du contenu est préservé (consignes, temperature, description)
+        assert "temperature: 0.1" in contenu_fichier and "Consignes." in contenu_fichier, \
+            "le hors-modèle ne doit pas être touché"
+
+        # d) idempotence : une seconde passe n'écrit rien
+        avant = (agents / "e21-test.md").read_text(encoding="utf-8")
+        bilan2 = modeles_agents.appliquer_profil(
+            "ollama", chemin_db=chemin, dossier_agents=agents
+        )
+        assert bilan2["modifies"] == [], f"seconde passe non idempotente : {bilan2}"
+        assert (agents / "e21-test.md").read_text(encoding="utf-8") == avant, \
+            "fichier modifié alors que le modèle est deja conforme"
+
+        # e) simulation : n'écrit rien du tout
+        avant_sim = (agents / "e21-test.md").read_text(encoding="utf-8")
+        bilan3 = modeles_agents.appliquer_profil(
+            "opencode", chemin_db=chemin, dossier_agents=agents, dry_run=True
+        )
+        assert bilan3["modifies"], "la simulation doit annoncer les changements"
+        assert bilan3["ecrits_base"] == 0 and bilan3["ecrits_fichiers"] == 0, \
+            "la simulation a écrit"
+        assert (agents / "e21-test.md").read_text(encoding="utf-8") == avant_sim, \
+            "la simulation a modifié le fichier"
+
+        # f) retour au profil opencode : big-pickle pour tout le monde
+        modeles_agents.appliquer_profil(
+            "opencode", chemin_db=chemin, dossier_agents=agents
+        )
+        for nom in ("e21-test", "e21-hors-base"):
+            texte = (agents / f"{nom}.md").read_text(encoding="utf-8")
+            assert f"model: {modeles_agents.MODELE_OPENCODE}" in texte, \
+                f"retour opencode incomplet pour {nom}"
+
+        # g) un agent sans ligne `model:` n'est pas réécrit (on ne fabrique rien)
+        sans_modele = racine / "agents2"
+        sans_modele.mkdir()
+        nu = "---\ndescription: pas de modele\n---\n\nTexte.\n"
+        (sans_modele / "e21-nu.md").write_text(nu, encoding="utf-8")
+        vide = base_temporaire(racine / "b2")
+        db.init(vide).close()
+        bilan4 = modeles_agents.appliquer_profil(
+            "ollama", chemin_db=vide, dossier_agents=sans_modele
+        )
+        assert (sans_modele / "e21-nu.md").read_text(encoding="utf-8") == nu, \
+            "un agent sans modele ne doit pas être réécrit"
+        assert bilan4["modifies"] == [], "aucun changement ne devait être annonce"
+    passer(
+        "STUDIO-07",
+        f"agents-modele : 2 magasins alignes · idempotent · simulation sans effet · "
+        "retour opencode · agent sans modele intact",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
-    """Exécute STUDIO-01 → STUDIO-06 ; renvoie 0 si aucun FAIL."""
+    """Exécute STUDIO-01 → STUDIO-07 ; renvoie 0 si aucun FAIL."""
     tests = [
         test_studio_01, test_studio_02, test_studio_03,
-        test_studio_04, test_studio_05, test_studio_06,
+        test_studio_04, test_studio_05, test_studio_06, test_studio_07,
     ]
     for test in tests:
         tid = test.__name__.replace("test_studio_", "STUDIO-")
