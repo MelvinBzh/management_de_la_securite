@@ -106,7 +106,7 @@ def _modele_valide(modele: str) -> str:
     return nom
 
 
-def fichier_config_opencode(reglages_: dict | None = None) -> Path:
+def fichier_config_opencode(reglages_: dict | None = None) -> Path | None:
     """Écrit `stockage_local/opencode-runtime.json` et renvoie son chemin.
 
     Contenu : un fragment de configuration opencode déclarant le fournisseur
@@ -122,13 +122,20 @@ def fichier_config_opencode(reglages_: dict | None = None) -> Path:
     prétend pas garantir la résolution de cette variable côté opencode.
     """
     valeurs = reglages.valider(reglages_ if reglages_ is not None else reglages.charger())
+    endpoint = valeurs["endpoint"].strip()
+    if not endpoint:
+        # Profil « opencode » : aucune configuration d'exécution n'est écrite, donc
+        # aucun `OPENCODE_CONFIG` n'est passé — opencode lit SA configuration (celle
+        # du conteneur Docker). Écrire ici un fragment Ollama forcerait par erreur le
+        # fournisseur `ollama` sur un profil qui ne le demande pas.
+        return None
     chemin = reglages.chemin_fichier().parent / NOM_CONFIG_RUNTIME
     fragment = {
         "$schema": "https://opencode.ai/config.json",
         "provider": {
             "ollama": {
                 "options": {
-                    "baseURL": f"{valeurs['endpoint']}/v1",
+                    "baseURL": f"{endpoint}/v1",
                     "apiKey": valeurs["cle"] or "ollama",
                 },
             },

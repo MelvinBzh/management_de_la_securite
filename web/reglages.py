@@ -44,7 +44,10 @@ NOM_FICHIER = "reglages-modeles.json"
 
 # Identifiant de modèle : `prefixe/segment` optionnel.
 #   « qwen2.5:7b », « ollama/qwen2.5:7b », « anthropic/claude-sonnet-4-5 ».
-RE_MODELE = re.compile(r"^[a-zA-Z0-9._-]{1,64}(/[a-zA-Z0-9._:-]{1,96})?$")
+# Un identifiant de modèle opencode : « big-pickle », « ollama/qwen2.5:7b »,
+# « anthropic/claude-sonnet-4-5 », « llama3.1:8b » (tag Ollama « nom:tag »),
+# éventuellement préfixé d'un fournisseur par un unique « / ».
+RE_MODELE = re.compile(r"^[a-zA-Z0-9._:-]{1,64}(/[a-zA-Z0-9._:-]{1,96})?$")
 
 # `endpoint` : schéma http(s) + hôte (+ port et chemin facultatifs). Rien d'autre.
 RE_ENDPOINT = re.compile(r"^https?://[a-zA-Z0-9._-]+(:[0-9]{1,5})?(/[a-zA-Z0-9._/-]*)?$")
@@ -58,6 +61,10 @@ CARACTERES_INTERDITS = (
     "*", "?", "!", "#", "~", "(", ")", "{", "}", "[", "]",  # jokers et groupements
 )
 
+NOM_PROFIL_MAX = 32
+RE_PROFIL = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+PROFIL_OPENCODE = "opencode"      # config opencode déjà présente dans le conteneur
+PROFIL_OLLAMA = "ollama"          # serveur Ollama (distant ou local)
 LONGUEUR_MAX_CLE = 200
 MASQUE_CLE = "••••"
 DELAI_SONDE = 2.0
@@ -73,6 +80,15 @@ __all__ = [
     "DELAI_SONDE",
     "chemin_fichier",
     "defauts",
+    "PROFIL_OPENCODE",
+    "PROFIL_OLLAMA",
+    "nom_profil_valide",
+    "appliquer_profil",
+    "creer_profil",
+    "activer_profil",
+    "supprimer_profil",
+    "nom_profils",
+    "libelle_profil",
     "charger",
     "enregistrer",
     "valider",
@@ -93,13 +109,55 @@ def chemin_fichier() -> Path:
 
 
 def defauts() -> dict:
-    """Réglages par défaut : Ollama local, aucune clé, aucun modèle imposé."""
+    """Réglages par défaut : deux profils prêts à l'emploi, aucun secret.
+
+    - `opencode` : endpoint **vide** = on n'écrit aucune configuration d'exécution,
+      opencode lit donc sa propre configuration (celle du conteneur Docker) ;
+    - `ollama` : serveur Ollama, sans clé (valeur conventionnelle pour un
+      fournisseur local).
+
+    Les champs plats (`endpoint`, `cle`, `modele_chaine`) sont le **miroir du
+    profil actif** : lire/écrire ces champs agit sur le profil sélectionné, ce qui
+    garde l'existant (application, lancement) inchangé.
+    """
+    profils = {
+        PROFIL_OPENCODE: {"endpoint": "", "cle": "", "modele_chaine": ""},
+        PROFIL_OLLAMA: {
+            "endpoint": "http://localhost:11434",
+            "cle": "",
+            "modele_chaine": "",
+        },
+    }
     return {
-        "endpoint": "http://localhost:11434",
+        "profil_actif": PROFIL_OPENCODE,
+        "profils": profils,
+        # miroir du profil actif (voir `appliquer_profil`)
+        "endpoint": "",
         "cle": "",
         "modele_chaine": "",
         "modeles_agents": {},
     }
+
+
+def nom_profil_valide(nom: str) -> bool:
+    """Vrai si `nom` est un nom de profil sûr (minuscules, chiffres, `-`, `_`)."""
+    return bool(isinstance(nom, str) and RE_PROFIL.match(nom))
+
+
+def appliquer_profil(valeurs: dict, profil: str | None = None) -> dict:
+    """Recopie le profil demandé dans les champs plats (endpoint/cle/modele_chaine).
+
+    `profil` vaut par défaut le profil actif. Un profil inconnu est ignoré (les
+    champs plats restent inchangés) : un nom forgé ne doit jamais faire le travail
+    d'un profil existant.
+    """
+    profil = profil or valeurs.get("profil_actif") or PROFIL_OPENCODE
+    contenu = (valeurs.get("profils") or {}).get(profil)
+    if isinstance(contenu, dict):
+        for champ in ("endpoint", "cle", "modele_chaine"):
+            if champ in contenu:
+                valeurs[champ] = contenu[champ]
+    return valeurs
 
 
 def modele_valide(nom: str) -> bool:
@@ -107,30 +165,91 @@ def modele_valide(nom: str) -> bool:
     return bool(isinstance(nom, str) and RE_MODELE.match(nom))
 
 
-def valider(reglages: dict) -> dict:
-    """Valide un dictionnaire de réglages et renvoie une copie normalisée.
+def normaliser_profils(valeurs: dict) -> dict:
+    """Complète et Migre la table des profils, sans jamais l'élargir.
 
-    Contrôles (tout échec lève une `ValueError` en français nommant le champ) :
-    - `endpoint` : format `http(s)://hôte[:port][/chemin]` et **aucun** caractère
-      interdit (espace, retour à la ligne, `;`, `&`, `>`, `<`…) ;
-    - `cle` : chaîne, 200 caractères maximum ;
-    - `modele_chaine` : vide ou identifiant de modèle ;
-    - `modeles_agents` : table `{agent: modèle}`, chaque modèle valide.
-
-    Les champs absents gardent leur valeur par défaut ; les champs `None` sont
-    traités comme « non fournis ».
+    Trois cas traités :
+    - fichier déjà profilé : `profils` + `profil_actif` sont conservés ;
+    - **fichier plat** (version précédente) : les champs plats sont rangés dans un
+      profil `ollama` si un endpoint est présent, sinon dans le profil `opencode`
+      — l'analyste ne perd rien ;
+    - nom de profil invalide ou profil actif inconnu : refus explicite plutôt
+      qu'un repli silencieux sur un autre profil (mauvaise surprise à l'usage).
     """
-    if not isinstance(reglages, dict):
+    valeurs = dict(valeurs)
+    noms = valeurs.get("profils")
+    if noms is None:
+        plats = {
+            champ: valeurs.get(champ)
+            for champ in ("endpoint", "cle", "modele_chaine")
+            if valeurs.get(champ) is not None
+        }
+        nom_migra = PROFIL_OLLAMA if str(plats.get("endpoint") or "").strip() else PROFIL_OPENCODE
+        noms = {nom_migra: {c: v for c, v in plats.items() if v is not None}}
+        # le fichier était plat : le profil actif n'est pas décidé par le fichier,
+        # il est déduit du contenu (endpoint présent -> profil « ollama »).
+        valeurs.pop("profil_actif", None)
+    if not isinstance(noms, dict) or not noms:
+        raise ValueError("Réglages refusés : « profils » doit être un dictionnaire non vide.")
+    propres: dict[str, dict] = {}
+    for nom, contenu in noms.items():
+        nom = str(nom)
+        if not nom_profil_valide(nom):
+            raise ValueError(
+                f"Réglages refusés : nom de profil « {nom} » invalide — minuscules, "
+                "chiffres, tiret et souligné uniquement, 32 caractères maximum."
+            )
+        if not isinstance(contenu, dict):
+            raise ValueError(
+                f"Réglages refusés : le profil « {nom} » doit être un dictionnaire."
+            )
+        propres[nom] = {c: contenu.get(c, "") for c in ("endpoint", "cle", "modele_chaine")}
+    actif = valeurs.get("profil_actif")
+    if actif is None:
+        actif = PROFIL_OLLAMA if any(
+            (p.get("endpoint") or "").strip() for p in propres.values()
+        ) else PROFIL_OPENCODE
+    actif = str(actif)
+    if not nom_profil_valide(actif):
+        raise ValueError(f"Réglages refusés : nom de profil actif « {actif} » invalide.")
+    if actif not in propres:
         raise ValueError(
-            f"Réglages refusés : un dictionnaire était attendu, reçu {type(reglages).__name__}."
+            f"Réglages refusés : le profil actif « {actif} » n'existe pas "
+            f"(profils présents : {', '.join(sorted(propres))})."
         )
-    valeurs = defauts()
-    valeurs.update({cle: val for cle, val in reglages.items() if val is not None})
+    valeurs["profils"] = propres
+    valeurs["profil_actif"] = actif
+    return appliquer_profil(valeurs, actif)
 
-    endpoint = valeurs["endpoint"]
-    if not isinstance(endpoint, str) or not endpoint.strip():
-        raise ValueError("Réglages refusés : le champ « endpoint » est vide.")
+
+def _valider_endpoint(endpoint: str, profil_actif: str) -> str:
+    """Valide un endpoint non vide et renvoie sa forme normalisée (sans `/` final).
+
+    Un endpoint **vide** est accepté uniquement pour un profil autre que « ollama » :
+    cela signifie « n'écrire aucune configuration, opencode lit la sienne ».
+    """
+    if not isinstance(endpoint, str):
+        raise ValueError("Réglages refusés : le champ « endpoint » doit être une chaîne.")
+    if endpoint and not endpoint:
+        raise ValueError(  # pragma: no cover - garde-fou de lecture
+            "Réglages refusés : le champ « endpoint » est illisible."
+        )
+    original = endpoint
     endpoint = endpoint.strip()
+    if not endpoint:
+        if original and profil_actif != PROFIL_OLLAMA:
+            raise ValueError(
+                "Réglages refusés : le champ « endpoint » ne contient que des espaces. "
+                "Laissez-le **vide** pour utiliser la configuration opencode du "
+                "conteneur, ou saisissez une adresse."
+            )
+        if profil_actif == PROFIL_OLLAMA:
+            raise ValueError(
+                "Réglages refusés : le profil « ollama » exige un endpoint "
+                "(ex. « http://192.168.2.144:11434 »). Pour utiliser la configuration "
+                "opencode du conteneur, choisissez le profil « opencode »."
+            )
+        return ""
     interdits = [c for c in CARACTERES_INTERDITS if c in endpoint]
     if interdits:
         raise ValueError(
@@ -143,38 +262,142 @@ def valider(reglages: dict) -> dict:
         raise ValueError(
             f"Réglages refusés : « endpoint » = « {endpoint} » n'est pas une adresse "
             "valide. Format attendu : « http://hôte:port » ou « https://hôte » "
-            "(ex. « http://192.168.1.50:11434 »)."
+            "(ex. « http://192.168.2.144:11434 »)."
         )
     if not urlsplit(endpoint).hostname:
         raise ValueError(
             f"Réglages refusés : « endpoint » = « {endpoint} » ne contient aucun hôte."
         )
-    valeurs["endpoint"] = endpoint.rstrip("/")
+    return endpoint.rstrip("/")
 
-    cle = valeurs["cle"]
-    if not isinstance(cle, str):
-        raise ValueError("Réglages refusés : le champ « cle » doit être une chaîne.")
-    if len(cle) > LONGUEUR_MAX_CLE:
-        raise ValueError(
-            f"Réglages refusés : le champ « cle » dépasse {LONGUEUR_MAX_CLE} caractères "
-            f"({len(cle)})."
-        )
-    valeurs["cle"] = cle.strip()
 
-    modele = valeurs["modele_chaine"]
+def _valider_modele(modele: str, champ: str = "modele_chaine") -> str:
+    """Valide un identifiant de modèle (vide accepté) et renvoie sa forme nue."""
     if not isinstance(modele, str):
-        raise ValueError(
-            "Réglages refusés : le champ « modele_chaine » doit être une chaîne."
-        )
+        raise ValueError(f"Réglages refusés : le champ « {champ} » doit être une chaîne.")
     modele = modele.strip()
     if modele and not modele_valide(modele):
         raise ValueError(
-            "Réglages refusés : « modele_chaine » = "
-            f"« {modele} » n'est pas un identifiant de modèle. Formats acceptés : "
+            f"Réglages refusés : « {champ} » = « {modele} » n'est pas un identifiant "
+            "de modèle. Formats acceptés : « big-pickle », « opencode/big-pickle », "
             "« ollama/qwen2.5:7b », « anthropic/claude-sonnet-4-5 » (lettres, chiffres, "
             "point, tiret, deux-points ; un seul « / » possible)."
         )
-    valeurs["modele_chaine"] = modele
+    return modele
+
+
+def valider(reglages: dict) -> dict:
+    """Valide des réglages et renvoie une copie normalisée (miroir du profil actif).
+
+    Contrôles (tout échec lève une `ValueError` en français nommant le champ) :
+    - `profils` / `profil_actif` : noms sûrs, profil actif existant (voir
+      `normaliser_profils`, qui migre aussi un ancien fichier plat) ;
+    - pour **chaque** profil : `endpoint` (vide autorisé hors profil « ollama »),
+      `cle` (chaîne, 200 caractères maximum), `modele_chaine` (vide ou identifiant) ;
+    - `modeles_agents` : table `{agent: modèle}`, chaque modèle valide.
+
+    Les champs plats fournis (`endpoint`, `cle`, `modele_chaine`) sont repliqués dans
+    le profil actif avant validation : écrire « l'endpoint du profil courant » est
+    donc la formulation la plus naturelle.
+    """
+    if not isinstance(reglages, dict):
+        raise ValueError(
+            f"Réglages refusés : un dictionnaire était attendu, reçu {type(reglages).__name__}."
+        )
+    # --- fichier PLAT (version précédente) : les champs plats sont rangés dans un
+    # profil, sinon ils seraient écrasés par les valeurs par défaut (le profil
+    # « ollama » masquerait l'endpoint saisi par l'analyste).
+    if "profils" not in reglages:
+        flats = {
+            champ: reglages[champ]
+            for champ in ("endpoint", "cle", "modele_chaine")
+            if reglages.get(champ) is not None
+        }
+        if flats:
+            nom_migra = (
+                PROFIL_OLLAMA if str(flats.get("endpoint") or "").strip() else PROFIL_OPENCODE
+            )
+            demande = reglages.get("profil_actif")
+            if str(demande or "") == PROFIL_OLLAMA and not str(flats.get("endpoint") or "").strip():
+                # le profil « ollama » a été demandé SANS adresse : on nomme le champ
+                # fautif plutôt que de parler d'un profil inexistant.
+                raise ValueError(
+                    "Réglages refusés : le champ « endpoint » est vide alors que le "
+                    "profil « ollama » est demandé. Saisissez l'adresse du serveur "
+                    "Ollama (ex. « http://192.168.2.144:11434 »), ou choisissez le "
+                    "profil « opencode » pour utiliser la configuration du conteneur."
+                )
+            if demande is not None and str(demande) != nom_migra:
+                raise ValueError(
+                    f"Réglages refusés : le profil actif « {demande} » n'existe pas "
+                    f"dans ce fichier (données plates : seul « {nom_migra} » a pu être "
+                    "reconstitué). Créez d'abord ce profil avec « Nouveau profil »."
+                )
+            valeurs = defauts()
+            valeurs["profils"] = {nom_migra: flats}
+            valeurs["profil_actif"] = nom_migra
+            valeurs["modeles_agents"] = reglages.get("modeles_agents") or {}
+            # le miroir plat est une VUE de lecture : on le retire, sinon il
+            # écraserait le profil migré avec ses propres valeurs vides.
+            for champ in ("endpoint", "cle", "modele_chaine"):
+                valeurs.pop(champ, None)
+            return valider(valeurs)
+
+    valeurs = defauts()
+    valeurs.update({cle: val for cle, val in reglages.items() if val is not None})
+    # sans profil demandé explicitement, on active celui qui porte un endpoint
+    if not any(c in reglages for c in ("profils", "profil_actif")):
+        tables = valeurs.get("profils")
+        if isinstance(tables, dict):
+            derive = next(
+                (
+                    nom
+                    for nom in (PROFIL_OLLAMA, PROFIL_OPENCODE)
+                    if str((tables.get(nom) or {}).get("endpoint") or "").strip()
+                ),
+                None,
+            )
+            if derive:
+                valeurs["profil_actif"] = derive
+    # replique des champs plats dans le profil actif avant toute validation
+    if "profils" in valeurs:
+        actif = valeurs.get("profil_actif") or PROFIL_OPENCODE
+        if not nom_profil_valide(str(actif)):
+            raise ValueError(
+                f"Réglages refusés : nom de profil actif « {actif} » invalide — "
+                "minuscules, chiffres, tiret et souligné uniquement, 32 caractères maximum."
+            )
+        table = dict(valeurs["profils"]) if isinstance(valeurs["profils"], dict) else {}
+        for nom in table:  # un nom piégé est nommé avant toute autre consideration
+            if not nom_profil_valide(str(nom)):
+                raise ValueError(
+                    f"Réglages refusés : nom de profil « {nom} » invalide — minuscules, "
+                    "chiffres, tiret et souligné uniquement, 32 caractères maximum."
+                )
+        if actif not in table:
+            raise ValueError(
+                f"Réglages refusés : le profil actif « {actif} » n'existe pas "
+                f"(profils présents : {', '.join(sorted(table))}). Créez-le d'abord "
+                "avec « Nouveau profil »."
+            )
+        courant = dict(table.get(actif) or {})
+        # on ne recopie que les champs EFFECTIVEMENT fournis : sinon le miroir
+        # vide des valeurs par défaut écraserait le profil (endpoint perdu).
+        for champ in ("endpoint", "cle", "modele_chaine"):
+            if champ in reglages and reglages[champ] is not None:
+                courant[champ] = reglages[champ]
+        table[actif] = courant
+        valeurs["profils"] = table
+        valeurs["profil_actif"] = actif
+    valeurs = normaliser_profils(valeurs)
+
+    for nom, contenu in sorted(valeurs["profils"].items()):
+        valeurs["profils"][nom] = {
+            "endpoint": _valider_endpoint(contenu.get("endpoint", ""), nom),
+            "cle": _valider_cle(contenu.get("cle", "")),
+            "modele_chaine": _valider_modele(contenu.get("modele_chaine", "")),
+        }
+    valeurs = appliquer_profil(valeurs)
 
     agents = valeurs["modeles_agents"]
     if agents is None:
@@ -187,16 +410,23 @@ def valider(reglages: dict) -> dict:
     normalises: dict[str, str] = {}
     for agent, nom in agents.items():
         agent = str(agent).strip()
-        nom = str(nom).strip()
-        if nom and not modele_valide(nom):
-            raise ValueError(
-                f"Réglages refusés : « modeles_agents[{agent}] » = « {nom} » n'est pas "
-                "un identifiant de modèle (ex. « ollama/qwen2.5:7b »)."
-            )
-        if nom:
-            normalises[agent] = nom
+        modele = _valider_modele(str(nom), champ=f"modeles_agents[{agent}]")
+        if modele:
+            normalises[agent] = modele
     valeurs["modeles_agents"] = normalises
     return valeurs
+
+
+def _valider_cle(cle: str) -> str:
+    """Valide une clé d'API (chaîne, longueur bornée) et renvoie sa forme nue."""
+    if not isinstance(cle, str):
+        raise ValueError("Réglages refusés : le champ « cle » doit être une chaîne.")
+    if len(cle) > LONGUEUR_MAX_CLE:
+        raise ValueError(
+            f"Réglages refusés : le champ « cle » dépasse {LONGUEUR_MAX_CLE} caractères "
+            f"({len(cle)})."
+        )
+    return cle.strip()
 
 
 def charger() -> dict:
@@ -235,29 +465,139 @@ def charger() -> dict:
         return fusion
 
 
-def enregistrer(reglages: dict) -> dict:
-    """Valide puis **fusionne** `reglages` avec l'existant, écrit et renvoie le résultat.
+def _ecrire(etat: dict) -> dict:
+    """Valide puis écrit l'état complet des réglages (gitignoré) et le renvoie."""
+    valide = valider({k: v for k, v in etat.items() if k in
+                      ("profils", "profil_actif", "modeles_agents")})
+    chemin_fichier().write_text(
+        json.dumps(valide, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return valide
 
-    Une clé absente de `reglages` ne réinitialise pas une clé déjà enregistrée :
-    seul le champ réellement fourni est remplacé. Le contenu renvoyé est donc
-    toujours l'état complet stocké.
+
+def enregistrer(reglages: dict, profil: str | None = None) -> dict:
+    """Fusionne des champs dans **un profil** (le profil actif par défaut).
+
+    Seuls les champs réellement fournis sont remplacés : une clé absente de
+    `reglages` ne réinitialise rien. `profil` désigne le profil **à modifier** —
+    il ne change pas le profil actif (utiliser `activer_profil` pour cela) :
+    enregistrer les valeurs d'un profil secondaire ne doit jamais détourner le
+    prochain lancement. Un nom de profil inconnu ou piégé est refusé
+    (fail closed : rien n'est écrit).
+
+    Renvoie l'état complet stocké (profils + miroir du profil actif).
     """
-    valides = valider(reglages)  # fail closed : rien n'est écrit si un champ est refusé
-    chemin = chemin_fichier()
-    existant = charger()
-    fusion = defauts()
-    for cle_champ in ("endpoint", "cle", "modele_chaine"):
-        fourni = cle_champ in reglages and reglages[cle_champ] is not None
-        fusion[cle_champ] = valides[cle_champ] if fourni else existant[cle_champ]
-    if isinstance(reglages, dict) and reglages.get("modeles_agents") is not None:
-        fusion["modeles_agents"] = valides["modeles_agents"]
-    else:
-        fusion["modeles_agents"] = dict(existant["modeles_agents"])
-    # `valider` porte sur l'ensemble fusionné : les règles restent en un seul
-    # endroit (pas de doublon), y compris sur les champs venant du fichier.
-    fusion = valider(fusion)
-    chemin.write_text(json.dumps(fusion, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return fusion
+    if not isinstance(reglages, dict):
+        raise ValueError(
+            f"Réglages refusés : un dictionnaire était attendu, reçu {type(reglages).__name__}."
+        )
+    etat = charger()
+    cible = profil if profil is not None else etat["profil_actif"]
+    cible = str(cible).strip()
+    if not nom_profil_valide(cible):
+        raise ValueError(
+            f"Réglages refusés : nom de profil « {cible} » invalide — minuscules, "
+            "chiffres, tiret et souligné uniquement, 32 caractères maximum."
+        )
+    if cible not in etat["profils"]:
+        raise ValueError(
+            f"Réglages refusés : le profil « {cible} » n'existe pas "
+            f"(profils présents : {', '.join(sorted(etat['profils']))})."
+        )
+    courant = dict(etat["profils"][cible])
+    for champ in ("endpoint", "cle", "modele_chaine"):
+        if champ in reglages and reglages[champ] is not None:
+            courant[champ] = reglages[champ]
+    if "modeles_agents" in reglages and reglages["modeles_agents"] is not None:
+        etat["modeles_agents"] = dict(reglages["modeles_agents"])
+    etat["profils"][cible] = courant
+    # le profil actif est laissé tel quel : seul `activer_profil` le change
+    etat = _ecrire(etat)
+    return appliquer_profil(etat)
+
+
+def creer_profil(nom: str, endpoint: str = "", cle: str = "", modele_chaine: str = "") -> dict:
+    """Crée un profil supplémentaire (sans l'activer) et renvoie l'état complet.
+
+    Le nom est validé et **un profil existant n'est jamais écrasé** : pour changer
+    les valeurs d'un profil, utiliser `enregistrer`. L'endpoint peut être vide
+    (config opencode du conteneur) pour un profil autre que « ollama ».
+    """
+    nom = str(nom).strip().lower()
+    if not nom_profil_valide(nom):
+        raise ValueError(
+            f"Nom de profil refusé : « {nom} » — minuscules, chiffres, tiret et "
+            "souligné uniquement, 32 caractères maximum, il doit commencer par une "
+            "lettre ou un chiffre."
+        )
+    etat = charger()
+    if nom in etat["profils"]:
+        raise ValueError(
+            f"Profil « {nom} » déjà présent : modifiez-le au lieu de le recréer."
+        )
+    etat["profils"][nom] = {"endpoint": endpoint, "cle": cle, "modele_chaine": modele_chaine}
+    # on valide l'ensemble : un profil « ollama » sans endpoint serait refusé
+    return appliquer_profil(_ecrire(etat), etat["profil_actif"])
+
+
+def activer_profil(nom: str) -> dict:
+    """Bascule le profil actif et renvoie l'état complet (miroir recalculé)."""
+    nom = str(nom).strip()
+    etat = charger()
+    if not nom_profil_valide(nom):
+        raise ValueError(f"Nom de profil refusé : « {nom} ».")
+    if nom not in etat["profils"]:
+        raise ValueError(
+            f"Profil « {nom} » introuvable (profils présents : "
+            f"{', '.join(sorted(etat['profils']))})."
+        )
+    etat["profil_actif"] = nom
+    return appliquer_profil(_ecrire(etat), nom)
+
+
+def supprimer_profil(nom: str) -> dict:
+    """Supprime un profil (jamais le dernier) et renvoie l'état complet.
+
+    Si le profil supprimé était actif, le premier profil restant devient actif :
+    l'application ne se retrouve jamais sans profil sélectionné.
+    """
+    nom = str(nom).strip()
+    etat = charger()
+    if nom not in etat["profils"]:
+        raise ValueError(f"Profil « {nom} » introuvable.")
+    if len(etat["profils"]) <= 1:
+        raise ValueError(
+            "Impossible de supprimer le dernier profil : créez-en un autre d'abord."
+        )
+    etat["profils"].pop(nom)
+    if etat["profil_actif"] == nom:
+        etat["profil_actif"] = sorted(etat["profils"])[0]
+    return appliquer_profil(_ecrire(etat), etat["profil_actif"])
+
+
+def nom_profils(etat: dict | None = None) -> list[str]:
+    """Noms des profils connus, triés (le profil actif en premier)."""
+    etat = etat if etat is not None else charger()
+    noms = sorted(etat.get("profils") or {})
+    actif = etat.get("profil_actif")
+    if actif in noms:
+        noms.remove(actif)
+        noms.insert(0, actif)
+    return noms
+
+
+def libelle_profil(nom: str, etat: dict | None = None) -> str:
+    """Libellé lisible d'un profil : ce qu'il faut savoir en une ligne.
+
+    - profil sans endpoint → « configuration opencode du conteneur » ;
+    - sinon « Ollama <endpoint> » (jamais la clé, qui n'est pas affichée).
+    """
+    etat = etat if etat is not None else charger()
+    contenu = (etat.get("profils") or {}).get(nom) or {}
+    endpoint = str(contenu.get("endpoint") or "").strip()
+    if not endpoint:
+        return "opencode (config du conteneur)"
+    return f"Ollama · {endpoint}"
 
 
 def masquer(cle: str) -> str:
