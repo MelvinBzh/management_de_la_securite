@@ -461,6 +461,28 @@ def collecter_fichiers_uploads(chemins) -> tuple[list[str], list[str]]:
     return sorted(fichiers), sorted(ignores)
 
 
+def jour_depuis_dossier(dossier) -> date:
+    """Date de création d'un dossier d'analyse (`analyses/AAAA-MM-JJ_<cas>/`).
+
+    Indispensable pour **reprendre une étude en cours** : sans elle, un dépôt
+    d'intrants sur un cas existant partirait dans un nouveau dossier daté du jour
+    (doublon). Un nom de dossier sans date exploitable est **refusé** (fail
+    closed) : mieux vaut un message explicite qu'un dépôt dispersé.
+
+    >>> jour_depuis_dossier("2026-10-04_mon-cas")
+    datetime.date(2026, 10, 4)
+    """
+    nom = dossier.name if isinstance(dossier, Path) else str(dossier)
+    prefixe = nom.split("_", 1)[0]
+    try:
+        return date.fromisoformat(prefixe)
+    except ValueError as exc:
+        raise ValueError(
+            f"Dossier d'analyse sans date exploitable : « {nom} » "
+            "(format attendu AAAA-MM-JJ_cas)."
+        ) from exc
+
+
 def ingérer_en_lot(
     chemins, nom_cas: str, jour: date | None = None
 ) -> tuple[list[tuple[Path, Path]], list[str]]:
@@ -554,4 +576,5 @@ __all__ = [
     "meta_en_json",
     "collecter_fichiers_uploads",
     "ingérer_en_lot",
+    "jour_depuis_dossier",
 ]

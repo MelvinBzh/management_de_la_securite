@@ -31,6 +31,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from datetime import date
 from pathlib import Path
 
 import streamlit as st
@@ -372,16 +373,38 @@ if page == PAGES[0]:
     st.subheader("Ingérer en un clic (fichiers + dossiers)")
     st.caption(
         "Les deux listes sont traitées ensemble : un seul clic ingère tout, puis "
-        "dépose les intrants dans `analyses/<date>_<cas>/intrants/`. Un fichier "
-        "illisible est signalé, jamais bloquant pour les autres."
+        "dépose les intrants dans le cas choisi. Un fichier illisible est signalé, "
+        "jamais bloquant pour les autres."
     )
-    nom_cas_lot = st.text_input(
-        "Nom du cas",
-        placeholder="ex. boutique-en-ligne",
-        key="nom_cas_lot",
-        help="Minuscules, chiffres et tirets — le nom est assaini puis refusé (fail "
-        "closed) s'il contient un séparateur de chemin ou un marqueur d'instruction.",
+    # Cible du dépôt : une étude EN COURS (dossier déjà existant) ou un nouveau cas.
+    # Les dossiers existants sont proposés en premier : un analyste reprend son
+    # analyse du jour ou de la semaine précédente sans créer de doublon.
+    NOUVEAU_CAS = "(nouveau cas)"
+    dossiers_existants = [dossier.name for dossier in lib.lister_analyses()]
+    cible = st.selectbox(
+        "Déposer dans",
+        options=[NOUVEAU_CAS] + dossiers_existants,
+        format_func=lambda nom: (
+            "(+) Nouveau cas d'analyse" if nom == NOUVEAU_CAS
+            else f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} — {nom}"
+        ),
+        key="cible_depot",
+        help="Choisissez une étude en cours pour y ajouter des documents, ou un nouveau cas.",
     )
+    jour_lot: date | None = None  # None = cas créé aujourd'hui ; sinon, date d'origine
+    if cible == NOUVEAU_CAS:
+        nom_cas_lot = st.text_input(
+            "Nom du cas",
+            placeholder="ex. boutique-en-ligne",
+            key="nom_cas_lot",
+            help="Minuscules, chiffres et tirets — le nom est assaini puis refusé (fail "
+            "closed) s'il contient un séparateur de chemin ou un marqueur d'instruction.",
+        )
+        dossier_cible = lib.dossier_cas(nom_cas_lot).name if nom_cas_lot.strip() else ""
+    else:
+        nom_cas_lot = lib.cas_depuis_dossier(cible)
+        dossier_cible = cible
+        st.caption(f"Documents ajoutés à l'étude en cours : `analyses/{cible}/intrants/`")
     if st.button(
         "Ingérer en un clic (fichiers + dossiers)",
         type="primary",
@@ -392,7 +415,9 @@ if page == PAGES[0]:
             chemins = chemins_de_televersement(recus, Path(tmp))
             with st.spinner("Ingestion du lot en cours…"):
                 try:
-                    copies, messages = lib.ingérer_en_lot(chemins, nom_cas_lot)
+                    if cible != NOUVEAU_CAS:
+                        jour_lot = lib.jour_depuis_dossier(cible)
+                    copies, messages = lib.ingérer_en_lot(chemins, nom_cas_lot, jour_lot)
                 except ValueError as exc:
                     copies, messages = [], []
                     st.error(f"Dépôt refusé : {exc}")
@@ -406,7 +431,7 @@ if page == PAGES[0]:
         if copies:
             st.success(
                 f"{len(copies)} fichier(s) copié(s) dans "
-                f"`analyses/{lib.dossier_cas(nom_cas_lot).name}/intrants/` "
+                f"`analyses/{dossier_cible}/intrants/` "
                 "(un `.md` + un `.meta.json` par intrant)."
             )
 

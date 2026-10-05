@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-13).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-14).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -636,12 +636,61 @@ def test_web_13():
     )
 
 
+# --------------------------------------------------------------------------- WEB-14
+def test_web_14():
+    """WEB-14 : reprendre une étude EN COURS (pas de doublon daté du jour)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        # a) `jour_depuis_dossier` : date d'origine d'un dossier d'analyse.
+        assert lib.jour_depuis_dossier("2026-10-04_mon-cas") == date(2026, 10, 4), \
+            "date d'un dossier mal extraite"
+        assert lib.jour_depuis_dossier(Path("/tmp/2026-01-02_pme")) == date(2026, 1, 2), \
+            "date d'un chemin mal extraite"
+        # fail closed : un dossier sans date exploitable est refusé, pas deviné.
+        try:
+            lib.jour_depuis_dossier("mon-cas")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("dossier sans date accepté")
+
+        # b) dépôt dans une étude existante : les intrants vont dans CE dossier,
+        #    pas dans un nouveau dossier daté du jour (pas de doublon).
+        analyses = Path(tmp) / "analyses"
+        existant = analyses / "2026-10-04_mon-cas" / lib.DOSSIER_INTRANTS
+        existant.mkdir(parents=True)
+        (existant / "deja-la.md").write_text("intr ant préexistant\n", encoding="utf-8")
+        lot = Path(tmp) / "lot2"
+        lot.mkdir()
+        (lot / "nouveau.txt").write_text("Documentation complementaire.\n", encoding="utf-8")
+        with mock.patch.object(lib, "DOSSIER_ANALYSES", analyses):
+            jour = lib.jour_depuis_dossier(existant.parent.name)
+            copies, messages = lib.ingérer_en_lot([lot / "nouveau.txt"], "mon-cas", jour)
+
+        assert [Path(dst).name for _, dst in copies] == [
+            "nouveau.txt.md", "nouveau.txt.meta.json",
+        ], f"copies inattendues : {copies}"
+        assert all(Path(dst).parent == existant for _, dst in copies), \
+            f"dépôt hors du dossier d'origine : {copies}"
+        # l'intrant préexistant n'a pas été écrasé (jamais d'écrasement)
+        assert (existant / "deja-la.md").read_text(encoding="utf-8").startswith("intr ant"), \
+            "un intrant préexistant a été écrasé"
+        assert len([ligne for ligne in messages if " : ignoré (" not in ligne]) == 1, \
+            f"ingestion inattendue : {messages}"
+        # et surtout : aucun dossier daté du jour n'a été créé
+        assert sorted(p.name for p in analyses.iterdir()) == ["2026-10-04_mon-cas"], \
+            f"doublon créé : {[p.name for p in analyses.iterdir()]}"
+    passer(
+        "WEB-14",
+        "dépôt dans une étude en cours (pas de doublon daté) · date refusée si absente",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
-        test_web_12, test_web_13,
+        test_web_12, test_web_13, test_web_14,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()
