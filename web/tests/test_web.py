@@ -44,6 +44,7 @@ vérifiée.
 from __future__ import annotations
 
 import json
+import os
 import re
 import socket
 import subprocess
@@ -1112,7 +1113,7 @@ def test_web_19():
     """
     with tempfile.TemporaryDirectory() as tmp:
         racine = Path(tmp) / "analyses"
-        cas = racine / "2026-10-05_mon-cas"
+        cas = racine / "2026-10-06_mon-cas"
         (cas / lib.DOSSIER_INTRANTS).mkdir(parents=True)
         (cas / lib.DOSSIER_INTRANTS / "Nordval.md").write_text("contenu", encoding="utf-8")
         (cas / lib.DOSSIER_INTRANTS / "Autre.md").write_text("contenu", encoding="utf-8")
@@ -1974,6 +1975,83 @@ def test_web_28():
     )
 
 
+def test_web_29():
+    """WEB-29 : une chaîne déjà lancée doit survivre au rechargement de la page.
+
+    Constaté en pilotant le site : le processus est détaché (`start_new_session`),
+    il survit à la fermeture de l'onglet — mais l'interface, elle, ne retentait
+    que de `st.session_state`. Un rechargement faisait disparaître l'analyse en
+    cours, le journal devenait inaccessible et le bouton « Lancer la chaîne »
+    revenait disponible : l'analyste pouvait repartir en double sur le même cas.
+
+    L'état est donc écrit sur disque, et surtout **le pid est vérifié** : un pid
+    recyclé par un autre programme ne doit ni faire croire à une chaîne en cours,
+    ni se faire arrêter à sa place par le bouton « Arrêter ».
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        cas = Path(tmp) / "cas-web-29"
+        (cas / "intrants").mkdir(parents=True)
+
+        # --- a) aller-retour de l'état
+        journal = cas / "intrants" / "chaine-2026-01-01-00-00-00.log"
+        journal.write_text("> orchestrator · big-pickle\n", encoding="utf-8")
+        infos = {
+            "pid": os.getpid(),  # vivant : c'est ce test
+            "fichier_log": str(journal),
+            "dossier": str(cas),
+            "commande": "opencode run --agent orchestrator",
+            "modele": "opencode/big-pickle",
+        }
+        chemin = run_agent.enregistrer_etat(cas, infos)
+        assert chemin.name == run_agent.NOM_ETAT, chemin
+        assert chemin.parent.name == "intrants", \
+            f"l'état doit rester dans intrants/ (dossier gitignoré) : {chemin}"
+        relu = run_agent.lire_etat(cas)
+        assert relu is not None, "l'état écrit doit se relire"
+        assert relu["pid"] == infos["pid"] and relu["modele"] == "opencode/big-pickle", relu
+        assert relu["fichier_log"] == str(journal), relu
+        assert "lance_le" in relu, f"horodatage manquant : {relu}"
+
+        # --- b) le pid est vérifié, jamais cru sur parole
+        # Ce test est un `python3`, pas opencode : il ne doit PAS passer pour une
+        # chaîne en cours (c'est ce qui protège d'un pid recyclé).
+        assert not run_agent.est_vivant_pid(os.getpid()), \
+            "un processus qui n'est pas opencode ne doit jamais validated« en cours »"
+        assert not run_agent.est_vivant_pid(999_999), "pid inexistant = chaîne morte"
+        assert not run_agent.est_vivant_lancer({"pid": 999_999}), "état mort = pas de chaîne"
+        assert not run_agent.est_vivant_lancer({}), "état vide = pas d'exception, pas de chaîne"
+
+        # --- c) un vrai faux se fait arrêter par pid (sans jamais toucher au test)
+        faux = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        try:
+            assert faux.poll() is None, "le faux processus doit vivre au début"
+            assert not run_agent.est_vivant_pid(faux.pid), \
+                "un `python3 -c` n'est pas opencode : pas de faux positif"
+        finally:
+            faux.terminate()
+            faux.wait(timeout=10)
+        assert faux.poll() is not None
+
+        # --- d) `terminer_lancer` tolère les deux formes d'information
+        run_agent.terminer_lancer({"pid": 999_999})   # déjà mort : aucun signal
+        run_agent.terminer_lancer({})                  # sans pid : aucun signal
+        run_agent.terminer_lancer({"proc": faux})      # Popen : chemin historique
+
+        # --- e) un état corrompu ne bloque pas l'interface (fail soft)
+        for contenu in ("{ ceci n'est pas du json", "[]", '{"pid": "abc"}', '{"pid": 1}'):
+            chemin.write_text(contenu, encoding="utf-8")
+            assert run_agent.lire_etat(cas) is None, f"état illisible accepté : {contenu}"
+        run_agent.oublier_etat(cas)
+        assert run_agent.lire_etat(cas) is None, "l'état doit disparaître après arrêt"
+        run_agent.oublier_etat(cas)  # idempotent : ne lève pas
+
+    passer(
+        "WEB-29",
+        "chaîne survives au rechargement : état écrit sur disque · pid vérifié "
+        "(jamais cru, jamais arrêté à la place d'un autre) · état corrompu = fail soft",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
@@ -1981,7 +2059,7 @@ def executer_tests() -> int:
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
         test_web_18, test_web_19, test_web_20, test_web_21, test_web_22, test_web_23,
-        test_web_24, test_web_25, test_web_26, test_web_27, test_web_28,
+        test_web_24, test_web_25, test_web_26, test_web_27, test_web_28, test_web_29,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

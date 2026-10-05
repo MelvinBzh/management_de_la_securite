@@ -40,11 +40,14 @@ Paramètres ajoutés pour la page « Réglages modèles » (`web/reglages.py`) :
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -267,11 +270,158 @@ def etape_terminees(dossier: Path) -> int:
     return sum(1 for entree in lib.avancement_chaine(dossier) if entree["terminee"])
 
 
+# ------------------------------------------------- état de chaîne réutilisable
+# Le processus est détaché (`start_new_session`) : il survit à la fermeture de
+# l'onglet. Sans état sur disque, un simple rechargement de la page faisait
+# perdre la chaîne à l'interface — le bouton « Lancer » revenait disponible et
+# l'analyste pouvait repartir en double sur le même dossier. L'état est écrit
+# dans `analyses/<cas>/intrants/` (gitignoré, comme le journal).
+NOM_ETAT = "chaine-etat.json"
+PROC_OUTIL = "opencode"
+
+
+def _fichier_etat(dossier: Path) -> Path:
+    """Chemin du fichier d'état d'un cas (`intrants/chaine-etat.json`)."""
+    return Path(dossier) / lib.DOSSIER_INTRANTS / NOM_ETAT
+
+
+def enregistrer_etat(dossier: Path, infos: dict) -> Path:
+    """Écrit l'état de la chaîne (pid, journal, dossier) et renvoie son chemin.
+
+    `infos` vient de `lancer()`. Le `Popen` n'est **pas** sérialisé : il vit
+    dans la session Streamlit, seul son pid est écrit, ce qui permet de
+    retrouver la chaîne après un rechargement.
+    """
+    chemin = _fichier_etat(dossier)
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    etat = {
+        "pid": int(infos["pid"]),
+        "fichier_log": str(infos["fichier_log"]),
+        "dossier": str(infos["dossier"]),
+        "commande": infos.get("commande", ""),
+        "modele": infos.get("modele", ""),
+        "lance_le": datetime.now().isoformat(timespec="seconds"),
+    }
+    # Écriture atomique : un fichier à moitié écrit ferait perdre la chaîne.
+    temporaire = chemin.with_suffix(".tmp")
+    temporaire.write_text(json.dumps(etat, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporaire.replace(chemin)
+    return chemin
+
+
+def lire_etat(dossier: Path) -> dict | None:
+    """État de la dernière chaîne lancée sur ce cas, ou `None`.
+
+    Un fichier illisible ou incomplet ne lève pas : l'interface retombe
+    simplement sur l'écran de lancement (fail soft, pas d'écran bloqué).
+    """
+    chemin = _fichier_etat(dossier)
+    try:
+        etat = json.loads(chemin.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(etat, dict):
+        return None
+    try:
+        etat["pid"] = int(etat["pid"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not etat.get("fichier_log"):
+        return None
+    return etat
+
+
+def oublier_etat(dossier: Path) -> None:
+    """Supprime l'état du cas (après un arrêt demandé)."""
+    _fichier_etat(dossier).unlink(missing_ok=True)
+
+
+def _ligne_commande(pid: int) -> str:
+    """Ligne de commande du processus `pid`, ou chaîne vide s'il n'existe plus."""
+    try:
+        octets_bruts = Path(f"/proc/{int(pid)}/cmdline").read_bytes()
+    except (OSError, ValueError):
+        return ""
+    return octets_bruts.replace(b"\0", b" ").decode("utf-8", errors="replace")
+
+
+def est_vivant_pid(pid: int) -> bool:
+    """Vrai si `pid` désigne encore un processus opencode.
+
+    Le nom de l'outil est vérifié : un pid recyclé par un autre programme ne
+    doit jamais faire croire à une chaîne en cours, ni pire, être arrêté à sa
+    place par le bouton « Arrêter ».
+    """
+    return PROC_OUTIL in _ligne_commande(pid)
+
+
+def est_vivant_lancer(infos: dict) -> bool:
+    """La chaîne tourne-t-elle encore ? Gère les deux formes de `infos`.
+
+    - `lancer()` renvoie un `Popen` vivant : on l'interroge directement ;
+    - un état relu du disque n'a qu'un pid : on regarde `/proc`.
+    """
+    proc = infos.get("proc")
+    if proc is not None:
+        return est_vivant(proc)
+    try:
+        return est_vivant_pid(infos["pid"])
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _attendre_fin(pid: int, secondes: float) -> bool:
+    """Vrai si le processus s'est arrêté dans le délai imparti."""
+    limite = time.monotonic() + secondes
+    while time.monotonic() < limite:
+        if not est_vivant_pid(pid):
+            return True
+        time.sleep(0.2)
+    return not est_vivant_pid(pid)
+
+
+def terminer_pid(pid: int) -> None:
+    """Arrête la chaîne identifiée par son seul pid : `SIGTERM` puis `SIGKILL`.
+
+    Même chemin que `terminer(proc)`, pour une chaîne retrouvée après un
+    rechargement de page. Le pid est revérifié avant chaque signal.
+    """
+    if not est_vivant_pid(pid):
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return
+    if _attendre_fin(pid, DELAI_ARRET):
+        return
+    if not est_vivant_pid(pid):
+        return
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except OSError:
+        return
+    _attendre_fin(pid, DELAI_ARRET)
+
+
+def terminer_lancer(infos: dict) -> None:
+    """Arrête la chaîne, que l'information vienne du `Popen` ou du disque."""
+    proc = infos.get("proc")
+    if proc is not None:
+        terminer(proc)
+        return
+    try:
+        terminer_pid(infos["pid"])
+    except (KeyError, TypeError, ValueError):
+        pass
+
+
 __all__ = [
     "RACINE",
     "DELAI_ARRET",
     "LIGNES_JOURNAL",
     "NOM_CONFIG_RUNTIME",
+    "NOM_ETAT",
+    "PROC_OUTIL",
     "ChaineError",
     "opencode_cli",
     "lancer",
@@ -280,6 +430,13 @@ __all__ = [
     "terminer",
     "lire_log",
     "etape_terminees",
+    "enregistrer_etat",
+    "lire_etat",
+    "oublier_etat",
+    "est_vivant_pid",
+    "est_vivant_lancer",
+    "terminer_pid",
+    "terminer_lancer",
 ]
 
 

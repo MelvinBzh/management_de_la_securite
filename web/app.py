@@ -826,6 +826,17 @@ elif page == PAGES[3]:
         st.stop()
     run = st.session_state.get("run_chaine")
     if not run:
+        # La chaîne est détachée : elle survit à un rechargement de page. Sans cela,
+        # l'interface oubliait l'analyse en cours et proposait de la relancer en double.
+        run_adoptee = run_agent.lire_etat(lib.DOSSIER_ANALYSES / cible)
+        if run_adoptee and run_agent.est_vivant_lancer(run_adoptee):
+            run = run_adoptee
+            st.session_state["run_chaine"] = run
+            st.info(
+                f"Analyse retrouvée après rechargement de la page — PID {run['pid']}. "
+                "La chaîne avait continué de tourner : suivez-la ici."
+            )
+    if not run:
         if st.button("▶ Lancer la chaîne maintenant", type="primary", key="lancer_chaine"):
             # Réglages modèles : la décision de lancement est prise ici, pas par
             # l'analyste. `decider_lancement` sonde le serveur Ollama, réaligne les
@@ -855,12 +866,16 @@ elif page == PAGES[3]:
             if not decision["config"].get("ecrit") and decision["config"].get("raison"):
                 st.warning(f"Endpoint opencode : {decision['config']['raison']}")
             try:
-                st.session_state["run_chaine"] = run_agent.lancer(
+                lancement = run_agent.lancer(
                     cas,
                     dossier=lib.DOSSIER_ANALYSES / cible,
                     modele=decision["modele"] or None,
                     env=env,
                 )
+                # L'état part sur disque : la chaîne reste pilotable même si l'onglet
+                # est rechargé ou refermé (le processus, lui, est détaché).
+                run_agent.enregistrer_etat(Path(lancement["dossier"]), lancement)
+                st.session_state["run_chaine"] = lancement
             except run_agent.ChaineError as exc:
                 st.error(str(exc))
             except ValueError as exc:
@@ -868,8 +883,9 @@ elif page == PAGES[3]:
             else:
                 st.rerun()
     else:
-        # Le processus est réutilisé tel quel : il vit en mémoire (jamais re-sérialisé).
-        proc = run["proc"]
+        # Le processus n'existe que s'il vient d'être lancé dans CET onglet ; après un
+        # rechargement, seule l'information disque est disponible et l'état est lu via
+        # son pid. Les deux formes sont pilotées par les mêmes fonctions.
         etapes = lib.avancement_chaine(Path(run["dossier"]))
         terminees = sum(1 for entree in etapes if entree["terminee"])
         st.progress(terminees / max(1, len(etapes)))
@@ -899,7 +915,7 @@ elif page == PAGES[3]:
                     + (f" · {decision['config']['raison']}"
                        if decision.get("config", {}).get("ecrit") else "")
                 )
-        if run_agent.est_vivant(proc):
+        if run_agent.est_vivant_lancer(run):
             st.info(f"Analyse en cours… PID {run['pid']}")
         else:
             st.success(
@@ -922,12 +938,13 @@ elif page == PAGES[3]:
         if col_actualiser.button("Actualiser", key="maj_chaine", use_container_width=True):
             st.rerun()
         if col_arreter.button("Arrêter", key="arret_chaine", use_container_width=True):
-            run_agent.terminer(proc)
+            run_agent.terminer_lancer(run)
+            run_agent.oublier_etat(Path(run["dossier"]))
             del st.session_state["run_chaine"]
             st.rerun()
         # Rafraîchissement automatique : exécuté en dernier pour que le journal et les
         # boutons (Arrêter/Actualiser) restent affichés pendant l'analyse.
-        if run_agent.est_vivant(proc):
+        if run_agent.est_vivant_lancer(run):
             time.sleep(1.2)
             st.rerun()
 
