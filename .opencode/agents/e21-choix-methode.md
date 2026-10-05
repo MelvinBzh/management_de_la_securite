@@ -1,7 +1,7 @@
 ---
 description: Étape 2 E21 — expert des méthodes de menaces. Connaît EBIOS RM, STRIDE, LINDDUN, PASTA, MITRE ATT&CK, DREAD, CVSS et arbres d'attaque, les compare et choisit la grille adaptée au cas avec justification. Produit 02-methodes.md.
 mode: subagent
-model: opencode/big-pickle
+model: ollama/llama3.1:8b
 permission:
   read: allow
   glob: allow

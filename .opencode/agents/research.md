@@ -1,7 +1,7 @@
 ---
 description: Agent de recherche E21 — veille et documentation d'abord dans la codebase/knowledge_base, sinon recherche web. Sources citées, compare et recommande.
 mode: subagent
-model: opencode/big-pickle
+model: ollama/llama3.1:8b
 permission:
   read: allow
   glob: allow

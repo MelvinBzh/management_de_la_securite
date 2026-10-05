@@ -1,7 +1,7 @@
 ---
 description: Agent GitHub E21 — board Kanban (issues, colonnes Status), PRs, résumés. Support obligatoire de l'orchestrateur E21.
 mode: subagent
-model: opencode/big-pickle
+model: ollama/llama3.1:8b
 permission:
   read: allow
   glob: allow

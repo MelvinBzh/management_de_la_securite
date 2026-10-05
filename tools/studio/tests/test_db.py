@@ -499,7 +499,27 @@ def test_studio_07():
             assert f"model: {modeles_agents.MODELE_OPENCODE}" in texte, \
                 f"retour opencode incomplet pour {nom}"
 
-        # g) un agent sans ligne `model:` n'est pas réécrit (on ne fabrique rien)
+        # g) liste de modèles installés : on ne retient que ce qui existe, sinon
+        #    l'agent pointerait un modèle absent (Ollama le téléchargerait d'abord)
+        modeles_agents.appliquer_profil("ollama", chemin_db=chemin, dossier_agents=agents)
+        avant_prefere = (agents / "e21-test.md").read_text(encoding="utf-8")
+        assert f"model: {attendu}" in avant_prefere, \
+            f"prérequis du test (g) non satisfait : {avant_prefere.splitlines()[:4]}"
+        bilan_prefere = modeles_agents.appliquer_profil(
+            "ollama", chemin_db=chemin, dossier_agents=agents,
+            modeles_disponibles=("mistral:7b",),
+        )
+        contenu_prefere = (agents / "e21-test.md").read_text(encoding="utf-8")
+        assert "model: ollama/mistral:7b" in contenu_prefere, \
+            f"un modèle installé doit être préféré : {contenu_prefere.splitlines()[:4]}"
+        changes = {e["agent"]: e["modele"] for e in bilan_prefere["modifies"]}
+        assert changes == {"e21-test": "ollama/mistral:7b", "e21-hors-base": "ollama/mistral:7b"}, \
+            f"les deux agents sans recommandation doivent suivre la liste : {changes}"
+        assert "model: ollama/mistral:7b" in (agents / "e21-hors-base.md").read_text(
+            encoding="utf-8"
+        ), "l'agent présent sur disque seul doit suivre lui aussi"
+
+        # h) un agent sans ligne `model:` n'est pas réécrit (on ne fabrique rien)
         sans_modele = racine / "agents2"
         sans_modele.mkdir()
         nu = "---\ndescription: pas de modele\n---\n\nTexte.\n"
@@ -515,7 +535,7 @@ def test_studio_07():
     passer(
         "STUDIO-07",
         f"agents-modele : 2 magasins alignes · idempotent · simulation sans effet · "
-        "retour opencode · agent sans modele intact",
+        "retour opencode · modèles installés privilégiés · agent sans modele intact",
     )
 
 

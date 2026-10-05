@@ -1,7 +1,7 @@
 ---
 description: Synthèse finale E21 — reprend tous les documents d'analyse, résume les risques clés, les décisions, recommande les actions prioritaires en expliquant POURQUOI. Produit SYNTHESE.md.
 mode: subagent
-model: opencode/big-pickle
+model: ollama/mistral:7b
 permission:
   read: allow
   glob: allow

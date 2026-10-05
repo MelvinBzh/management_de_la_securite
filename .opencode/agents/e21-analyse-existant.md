@@ -1,7 +1,7 @@
 ---
 description: Étape 1 E21 — analyse l'existant du système à étudier : description, architecture/DFD, frontières de confiance, puis inventaire des actifs et de leur valeur. Produit 00-description.md et 01-actifs.md.
 mode: subagent
-model: opencode/big-pickle
+model: ollama/llama3.1:8b
 permission:
   read: allow
   glob: allow

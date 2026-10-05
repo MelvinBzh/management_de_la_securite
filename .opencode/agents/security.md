@@ -1,7 +1,7 @@
 ---
 description: Agent de sécurité — audit, dépendances, vulnérabilités (read-only)
 mode: subagent
-model: opencode/big-pickle
+model: ollama/llama3.1:8b
 permission:
   read: allow
   glob: allow
