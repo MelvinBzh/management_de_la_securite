@@ -680,10 +680,44 @@ def test_studio_09():
             "les agents du dépôt ne doivent contenir aucune clé YAML « * » nue — "
             f"opencode les écarterait tous : {fautives}"
         )
+
+        # Même clé de lariat, second piège indépendant : opencode lit
+        # `permission.edit` comme `{motif: décision}`. Le dépôt livrait l'inverse
+        # (`deny: "**"`), ce qu'il refuse aussi — l'agent est alors écarté sans que
+        # le fichier ait l'air faux.
+        def entete_inversee() -> str:
+            return (
+                "---\ndescription: agent de test\nmode: primary\n"
+                "permission:\n  read: allow\n  edit:\n"
+                '    deny: "**"\n    allow: "analyses/**"\n---\n\nCorps.\n'
+            )
+
+        def entete_droite() -> str:
+            return (
+                "---\ndescription: agent de test\nmode: primary\n"
+                "permission:\n  read: allow\n  edit:\n"
+                '    "**": deny\n    "analyses/**": allow\n---\n\nCorps.\n'
+            )
+
+        rapports = entetes.verifier_permission(entete_inversee())
+        assert len(rapports) == 2 and all("inversée" in r for r in rapports), \
+            f"le bloc edit inversé doit être signalé ligne à ligne : {rapports}"
+        assert entetes.verifier_permission(entete_droite()) == [], \
+            "motif en clé et décision en valeur : la forme attendue"
+        db.sauvegarder("agent", "e21-inv", entete_inversee(), chemin_db=chemin)
+        message = leverer(
+            lambda: db.deployer_vers_opencode(agents, skills, chemin_db=chemin),
+            ValueError,
+            "e21-inv",
+        )
+        assert "inversée" in message, \
+            f"le message doit nommer l'inversion : « {message} »"
+        db.supprimer("agent", "e21-inv", chemin_db=chemin)
     passer(
         "STUDIO-09",
-        "clé de permission « * » nue : déploiement refusé (clé nue = alias YAML) · "
-        "même permission protégée acceptée · dépôt livré sans aucune clé nue",
+        "permission opencode : « * » nue refusée (clé nue = alias YAML) · bloc "
+        "« edit » motif/décision inversé refusé · formes correctes acceptées · "
+        "dépôt livré conforme",
     )
 
 

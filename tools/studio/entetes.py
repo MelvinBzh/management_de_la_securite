@@ -99,6 +99,18 @@ def verifier_mode(contenu: str) -> str:
 # guillemets.
 RE_CLE_YAML_ETOILE = re.compile(r"^(\s+)\*:(?:\s|$)", re.M)
 
+# opencode 1.18.34 : `PermissionRuleConfig = Union(["ask"|"allow"|"deny",
+# Record(String, "ask"|"allow"|"deny")])`. Donc `permission.edit` est
+# `{motif: décision}` — le motif est la CLÉ, la décision la VALEUR. Le dépôt
+# livrait l'inverse (`deny: "**"`), ce qu'opencode refuse alors que le fichier
+# est bien lu : `Expected PermissionActionConfig, got "**" permission.edit.deny`.
+# Constaté sur les 7 agents de la chaîne, reproduit en isolement (dossier neuf) :
+# `"**": deny` est accepté, `deny: "**"` ne l'est pas.
+RE_PERMISSION_INVERSEE = re.compile(
+    r"^(\s+)(ask|allow|deny):(\s+)(?P<motif>[^\s#][^#]*?)\s*$", re.M
+)
+DECISIONS_PERMISSION = ("ask", "allow", "deny")
+
 
 def verifier_permission(contenu: str) -> list[str]:
     """Renvoie la liste des clés de permission que opencode refuserait.
@@ -111,6 +123,16 @@ def verifier_permission(contenu: str) -> list[str]:
         if RE_CLE_YAML_ETOILE.match(ligne):
             problemes.append(
                 f"ligne {numero} : clé « * » nue — écrivez-la entre guillemets ('*')"
+            )
+            continue
+        inverse = RE_PERMISSION_INVERSEE.match(ligne)
+        motif = inverse.group("motif") if inverse else ""
+        # `deny: "**"`, `allow: analyses/**` : décision en clé, motif en valeur.
+        if motif.startswith(("'", '"')) or motif.startswith("*") or "/" in motif:
+            problemes.append(
+                f"ligne {numero} : permission inversée "
+                f"({inverse.group(2)}: {motif}) — opencode attend le motif en clé "
+                f"et la décision en valeur (« {motif}: {inverse.group(2)} »)"
             )
     return problemes
 

@@ -9,8 +9,8 @@ permission:
   list: allow
   question: allow
   edit:
-    deny: "**"
-    allow: "analyses/**"
+    "**": deny
+    "analyses/**": allow
   bash:
     git status *: allow
     '*': deny
