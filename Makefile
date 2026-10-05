@@ -56,10 +56,6 @@ test-export:
 test-web:
 	$(PYTHON) web/tests/test_web.py
 
-## Tests autonomes du socle Studio (base SQLite locale des agents et skills).
-test-studio:
-	$(PYTHON) tools/studio/tests/test_db.py
-
 ## Tests autonomes de la méthode EBIOS RM (ateliers générés).
 test-methodes-ebios:
 	PYTHONPATH=$(CURDIR) $(PYTHON) tools/methodes/ebios/tests/test_ebios.py
