@@ -75,6 +75,7 @@ DELAI_SONDE = 2.0
 
 __all__ = [
     "MODELE_SECOURS",
+    "_modele_resolu",
     "decider_lancement",
     "RACINE",
     "DOSSIER_LOCAL",
@@ -174,11 +175,16 @@ def modele_valide(nom: str) -> bool:
 def normaliser_profils(valeurs: dict) -> dict:
     """Complète et Migre la table des profils, sans jamais l'élargir.
 
-    Trois cas traités :
+    Quatre cas traités :
     - fichier déjà profilé : `profils` + `profil_actif` sont conservés ;
     - **fichier plat** (version précédente) : les champs plats sont rangés dans un
       profil `ollama` si un endpoint est présent, sinon dans le profil `opencode`
       — l'analyste ne perd rien ;
+    - **profil `opencode` absent** : il est (re)créé. C'est le filet de sécurité —
+      endpoint vide, aucun secret, `MODELE_SECOURS` — celui vers lequel la chaîne
+      replie quand Ollama ne répond pas, et le seul moyen de ne **plus** dépendre
+      du GPU. Une migration depuis la version plate n'en créait qu'un : l'analyste
+      se retrouvait sans moyen de choisir le secours ;
     - nom de profil invalide ou profil actif inconnu : refus explicite plutôt
       qu'un repli silencieux sur un autre profil (mauvaise surprise à l'usage).
     """
@@ -197,6 +203,10 @@ def normaliser_profils(valeurs: dict) -> dict:
         valeurs.pop("profil_actif", None)
     if not isinstance(noms, dict) or not noms:
         raise ValueError("Réglages refusés : « profils » doit être un dictionnaire non vide.")
+    noms = dict(noms)
+    if PROFIL_OPENCODE not in noms:
+        # Filet de sécurité : créé sans rien demander, présent quoi qu'il arrive.
+        noms[PROFIL_OPENCODE] = {"endpoint": "", "cle": "", "modele_chaine": ""}
     propres: dict[str, dict] = {}
     for nom, contenu in noms.items():
         nom = str(nom)
@@ -571,6 +581,12 @@ def supprimer_profil(nom: str) -> dict:
     etat = charger()
     if nom not in etat["profils"]:
         raise ValueError(f"Profil « {nom} » introuvable.")
+    if nom == PROFIL_OPENCODE:
+        raise ValueError(
+            "Le profil « opencode » est le secours du système : il garantit une chaîne "
+            "sans GPU. Il ne peut pas être supprimé — il ne sert à rien de le configurer, "
+            "puisque la configuration opencode est déjà celle du conteneur."
+        )
     if len(etat["profils"]) <= 1:
         raise ValueError(
             "Impossible de supprimer le dernier profil : créez-en un autre d'abord."
@@ -743,6 +759,24 @@ def sonder(endpoint: str, delai: float = DELAI_SONDE) -> dict:
     return resultat
 
 # --------------------------------------------------------------- décision de lancement
+def _modele_resolu(modele: str, modeles_installes=()) -> str:
+    """Complète un tag Ollama nu avec le préfixe de fournisseur (`ollama/…`).
+
+    L'analyste saisit `llama3.1:8b` parce que c'est ce que la liste de son serveur
+    affiche ; or opencode ne résout un modèle de fournisseur que s'il est préfixé —
+    sans quoi il cherche un modèle de ce nom chez un autre fournisseur et échoue.
+    Le préfixe n'est ajouté que si le tag est **dans la liste renvoyée par le
+    serveur** : un identifiant d'un autre fournisseur (`big-pickle`,
+    `anthropic/…`) est laissé intact, et une faute de frappe reste visible.
+    """
+    modele = str(modele or "").strip()
+    if not modele or "/" in modele:
+        return modele
+    if modeles_installes and modele in set(modeles_installes):
+        return f"{PROFIL_OLLAMA}/{modele}"
+    return modele
+
+
 def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
     """Décide, au clic sur « Lancer la chaîne », quel modèle les agents vont utiliser.
 
@@ -757,6 +791,15 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
     4. renvoi du modèle à passer à opencode, du endpoint à lui fournir, et du
        motif lisible par l'analyste.
 
+    Point mesuré, pas supposé : sur opencode 1.18.32, `OPENCODE_CONFIG` **n'est pas
+    lu** et la configuration du projet (`opencode.jsonc`) garde toujours la main.
+    Un fournisseur absent de ce fichier ne provoque pas un repli propre mais une
+    erreur serveur (« Unexpected server error »), et un endpoint resté sur
+    `localhost` vise la machine qui héberge opencode, pas le PC GPU. C'est donc
+    `provider.ollama.options.baseURL` dans `opencode.jsonc` qui est aligné sur
+    l'endpoint réglé — puis remis à sa valeur livrée lors d'un repli, pour que le
+    dépôt ne reste pas modifié quand la chaîne tourne sans GPU.
+
     **Ollama ne répond pas** → repli automatique sur `opencode/big-pickle` pour toute
     la chaîne, fichiers d'agents compris, et `repli=True` : l'appelant affiche alors
     un avertissement. Le repli porte sur les **agents** et pas seulement sur la
@@ -766,7 +809,8 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
     **Profil `opencode` choisi à la main** → aucun repli n'est annoncé (`repli=False`) :
     ce n'est pas une panne, c'est un choix. Rien n'est sondé, rien ne bloque.
 
-    Renvoie `{"profil", "modele", "endpoint", "repli", "raison", "alignes"}`.
+    Renvoie `{"profil", "modele", "endpoint", "repli", "raison", "alignes", "config"}`
+    où `config` décrit l'écriture faite dans `opencode.jsonc`.
     `sonde` et `aligner` sont injectables pour être testables sans réseau ni écriture.
     """
     etat = appliquer_profil(dict(etat or {}))
@@ -776,6 +820,19 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
 
     if not callable(sonde):  # un appelant qui passerait None ne doit pas tout casser
         sonde = sonder
+    from web import run_agent  # import local : run_agent importe reglages (pas de cycle)
+
+    def _configurer(cible_endpoint: str) -> dict:
+        """Aligne `opencode.jsonc` sur l'endpoint réellement joignable."""
+        try:
+            return (
+                run_agent.ecrire_baseurl_ollama(cible_endpoint)
+                if cible_endpoint
+                else run_agent.restaurer_baseurl_ollama()
+            )
+        except OSError as exc:
+            return {"ecrit": False, "valeur": "",
+                    "raison": f"opencode.jsonc non modifiable : {exc}"}
     if aligner is None:
         from tools.studio import modeles_agents  # import tardif : web/ reste autonome
 
@@ -799,6 +856,12 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
     modeles_installes: tuple[str, ...] = ()
     repli = False
     raison = ""
+    if not wants_ollama:
+        # Le profil « opencode » n'a pas d'endpoint : sa configuration est celle
+        # déjà présente dans le conteneur. Un endpoint resté dans ce profil ne doit
+        # surtout pas déclencher une sonde — l'analyste a choisi de ne pas dépendre
+        # du GPU, et son choix n'est pas une panne à réparer.
+        endpoint = ""
     if not endpoint:
         repli = wants_ollama
         raison = (
@@ -822,12 +885,15 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
             )
             endpoint = ""
 
+    config = _configurer("")   # valeur livrée : le dépôt n'est modifié que si besoin
     if repli:
         # Panne ou réglage incomplet : on ne laisse aucun agent pointer Ollama.
         bilan = _aligner(PROFIL_OPENCODE)
-        modele = str(etat.get("modele_chaine") or "").strip() or MODELE_SECOURS
-        if not modele_valide(modele):
-            modele = MODELE_SECOURS
+        # `modele_chaine` appartient au profil qui vient d'échouer : le repasser
+        # enverrait opencode chercher un modèle sur un serveur injoignable — c'est-à-dire
+        # exactement la panne qu'on cherche à contourner. Le repli est donc toujours
+        # le même, sans condition : MODELE_SECOURS.
+        modele = MODELE_SECOURS
     elif wants_ollama:
         bilan = _aligner(PROFIL_OLLAMA, modeles_disponibles=modeles_installes)
         # Modèle imposé de la ligne de commande : celui des réglages s'il est valide,
@@ -835,7 +901,8 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
         # On ne l'écrit que si `_aligner` n'a pas déclenché de repli : sinon son
         # modèle de secours serait écrasé par une valeur vide.
         if not repli:
-            modele = str(etat.get("modele_chaine") or "").strip()
+            config = _configurer(endpoint)
+            modele = _modele_resolu(etat.get("modele_chaine"), modeles_installes)
             if not modele_valide(modele):
                 modele = ""
     else:
@@ -851,4 +918,5 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
         "repli": repli,
         "raison": raison,
         "alignes": len(bilan.get("modifies") or []),
+        "config": config,
     }

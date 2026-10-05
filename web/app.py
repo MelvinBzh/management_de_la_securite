@@ -834,21 +834,12 @@ elif page == PAGES[3]:
                     "alignes": 0,
                 }
             st.session_state["decision_lancement"] = decision
+            # Aucun `OPENCODE_CONFIG` n'est transmis : mesuré, opencode 1.18.32 ne le
+            # lit pas, et la chaîne échoue alors sur une erreur serveur sans nom.
+            # C'est `opencode.jsonc`, écrit par la décision, qui porte l'endpoint.
             env = None
-            if decision["endpoint"]:
-                # Configuration opencode d'exécution (endpoint réglé par l'analyste).
-                # Si le fichier n'existe pas encore, on lance sans `OPENCODE_CONFIG` :
-                # opencode lit alors son propre `opencode.jsonc` — rien n'est cassé
-                # s'il ignore la variable.
-                try:
-                    chemin_config = run_agent.fichier_config_opencode(
-                        reglages.appliquer_profil(dict(reglages_courants))
-                    )
-                except ValueError as exc:
-                    st.warning(f"Configuration opencode non écrite : {exc}")
-                    chemin_config = None
-                if chemin_config is not None and Path(chemin_config).is_file():
-                    env = {"OPENCODE_CONFIG": str(chemin_config)}
+            if not decision["config"].get("ecrit") and decision["config"].get("raison"):
+                st.warning(f"Endpoint opencode : {decision['config']['raison']}")
             try:
                 st.session_state["run_chaine"] = run_agent.lancer(
                     cas,
@@ -891,6 +882,8 @@ elif page == PAGES[3]:
                     + (f" — {decision['raison']}" if decision.get("raison") else "")
                     + (f" · {decision['alignes']} agent(s) aligné(s)"
                        if decision.get("alignes") else "")
+                    + (f" · {decision['config']['raison']}"
+                       if decision.get("config", {}).get("ecrit") else "")
                 )
         if run_agent.est_vivant(proc):
             st.info(f"Analyse en cours… PID {run['pid']}")
@@ -1227,7 +1220,12 @@ elif page == PAGES[5]:
                 st.success(f"Profil « {nouveau_nom} » créé : complétez son endpoint.")
                 st.rerun()
         if noms and st.button("Supprimer le profil actif", key="regl_suppr_profil"):
-            if len(noms) <= 1:
+            if profil_choisi == reglages.PROFIL_OPENCODE:
+                st.error(
+                    "Le profil « opencode » est le secours du système (il garantit une "
+                    "chaîne sans GPU) : il ne peut pas être supprimé."
+                )
+            elif len(noms) <= 1:
                 st.error("Impossible de supprimer le dernier profil.")
             else:
                 try:
@@ -1397,17 +1395,17 @@ elif page == PAGES[5]:
     st.divider()
     st.subheader("Modèle configuré par agent (lecture seule)")
     st.caption(
-        "Lecture seule : ces valeurs viennent des agents du Studio "
-        "(`stockage_local/e21.sqlite3` puis `.opencode/agents/`). **L'édition reste "
-        "dans le Studio E21** — onglet suivant : ouvrir un agent, remplacer dans son "
-        "en-tête `model: qwen2.5:7b` par `model: big-pickle`, puis "
-        "`make studio-deploy` (le Studio est la source de vérité, `.opencode/` sa copie)."
+        "Ces valeurs viennent des agents du Studio (`stockage_local/e21.sqlite3` puis "
+        "`.opencode/agents/`). **Rien à éditer ici, et rien à éditer dans les agents** : "
+        "c'est le bouton « ▶ Lancer la chaîne » qui réécrit la ligne `model:` de tous les "
+        "agents selon le profil actif et la réponse du serveur — dans les deux endroits "
+        "où elle existe (base Studio **et** `.opencode/agents/`), donc un Studio E21 "
+        "dépliqué ensuite n'annule rien."
     )
     st.caption(
-        "Un agent qui fixe `model:` dans son en-tête **conserve** ce modèle : le modèle "
-        "de chaîne ci-dessus ne s'applique qu'à l'agent qui lance l'analyse "
-        "(`orchestrator`). Pour que toute la chaîne utilise le même modèle, il faut le "
-        "changer dans les en-têtes des agents."
+        "Le tableau ci-dessous montre donc l'état **avant** lancement : soit la valeur "
+        "de secours livrée avec le dépôt, soit le résultat du dernier lancement. "
+        "C'est aussi le modèle qui compte pour un agent lancé seul, et non par la chaîne."
     )
     try:
         agents_lus = db.lister("agent")
@@ -1449,10 +1447,11 @@ elif page == PAGES[5]:
     st.caption(
         "L'outil écrit la ligne `model:` de chaque agent **dans les deux endroits où elle "
         "existe** (base Studio et `.opencode/agents/`), donc un `make studio-deploy` "
-        "n'annule pas le choix. La commande est déjà dans le dépôt : sur le serveur, un "
-        "`git pull` suffit si les fichiers d'agents y ont été basculés. Tant qu'elle n'est "
-        "pas lancée, les agents restent sur **`opencode/big-pickle`** — la configuration qui "
-        "fonctionne par défaut."
+        "n'annule pas le choix. **Depuis l'interface, vous n'avez pas besoin de cette "
+        "commande** : le lancement fait exactement la même chose, avec en plus la liste "
+        "des modèles réellement installés sur ton serveur (elle est récupérée au moment "
+        "du test de connexion). Elle reste utile pour un lancement hors interface, ou "
+        "pour forcer un état sur la machine."
     )
     st.caption(
         "Deux équivalents à connaître : sur l'agent **direct**, tu peux laisser le champ "
