@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-26).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-27).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -1775,6 +1775,96 @@ def test_web_26():
 
 
 
+# --------------------------------------------------------------------------- WEB-27
+def test_web_27():
+    """WEB-27 : le bandeau Ollama interroge le serveur réglé, pas `localhost`.
+
+    Régression : la page du Studio sondait `http://localhost:11434` en dur. Chez un
+    analyste dont Ollama tourne sur **une autre machine** — cas de référence — la page
+    annonçait « Ollama non détecté sur localhost:11434 (démarrez-le…) » alors que la
+    chaîne, elle, tournait sans difficulté sur le GPU distant. Un message d'erreur
+    faux coûte plus cher qu'une panne : il fait douter d'un système qui marche.
+
+    La sonde est désormais celle de `web.reglages.sonder`, sur le profil actif — le
+    validateur de cet appel a aussi été vérifié par les tests (endpoint pourrie,
+    boucle locale, schema absent).
+    """
+    import web.app as app
+
+    assert not hasattr(app, "URL_OLLAMA"), \
+        "plus d'adresse codée en dur : la source est le profil actif"
+    source = app.__file__
+    with open(source, encoding="utf-8") as flux:
+        texte = flux.read()
+    assert "localhost:11434/api/tags" not in texte, \
+        "aucune sonde ne doit pointer sur une adresse devinée"
+
+    # 1) endpoint réglé : c'est lui qui est sondé, et son verdict est celui affiché
+    reglages_local = reglages.defauts()
+    reglages_local["profils"]["ollama"]["endpoint"] = "http://192.168.2.144:11434"
+    reglages_local["profils"]["ollama"]["modele_chaine"] = ""
+    reglages_local["profil_actif"] = "ollama"
+    reglages_local["profils"]["opencode"]["endpoint"] = ""
+
+    appel: list[str] = []
+
+    def sonde(endpoint, delai=reglages.DELAI_SONDE):
+        appel.append(endpoint)
+        return {"joignable": True, "modeles": ["llama3.1:8b"], "message": "Joignable — 1"}
+
+    original_charger = reglages.charger
+    original_sonder = reglages.sonder
+    try:
+        reglages.charger = lambda: dict(reglages_local)
+        reglages.sonder = sonde  # aucun test ne doit dépendre du réseau réel
+
+        # 1) endpoint réglé : c'est lui qui est sondé, et son verdict est celui affiché
+        etat = app.etat_ollama()
+        assert etat["endpoint"] == "http://192.168.2.144:11434", etat
+        assert etat["joignable"] is True and etat["modeles"] == ["llama3.1:8b"], etat
+        assert appel == ["http://192.168.2.144:11434"], \
+            f"la sonde doit viser le serveur réglé, pas localhost : {appel}"
+
+        # 2) serveur muet : le motif est celui de la sonde, jamais « localhost »
+        reglages.sonder = lambda endpoint, delai=2.0: {
+            "joignable": False, "modeles": [],
+            "message": f"Ollama ne répond pas sur {endpoint} : délai dépassé",
+        }
+        etat = app.etat_ollama()
+        assert etat["joignable"] is False, etat
+        assert "192.168.2.144" in etat["message"], \
+            f"le motif doit nommer l'adresse réellement sondée : {etat['message']}"
+        assert "localhost" not in etat["message"], etat["message"]
+
+        # 3) une sonde qui lève ne casse pas la page
+        def sonde_cassee(endpoint, delai=2.0):
+            raise OSError("réseau injoignable")
+
+        reglages.sonder = sonde_cassee
+        etat = app.etat_ollama()
+        assert etat["joignable"] is False and etat["message"], etat
+    finally:
+        reglages.charger = original_charger
+        reglages.sonder = original_sonder
+
+    # 4) aucun endpoint : ce n'est pas une panne, le motif doit le dire
+    sans_endpoint = reglages.defauts()
+    original = reglages.charger
+    reglages.charger = lambda: dict(sans_endpoint)
+    try:
+        etat = app.etat_ollama()
+        assert etat["joignable"] is False and etat["endpoint"] == "", etat
+        assert "Réglages modèles" in etat["message"], \
+            f"un réglage manquant n'est pas une panne de serveur : {etat['message']}"
+    finally:
+        reglages.charger = original
+    passer(
+        "WEB-27",
+        "bandeau Studio : sonde sur le profil actif (jamais localhost) · motif = adresse "
+        "réelle · sonde en erreur sans casser la page · endpoint absent ≠ panne",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
@@ -1782,7 +1872,7 @@ def executer_tests() -> int:
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
         test_web_18, test_web_19, test_web_20, test_web_21, test_web_22, test_web_23,
-        test_web_24, test_web_25, test_web_26,
+        test_web_24, test_web_25, test_web_26, test_web_27,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

@@ -24,13 +24,11 @@ en liste d'arguments et sans shell.
 """
 from __future__ import annotations
 
-import json
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 from datetime import date
 from pathlib import Path
 
@@ -133,7 +131,10 @@ def chemins_de_televersement(elements, dossier_tmp: Path) -> list[Path]:
 # Bloc Ollama : sonde STRICTEMENT locale (`localhost`) et courte — aucune donnée ne sort
 # de la machine, le délai d'une seconde et l'absorption de toute erreur garantissent un
 # bloc purement informatif qui ne doit ni ralentir ni faire échouer la page.
-URL_OLLAMA = "http://localhost:11434/api/tags"
+# Adresse de la sonde : celle du **profil actif** (page « Réglages modèles »),
+# jamais une adresse devinée. Interroger `localhost` quand Ollama tourne sur une
+# autre machine du réseau affichait « non détecté » alors que tout fonctionnait.
+# La sonde elle-même est celle de `web.reglages.sonder` : validée, bornée à 2 s.
 DELAI_OLLAMA = 1
 MAX_MODELES_AFFICHES = 6
 
@@ -145,25 +146,38 @@ TITRE_PR_STUDIO = "studio: mise à jour agents et skills"
 DELAI_GIT = 120
 
 
-def modeles_ollama() -> list[str]:
-    """Noms des modèles Ollama locaux, ou [] si le service ne répond pas.
+def etat_ollama() -> dict:
+    """État du serveur Ollama **réglé par l'analyste**, pas d'une adresse devinée.
 
-    Sonde `/api/tags` avec un délai d'une seconde. Toute erreur (réseau, HTTP, JSON)
-    est avalée : ce bloc est informatif, jamais bloquant pour la page.
+    Renvoie `{endpoint, joignable, modeles, message}`. Interroge le profil actif
+    (`web.reglages.sonder`, délai borné, aucune donnée envoyée). Sans endpoint
+    configuré, rien n'est sondé et le motif est explicite : c'est un réglage à faire,
+    pas une panne — les deux ne doivent pas se ressembler à l'écran.
+
+    Cette fonction ne lève jamais : le bandeau est informatif, il ne doit pas
+    empêcher la page de s'afficher.
     """
     try:
-        with urllib.request.urlopen(URL_OLLAMA, timeout=DELAI_OLLAMA) as reponse:
-            document = json.loads(reponse.read().decode("utf-8", "replace"))
-    except Exception:  # garde-fou : un bloc informatif ne doit jamais casser la page
-        return []
-    modeles = document.get("models") if isinstance(document, dict) else None
-    if not isinstance(modeles, list):
-        return []
-    return [
-        nom for nom in
-        (str(modele.get("name", "")) for modele in modeles if isinstance(modele, dict))
-        if nom
-    ]
+        etat = reglages.charger()
+        endpoint = str(reglages.appliquer_profil(etat).get("endpoint") or "").strip()
+    except Exception:  # noqa: BLE001 — réglages illisibles : on le dit, on n'échoue pas
+        return {"endpoint": "", "joignable": False, "modeles": [],
+                "message": "Réglages des modèles illisibles."}
+    if not endpoint:
+        return {"endpoint": "", "joignable": False, "modeles": [],
+                "message": "Aucun serveur Ollama renseigné — indiquez son adresse dans "
+                           "« Réglages modèles » (profil « ollama »)."}
+    try:
+        reponse = reglages.sonder(endpoint, delai=reglages.DELAI_SONDE)
+    except Exception as exc:  # noqa: BLE001
+        return {"endpoint": endpoint, "joignable": False, "modeles": [],
+                "message": f"Sonde impossible sur {endpoint} : {exc}"}
+    return {
+        "endpoint": endpoint,
+        "joignable": bool(reponse.get("joignable")),
+        "modeles": list(reponse.get("modeles") or []),
+        "message": str(reponse.get("message") or ""),
+    }
 
 
 def modele_de_agent(contenu: str) -> str:
@@ -930,11 +944,14 @@ elif page == PAGES[4]:
         unsafe_allow_html=True,
     )
 
-    # (c) État Ollama : informatif, non bloquant (sonde locale d'une seconde).
-    modeles = modeles_ollama()
-    if modeles:
+    # (c) État Ollama : informatif, non bloquant. L'adresse sondée est celle du
+    # profil actif — afficher « non détecté sur localhost » alors que le serveur est
+    # joignable était un message faux.
+    etat_ollama = etat_ollama()
+    if etat_ollama["joignable"]:
+        modeles = etat_ollama["modeles"]
         st.success(
-            f"Ollama détecté sur localhost:11434 — {len(modeles)} modèle(s) local(aux)"
+            f"Ollama joignable sur {etat_ollama['endpoint']} — {len(modeles)} modèle(s)"
         )
         affiches = modeles[:MAX_MODELES_AFFICHES]
         reste = len(modeles) - len(affiches)
@@ -944,8 +961,11 @@ elif page == PAGES[4]:
         )
     else:
         st.info(
-            "Ollama non détecté sur localhost:11434 (démarrez-le pour un fonctionnement "
-            "100 % local)."
+            f"· Ollama indisponible sur {etat_ollama['endpoint']} — "
+            f"{etat_ollama['message']} La chaîne repartira sur "
+            f"{reglages.MODELE_SECOURS}."
+            if etat_ollama["endpoint"]
+            else f"· {etat_ollama['message']}"
         )
 
     # (b) Bootstrap : base vide -> amorçage depuis les fichiers `.opencode/` présents.
