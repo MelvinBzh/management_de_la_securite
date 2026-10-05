@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-25).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-26).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -72,6 +72,8 @@ FAUX_CLI = sys.executable
 if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
+from tools.studio import db  # noqa: E402
+from tools.studio import entetes  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import parse_file  # noqa: E402
 from tools.ingest.parsers.commun import DEBUT_DONNEES, FIN_DONNEES  # noqa: E402
@@ -1689,6 +1691,90 @@ def test_web_25():
     )
 
 
+# --------------------------------------------------------------------------- WEB-26
+def test_web_26():
+    """WEB-26 : chaque en-tête d'agent et de skill est recevable par opencode.
+
+    Régression réelle : `orchestrator.md` portait `mode: agent`, valeur qui n'existe
+    pas chez opencode (`primary`, `subagent`, `all`, ou rien). Le fichier était donc
+    rejeté, l'agent **non enregistré**, et opencode le signalait par
+
+        ! agent "orchestrator" not found. Falling back to default agent
+
+    avant de lancer la chaîne **sans les consignes de cet agent**. Le modèle, privé
+    de son brief, reformulait la demande, proposait un plan via `task`/`todowrite`,
+    et le processus sortait en **code 0 sans produire le moindre livrable** : un échec
+    totalement silencieux. Une faute d'un caractère dans un en-tête suffit à éteindre
+    la chaîne — elle doit donc être vérifiée comme un test, pas relue à l'œil.
+
+    Les contrôles viennent de `tools.studio.entetes`, source unique que le
+    déploiement du Studio consulte aussi pour refuser d'écrire un en-tête cassé.
+    """
+    agents = sorted(db.DOSSIER_AGENTS.glob("*.md"))
+    assert agents, f"aucun agent dans {db.DOSSIER_AGENTS}"
+
+    problemes: list[str] = []
+    for chemin in agents:
+        nom = chemin.stem
+        contenu = chemin.read_text(encoding="utf-8")
+        problemes += [f"{nom} : {a}" for a in entetes.controles(contenu, "agent")]
+        # `verifier_mode` lève au lieu de lister : c'est exactement le refus que
+        # peut opposer le déploiement du Studio.
+        try:
+            entetes.verifier_mode(contenu)
+        except entetes.EnteteInvalide as exc:
+            problemes.append(f"{nom} : refusé au déploiement — {exc}")
+    assert not problemes, "agents invalides :\n  - " + "\n  - ".join(problemes)
+
+    # l'agent racine doit être lançable : c'est lui que la chaîne appelle par
+    # `opencode run --agent orchestrator`. Un `subagent` ne serait pas trouvé.
+    orchestrateur = (db.DOSSIER_AGENTS / "orchestrator.md").read_text(encoding="utf-8")
+    assert entetes.verifier_mode(orchestrateur) == "primary", \
+        "orchestrator doit être « primary » : c'est lui que la chaîne lance"
+    assert entetes.modele(orchestrateur), "l'agent racine doit fixer son modèle"
+
+    # les spécialistes restent des sous-agents : c'est ainsi que la chaîne les appelle
+    for chemin in agents:
+        if chemin.stem == "orchestrator":
+            continue
+        mode = entetes.verifier_mode(chemin.read_text(encoding="utf-8"))
+        assert mode == "subagent", \
+            f"{chemin.stem} doit rester « subagent », trouvé « {mode or 'rien'} »"
+
+    # le validateur doit réellement mordre (sinon le test ne prouve rien)
+    for faux, attendu in (
+        ("mode: agent", "mode « agent »"),
+        ("mode: Principal", "mode « Principal »"),
+    ):
+        try:
+            entetes.verifier_mode(f"---\ndescription: x\n{faux}\n---\n\ncorps\n")
+        except entetes.EnteteInvalide as exc:
+            assert attendu in str(exc), f"{faux} → message inattendu : {exc}"
+        else:
+            raise AssertionError(f"« {faux} » aurait dû être refusé")
+    assert entetes.verifier_mode("---\ndescription: x\n---\n\ncorps\n") == "", \
+        "un agent sans mode doit rester accepté"
+
+    # les skills sont lus par le même mécanisme
+    skills = sorted(db.DOSSIER_SKILLS.glob("*/SKILL.md"))
+    assert skills, f"aucun skill dans {db.DOSSIER_SKILLS}"
+    problemes_skill: list[str] = []
+    for chemin in skills:
+        nom = chemin.parent.name
+        problemes_skill += [
+            f"{nom} : {a}"
+            for a in entetes.controles(chemin.read_text(encoding="utf-8"), "skill")
+        ]
+    assert not problemes_skill, "skills invalides :\n  - " + "\n  - ".join(problemes_skill)
+    passer(
+        "WEB-26",
+        f"{len(agents)} agents et {len(skills)} skills : modes opencode valides · "
+        "orchestrator primary · spécialistes subagent · clés et modèles lisibles · "
+        "validateur vérifié sur un mode fautif",
+    )
+
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
@@ -1696,7 +1782,7 @@ def executer_tests() -> int:
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
         test_web_18, test_web_19, test_web_20, test_web_21, test_web_22, test_web_23,
-        test_web_24, test_web_25,
+        test_web_24, test_web_25, test_web_26,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

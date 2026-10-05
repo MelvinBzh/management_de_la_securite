@@ -34,6 +34,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from tools.studio import entetes
+
 RACINE = Path(__file__).resolve().parents[2]
 
 # Base maîtresse : hors git, dans le dossier local privé de la machine.
@@ -365,6 +367,12 @@ def deployer_vers_opencode(
     diffère** de celui déjà sur disque (idempotent) : un déploiement sans
     changement renvoie `ecrits == 0`. Les dossiers de skill sont créés au besoin.
 
+    Le déploiement est **tout ou rien** : tous les en-têtes sont vérifiés avant la
+    première écriture. Un agent au `mode` refusé, c'est un agent que opencode
+    n'enregistre pas — il bascule alors sur l'agent par défaut et la chaîne démarre
+    sans ses consignes, en sortant en code 0, sans que rien ne le signale. Écrire la
+    moitié du dépôt avant de s'en apercevoir ne ferait que déplacer le problème.
+
     `dossier_agents` / `dossier_skills` permettent de déployer vers un autre
     emplacement (tests en dossier temporaire) ; par défaut `.opencode/`.
 
@@ -372,7 +380,9 @@ def deployer_vers_opencode(
     """
     dossier_agents = Path(dossier_agents) if dossier_agents is not None else DOSSIER_AGENTS
     dossier_skills = Path(dossier_skills) if dossier_skills is not None else DOSSIER_SKILLS
-    ecrits: list[Path] = []
+
+    # 1. planifier : rien n'est écrit, tout est contrôlé
+    plan: list[tuple[Path, str]] = []
     inchangees = 0
     for type_ in TYPES_VALIDES:
         for entite in lister(type_, chemin_db):
@@ -386,14 +396,29 @@ def deployer_vers_opencode(
             if deja_a_jour:
                 inchangees += 1
                 continue
-            try:
-                cible.parent.mkdir(parents=True, exist_ok=True)
-                cible.write_text(entite["contenu"], encoding="utf-8")
-            except OSError as exc:
-                raise sqlite3.Error(
-                    f"Studio : déploiement impossible vers {cible} — {exc}"
-                ) from exc
-            ecrits.append(cible)
+            if type_ == "agent":
+                try:
+                    entetes.verifier_mode(entite["contenu"])
+                except entetes.EnteteInvalide as exc:
+                    raise ValueError(
+                        f"Studio : déploiement refusé pour l'agent « {entite['nom']} » "
+                        f"— {exc} Corrigez l'en-tête dans l'agent, ou réimportez les "
+                        "agents depuis `.opencode/` (le fichier du dépôt fait foi). "
+                        "Aucun fichier n'a été écrit."
+                    ) from exc
+            plan.append((cible, entite["contenu"]))
+
+    # 2. écrire : le plan est valide, plus rien ne peut le contredire
+    ecrits: list[Path] = []
+    for cible, contenu in plan:
+        try:
+            cible.parent.mkdir(parents=True, exist_ok=True)
+            cible.write_text(contenu, encoding="utf-8")
+        except OSError as exc:
+            raise sqlite3.Error(
+                f"Studio : déploiement impossible vers {cible} — {exc}"
+            ) from exc
+        ecrits.append(cible)
     return {"ecrits": len(ecrits), "inchangees": inchangees, "chemins": ecrits}
 
 

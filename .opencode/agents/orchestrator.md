@@ -1,6 +1,6 @@
 ---
 description: Chef de projet E21 — collecte le contexte en une passe, crée le dossier d'analyse, lance la chaîne d'agents, surveille les garde-fous, fait pousser et suivre sur GitHub.
-mode: agent
+mode: primary
 model: opencode/big-pickle
 permission:
   read: allow
