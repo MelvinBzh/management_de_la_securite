@@ -329,7 +329,10 @@ def test_web_07():
 # --------------------------------------------------------------------------- WEB-08
 def test_web_08():
     """WEB-08 : le prompt orchestrateur est fixe, sans guillemet double ni marqueur piégé."""
-    prompt = lib.prompt_orchestrateur("mon-cas", "2026-10-04_mon-cas")
+    # La date du dossier est dérivée de date.today() dans construire_commande :
+    # on réutilise la même source pour que le test ne dépende pas du jour d'exécution.
+    dossier = lib.dossier_cas("mon-cas").name
+    prompt = lib.prompt_orchestrateur("mon-cas", dossier)
     commande = lib.construire_commande("mon-cas")
 
     # La commande affichée contient exactement le prompt (source unique de vérité).
@@ -337,7 +340,7 @@ def test_web_08():
     assert f'opencode run --agent orchestrator "{prompt}"' in commande, \
         "la ligne opencode run ne reprend pas le promptorchestrateur"
     assert "mon-cas" in prompt, "le nom du cas doit figurer dans le prompt"
-    assert "analyses/2026-10-04_mon-cas/intrants/" in prompt, "chemin des intrants absent"
+    assert f"analyses/{dossier}/intrants/" in prompt, "chemin des intrants absent"
 
     # Garde-fous du prompt : pas de guillemet double (il est encadré par ceux de
     # la ligne de commande), pas de marqueur d'injection — ni dans l'un ni dans
@@ -349,7 +352,7 @@ def test_web_08():
     assert commande.count('"') == 2, "guillemets inattendus dans la commande"
 
     # Deux appels successifs pour le même cas donnent le même texte (aucun état caché).
-    assert lib.prompt_orchestrateur("mon-cas", "2026-10-04_mon-cas") == prompt, \
+    assert lib.prompt_orchestrateur("mon-cas", dossier) == prompt, \
         "prompt non déterministe"
     passer("WEB-08", "prompt = source unique, sans guillemet double ni marqueur piégé")
 
