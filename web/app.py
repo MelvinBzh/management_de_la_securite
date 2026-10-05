@@ -43,7 +43,7 @@ from web import lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
 from tools.export import export as export_tool  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
-from tools.ingest.ingest import parse_file  # noqa: E402
+from tools.ingest.ingest import nom_sur, parse_file  # noqa: E402
 from tools.ingest.parsers import commun  # noqa: E402
 from tools.studio import db  # noqa: E402  (base locale, source de vérité du studio)
 
@@ -88,6 +88,41 @@ def memoiser_documents(fichiers) -> list[dict]:
     valides = [doc for doc in documents if doc["meta"].get("ok")]
     st.session_state["documents"] = valides
     return documents
+
+
+def chemins_de_televersement(elements, dossier_tmp: Path) -> list[Path]:
+    """Transforme la valeur d'un `st.file_uploader` en chemins RÉELS sur disque.
+
+    Streamlit renvoie des `UploadedFile` **en mémoire**, sans chemin : leurs
+    octets sont donc écrits dans `dossier_tmp` — un dossier temporaire — sous un
+    nom assaini par `nom_sur` (aucun séparateur de chemin, aucun `..` possible,
+    donc rien ne peut être écrit hors du dossier temporaire). Un élément déjà un
+    chemin (`str` ou `Path`, dossier récursif compris) est conservé tel quel.
+
+    Deux fichiers homonymes ne s'écrasent pas : le second gagne un suffixe `-2`,
+    `-3`… Un élément sans octets (objet inconnu) est ignoré silencieusement —
+    garde-fou : l'interface ne doit pas planter sur une entrée parasite.
+    """
+    chemins: list[Path] = []
+    utilises: set[str] = set()
+    for element in elements or []:
+        # Test de type AVANT tout `getattr` : un `Path` possède lui aussi un
+        # attribut `name`, qui ne donnerait que son nom de fichier (le dossier
+        # parent serait perdu et le parcours récursif deviendrait impossible).
+        if isinstance(element, (str, Path)):
+            chemins.append(Path(element))
+            continue
+        nom = nom_sur(Path(getattr(element, "name", "") or "").name or "document")
+        base, index = nom, 2
+        while base in utilises:
+            base, index = f"{nom}-{index}", index + 1
+        utilises.add(base)
+        if not hasattr(element, "getvalue"):
+            continue
+        chemin = dossier_tmp / base
+        chemin.write_bytes(element.getvalue())
+        chemins.append(chemin)
+    return chemins
 
 
 # --------------------------------------------- page 5 : studio E21 (constantes, outils)
@@ -312,20 +347,77 @@ if page == PAGES[0]:
         "comptée et signalée, jamais exécutée.</div>",
         unsafe_allow_html=True,
     )
-    fichiers = st.file_uploader(
-        "Déposez un ou plusieurs documents",
-        type=lib.TYPES_UPLOAD,
-        accept_multiple_files=True,
-        help="PDF, images (PNG/JPG/WEBP), XLSX, CSV, DOCX, PPTX, ZIP, TXT, MD — analyse 100 % locale.",
+    col_fichiers, col_dossiers = st.columns(2)
+    with col_fichiers:
+        fichiers = st.file_uploader(
+            "Fichiers",
+            accept_multiple_files=True,
+            type=lib.TYPES_UPLOAD,
+            key="upload_fichiers",
+            help="PDF, images (PNG/JPG/WEBP), XLSX, CSV, DOCX, PPTX, ZIP, TXT, MD — "
+            "analyse 100 % locale. Déposez autant de fichiers que vous voulez.",
+        )
+    with col_dossiers:
+        dossiers = st.file_uploader(
+            "Dossier(s)",
+            type=["zip"],
+            accept_multiple_files=True,
+            help="Un dossier est envoyé en .zip : le compresser puis le déposer ici "
+            "dépose TOUT son contenu, arborescence comprise (parcours récursif).",
+            key="upload_dossiers",
+        )
+    recus = list(fichiers or []) + list(dossiers or [])
+
+    st.divider()
+    st.subheader("Ingérer en un clic (fichiers + dossiers)")
+    st.caption(
+        "Les deux listes sont traitées ensemble : un seul clic ingère tout, puis "
+        "dépose les intrants dans `analyses/<date>_<cas>/intrants/`. Un fichier "
+        "illisible est signalé, jamais bloquant pour les autres."
     )
+    nom_cas_lot = st.text_input(
+        "Nom du cas",
+        placeholder="ex. boutique-en-ligne",
+        key="nom_cas_lot",
+        help="Minuscules, chiffres et tirets — le nom est assaini puis refusé (fail "
+        "closed) s'il contient un séparateur de chemin ou un marqueur d'instruction.",
+    )
+    if st.button(
+        "Ingérer en un clic (fichiers + dossiers)",
+        type="primary",
+        key="ingerer_lot",
+        disabled=not recus,
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            chemins = chemins_de_televersement(recus, Path(tmp))
+            with st.spinner("Ingestion du lot en cours…"):
+                try:
+                    copies, messages = lib.ingérer_en_lot(chemins, nom_cas_lot)
+                except ValueError as exc:
+                    copies, messages = [], []
+                    st.error(f"Dépôt refusé : {exc}")
+        if not messages and not copies:
+            st.warning("Rien à ingérer : déposez au moins un fichier ou un dossier.")
+        for ligne in messages:
+            if " : ignoré (" in ligne:
+                st.warning(ligne)
+            else:
+                st.success(ligne)
+        if copies:
+            st.success(
+                f"{len(copies)} fichier(s) copié(s) dans "
+                f"`analyses/{lib.dossier_cas(nom_cas_lot).name}/intrants/` "
+                "(un `.md` + un `.meta.json` par intrant)."
+            )
+
     st.subheader("Documents déposés")
-    if not fichiers:
+    if not recus:
         st.info(
             "Aucun document pour l'instant. Les documents ingérés ici deviennent des "
             "« intrants » pour l'étape 1 (préparation d'un cas), onglet suivant."
         )
     else:
-        documents = memoiser_documents(fichiers)
+        documents = memoiser_documents(recus)
         st.caption(f"{len(documents)} document(s) reçu(s), analyse locale et immédiate.")
         for document in documents:
             meta = document["meta"]
