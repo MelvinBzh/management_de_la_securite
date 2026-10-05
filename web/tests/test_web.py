@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-21).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-22).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -76,6 +76,7 @@ from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import parse_file  # noqa: E402
 from tools.ingest.parsers.commun import DEBUT_DONNEES, FIN_DONNEES  # noqa: E402
 from web import lib  # noqa: E402
+from web import modeles_ollama as conseils_ollama
 from web import reglages  # noqa: E402  (réglages modèles, stockage local temporaire)
 from web import run_agent  # noqa: E402
 
@@ -1285,13 +1286,78 @@ def test_web_21():
     )
 
 
+# --------------------------------------------------------------------------- WEB-22
+def test_web_22():
+    """WEB-22 : chaque agent a un modèle Ollama adapté, dans le budget d'une 12 Go.
+
+    Demande : « tu sélectionnes des LLMs utiles pour chaque agent, compatibles avec
+    ma RTX 5070 12 Go ». Ce test verrouille les trois propriétés qui rendent la
+    recommandation exploitable :
+    - **tous** les agents E21 du dépôt ont une recommandation ;
+    - chaque modèle proposé tient dans la carte (aucun 12b+ qui ne rentre pas) ;
+    - le choix fait sur les modèles **déjà installés** (ceux de l'analyste), donc la
+      page n'ordonne pas de télécharger un modèle inutile.
+    """
+    # a) couverture : chaque agent livré dans .opencode/agents/ est recommandé
+    agents_depot = sorted(
+        p.name[: -len(".md")] for p in (RACINE / ".opencode" / "agents").glob("*.md")
+    )
+    non_couverts = [a for a in agents_depot if not conseils_ollama.recommandation_pour(a)]
+    assert not non_couverts, f"agents sans modèle Ollama recommandé : {non_couverts}"
+
+    # b) budget VRAM : aucun modèle proposé ne dépasse la carte
+    for agent, modeles in conseils_ollama.RECOMMANDATIONS.items():
+        for modele in modeles:
+            infos = conseils_ollama.CATALOGUE.get(modele)
+            assert infos is not None, f"modèle hors catalogue : {modele} ({agent})"
+            assert infos["vram_go"] <= conseils_ollama.VRAM_UTILE_GO, \
+                f"{modele} ({agent}) dépasse {conseils_ollama.VRAM_UTILE_GO} Go"
+            assert reglages.modele_valide(modele), \
+                f"identifiant de modèle refusé par le validateur : {modele}"
+
+    # c) aucun modèle d'embeddings proposé comme modèle d'agent
+    for agent, modeles in conseils_ollama.RECOMMANDATIONS.items():
+        for modele in modeles:
+            assert "embed" not in modele, \
+                f"{modele} ({agent}) : un encodeur ne peut pas mener une analyse"
+
+    # d) avec les modèles réellement installés chez l'analyste, rien à télécharger
+    installes = ["llama3.1:8b", "llava:7b", "mistral:7b",
+                 "nomic-embed-text:latest", "qwen3-vl:8b"]
+    a_telecharger = []
+    for agent in conseils_ollama.RECOMMANDATIONS:
+        modele, present = conseils_ollama.choisir(agent, installes)
+        assert modele, f"aucun modèle retenu pour {agent}"
+        if not present:
+            a_telecharger.append(modele)
+    assert not a_telecharger, \
+        f"ces modèles sont déjà installés, aucune téléchargement ne devrait être demandé : {a_telecharger}"
+
+    # e) le tableau affiché contient une ligne par agent, avec commande si manquant
+    lignes = conseils_ollama.table_recommandations(installes)
+    assert len(lignes) == len(conseils_ollama.RECOMMANDATIONS), \
+        f"lignes inattendues : {len(lignes)}"
+    for ligne in lignes:
+        assert ligne["Agent"] and ligne["Modèle Ollama"], f"ligne incomplète : {ligne}"
+        assert "Pourquoi" in ligne and ligne["Pourquoi"], f"justification absente : {ligne}"
+    # sans détection, la commande ollama pull doit apparaître (état « à installer »)
+    sans_serveur = conseils_ollama.table_recommandations([])
+    assert all("ollama pull" in l["Statut"] for l in sans_serveur), \
+        "sans serveur détecté, la commande de téléchargement doit être proposée"
+    passer(
+        "WEB-22",
+        f"{len(agents_depot)} agents couverts · budget {conseils_ollama.VRAM_UTILE_GO} Go "
+        "respecté · aucun encodeur proposé · 0 téléchargement sur les modèles installés",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
-        test_web_18, test_web_19, test_web_20, test_web_21,
+        test_web_18, test_web_19, test_web_20, test_web_21, test_web_22,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

@@ -34,6 +34,7 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
 RACINE = Path(__file__).resolve().parents[1]
@@ -41,6 +42,7 @@ if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
 from web import lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import modeles_ollama as conseils_ollama  # alias : app.py a déjà une fonction modeles_ollama()
 from web import reglages  # noqa: E402  (réglages modèles, stockage local hors git)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
 from tools.export import export as export_tool  # noqa: E402
@@ -1375,6 +1377,34 @@ elif page == PAGES[5]:
         )
     else:
         st.info("Aucun agent en base : importez-les depuis `.opencode/` (Studio E21).")
+
+    st.divider()
+    st.subheader("Modèles Ollama recommandés par agent (carte 12 Go)")
+    st.caption(
+        "Sélection faite pour une **RTX 5070 (12 Go)** : un seul modèle chargé à la "
+        f"fois, {conseils_ollama.VRAM_UTILE_GO} Go utiles maximum (le tag `:8b` est déjà "
+        "quantifié Q4). « installé » = le modèle est détecté sur ton serveur ; sinon la "
+        "commande `ollama pull` est donnée. **Aucun modèle d'agent de plus de 12 Go n'est "
+        "proposé** : il ne tiendrait pas."
+    )
+    modeles_vus = list((st.session_state.get("regl_sonde") or {}).get("modeles") or [])
+    st.dataframe(
+        pd.DataFrame(conseils_ollama.table_recommandations(modeles_vus)),
+        use_container_width=True, hide_index=True,
+    )
+    st.caption(
+        "Pour appliquer ces choix : onglet **Studio E21** → ouvrir l'agent → remplacer "
+        "`model: opencode/big-pickle` par `model: ollama/llama3.1:8b` (le préfixe "
+        "`ollama/` correspond au fournisseur déclaré dans `opencode.jsonc`), puis "
+        "`make studio-deploy`. Tant que tu ne le fais pas, les agents restent sur "
+        "**`opencode/big-pickle`** — c'est la configuration qui fonctionne par défaut."
+    )
+    st.caption(
+        "Deux équivalents à connaître : sur l'agent **direct**, tu peux laisser le champ "
+        "vide (opencode lit alors le modèle global) ; sur l'agent de **lecture d'image**, "
+        "seul `qwen3-vl:8b` est utile — et l'OCR local fait déjà le travail dans la "
+        "plupart des cas."
+    )
 
     st.divider()
     st.markdown(
