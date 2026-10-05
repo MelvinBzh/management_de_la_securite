@@ -10,17 +10,12 @@ permission:
   edit: allow
   task: allow
   question: allow
-  bash:
-    gh *: allow
-    git *: allow
-    mkdir *: allow
-    ls *: allow
-    cat *: allow
-    head *: allow
-    tail *: allow
-    wc *: allow
-    pwd: allow
-    '*': ask
+  # Le shell est décidé AU NIVEAU DE L'OUTIL : opencode 1.18.34 n consulte pas
+  # les motifs par commande (`ls *`, `git *`… testés et jamais.appariés), et une
+  # décision `ask` vaut REFUS dès qu'aucun humain ne répond — ce qui est toujours
+  # le cas du bouton « Lancer la chaîne ». D'où `allow` ici, et `ask` partout
+  # ailleurs : les sous-agents n'ont pas de shell, ils lisent et écrivent.
+  bash: allow
 ---
 
 Tu es le chef de projet E21 « Des agents IA pour analyser les risques ». Tu pilotes une équipe d'agents opencode qui reproduit les 6 étapes de l'analyse de risques sur un système. **L'humain (l'analyste) reste décideur final.**

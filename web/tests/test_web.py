@@ -1896,16 +1896,18 @@ def test_web_27():
 
 
 def test_web_28():
-    """WEB-28 : la chaîne doit pouvoir lire, et le profil « opencode » rester propre.
+    """WEB-28 : la chaîne doit avoir un shell, les autres non ; le profil « opencode » rester propre.
 
     Deux défauts constatés en lançant la chaîne **depuis le site**, reproduits ici.
 
     1. **Une permission `ask` vaut refus en non-interactif.** Le bouton
        « ▶ Lancer la chaîne » lance opencode sans personne pour répondre : tout ce
-       qui est en `ask` est *auto-rejeté*. L'orchestrateur n'avait que
-       `gh *`, `git *`, `mkdir *` : son tout premier `ls` a été refusé et la chaîne
-       est morte en code 0, sans livrable. Il lui faut les commandes de lecture —
-       équivalentes à `read: allow`, déjà accordé.
+       qui est en `ask` est *auto-rejeté*. La chaîne est morte en code 0, sans
+       livrable, en laissant croire à un succès. Mesuré sur opencode 1.18.34 :
+       pour l'outil `bash`, la décision se prend **au niveau de l'outil** — les
+       motifs par commande (`ls *`, `git *`, `ls /tmp`) ne sont jamais appariés, et
+       seule la forme `bash: allow` passe. L'orchestrateur, seul agent à piloter
+       git/gh, est donc en `allow` ; les sous-agents gardent un shell fermé (`deny`).
 
     2. **Le formulaire contamineit le profil `opencode`.** « Enregistrer les
        réglages » écrit dans le profil *actif* l'endpoint affiché. Après une bascule
@@ -1914,15 +1916,21 @@ def test_web_28():
        `opencode` ne peut porter ni endpoint ni clé : opencode lit la configuration
        du conteneur.
     """
-    # --- 1) l'orchestrateur peut lire
+    # --- 1a) l'orchestrateur a un shell utilisable sans interaction
     orchestrateur = (db.DOSSIER_AGENTS / "orchestrator.md").read_text(encoding="utf-8")
-    bloc = orchestrateur.split("---")[1].split("bash:", 1)[1]  # frontmatter seul
-    for commande in ("ls", "cat", "head", "tail", "pwd"):
-        assert re.search(rf"^\s+{commande}(?:\s+\*)?: allow$", bloc, re.M), \
-            f"`{commande}` doit être autorisé : sans lecture, la chaîne s'arrête au " \
-            f"premier appel non interactif. bloc bash = {bloc.strip()[:200]}"
-    assert re.search(r"^\s+'?\*'?:\s*ask$", bloc, re.M), \
-        f"le reste doit rester en `ask` : {bloc.strip()[:200]}"
+    assert re.search(r"^\s*bash:\s*allow\s*$", orchestrateur.split("---")[1], re.M), \
+        "l'orchestrateur doit avoir `bash: allow` : opencode décide au niveau de " \
+        "l'outil, `ask` est un refus sans interaction et la chaîne s'arrête au " \
+        "premier appel."
+
+# --- 1b) les sous-agents, eux, n'ont pas de shell
+    for agent in db.lister("agent"):
+        if agent["nom"] == "orchestrator":
+            continue
+        corps = (db.DOSSIER_AGENTS / f"{agent['nom']}.md").read_text(encoding="utf-8")
+        assert not re.search(r"^\s*bash:\s*(?:allow|ask)\s*$", corps.split("---")[1], re.M), \
+            f"`{agent['nom']}` ne doit pas avoir de shell ouvert : seul l'orchestrateur " \
+            f"pilote git/gh. Un sous-agent n'a qu'un `bash` fermé."
 
     # --- 2a) le profil opencode refuse endpoint et clé
     with tempfile.TemporaryDirectory() as tmp:
@@ -1959,8 +1967,9 @@ def test_web_28():
             reglages.NOM_FICHIER = original
     passer(
         "WEB-28",
-        "chaîne non interactive : l'orchestrateur peut lire (sinon auto-rejet au "
-        "premier appel) · reste en `ask` · profil « opencode » sans endpoint ni clé, "
+        "chaîne non interactive : l'orchestrateur a le shell (`ask` = refus "
+        "automatique, la chaîne mourait au premier appel) · les sous-agents "
+        "gardent un shell fermé · profil « opencode » sans endpoint ni clé, "
         "libellé « config du conteneur »",
     )
 
