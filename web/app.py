@@ -437,6 +437,10 @@ if page == PAGES[0]:
 
     st.subheader("Documents déposés")
     if not recus:
+        # Source de vérité = le téléverseur : plus aucun fichier déposé => plus
+        # aucun document en session (sinon un document retiré de l'uploader
+        # continuerait d'apparaître dans « Préparer un cas »).
+        st.session_state["documents"] = []
         st.info(
             "Aucun document pour l'instant. Les documents ingérés ici deviennent des "
             "« intrants » pour l'étape 1 (préparation d'un cas), onglet suivant."
@@ -597,11 +601,53 @@ elif page == PAGES[2]:
         format_func=lambda nom: f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} — {nom}",
     )
     dossier = lib.DOSSIER_ANALYSES / choisie
+    cas_choisi = lib.cas_depuis_dossier(choisie)
+    jour_choisi = lib.jour_depuis_dossier(choisie)
     st.caption(
         f"Dossier : `analyses/{dossier.name}` · "
         f"{len(lib.intrants_prepars(dossier))} intrant(s) · "
         f"exports : {', '.join(lib.FICHiers_CAS)}"
     )
+
+    # Intrants déposés : source de vérité = le disque. C'est ici qu'un document
+    # déposé par erreur se retire DEFINITIVEMENT (session et dossier du cas).
+    st.subheader("Intrants déposés dans ce cas")
+    st.caption(
+        f"Emplacement unique et durable : `analyses/{dossier.name}/intrants/` "
+        "(un `.md` + un `.meta.json` par document). Un retrait ici est définitif : "
+        "le document disparaît aussi de la liste de préparation du cas."
+    )
+    intrants = lib.lister_intrants(cas_choisi, jour_choisi)
+    if not intrants:
+        st.info("Aucun intrant déposé dans ce cas.")
+    for intrant in intrants:
+        colonne_nom, colonne_action = st.columns([5, 2])
+        with colonne_nom:
+            details = f"{intrant['taille']} car."
+            if not intrant["meta_ok"]:
+                details += " · métadonnées (.meta.json) absentes"
+            st.markdown(f"**{intrant['base']}** — {details}")
+        with colonne_action:
+            if st.button("Supprimer", key=f"suppr_{intrant['base']}", type="secondary"):
+                st.session_state[f"conf_suppr_{intrant['base']}"] = intrant["base"]
+        if st.session_state.get(f"conf_suppr_{intrant['base']}") == intrant["base"]:
+            st.warning(
+                f"Supprimer définitivement `{intrant['base']}` de ce cas ? "
+                "Le document ne sera plus disponible pour la chaîne."
+            )
+            col_oui, col_non = st.columns(2)
+            if col_oui.button("Oui, supprimer", key=f"oui_{intrant['base']}", type="primary"):
+                supprimes = lib.supprimer_intrant(cas_choisi, intrant["base"], jour_choisi)
+                st.session_state.pop(f"conf_suppr_{intrant['base']}", None)
+                if supprimes:
+                    st.success(f"Supprimé : {', '.join(Path(p).name for p in supprimes)}")
+                    st.rerun()
+                else:
+                    st.error("Aucun fichier supprimé (intrant déjà absent).")
+            if col_non.button("Annuler", key=f"non_{intrant['base']}"):
+                st.session_state.pop(f"conf_suppr_{intrant['base']}", None)
+                st.rerun()
+
 
     # Avancement de la chaîne E21 dans ce dossier : compte global + livrables
     # manquants de la première étape non terminée (source de vérité = dossiers).

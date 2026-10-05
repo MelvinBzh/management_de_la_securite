@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-14).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-15).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -685,12 +685,69 @@ def test_web_14():
     )
 
 
+# --------------------------------------------------------------------------- WEB-15
+def test_web_15():
+    """WEB-15 : retirer un intrant (liste sur disque + suppression bornée)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        analyses = Path(tmp) / "analyses"
+        jour = date(2026, 10, 5)
+        with mock.patch.object(lib, "DOSSIER_ANALYSES", analyses):
+            dossier_intrants = lib.intrants_du_cas("nordval", jour)
+            dossier_intrants.mkdir(parents=True)
+            (dossier_intrants / "rapport.md").write_text("contenu\n", encoding="utf-8")
+            (dossier_intrants / "rapport.meta.json").write_text("{}", encoding="utf-8")
+            # intrant orphelin : pas de jumeau .meta.json -> signalé, pas caché
+            (dossier_intrants / "note.md").write_text("note\n", encoding="utf-8")
+
+            # a) la liste vient du disque, triée, avec le statut des métadonnées
+            intrants = lib.lister_intrants("nordval", jour)
+            assert [i["base"] for i in intrants] == ["note", "rapport"], \
+                f"liste inattendue : {[i['base'] for i in intrants]}"
+            assert intrants[0]["meta_ok"] is False, "un orphelin ne doit pas valider ses metas"
+            assert intrants[1]["meta_ok"] is True, "metadonnées non détectées"
+            assert lib.lister_intrants("cas-inconnu", jour) == [], "cas inexistant : liste vide"
+
+            # b) suppression : le .md ET son .meta.json disparaissent
+            supprimes = lib.supprimer_intrant("nordval", "rapport", jour)
+            assert sorted(Path(p).name for p in supprimes) == [
+                "rapport.md", "rapport.meta.json",
+            ], f"suppression incomplète : {supprimes}"
+            restants = [i["base"] for i in lib.lister_intrants("nordval", jour)]
+            assert restants == ["note"], f"le document visé reste : {restants}"
+            assert lib.supprimer_intrant("nordval", "rapport", jour) == [], \
+                "une suppression déjà faite ne doit pas annoncer un faux succès"
+
+            # c) fail closed : traversée de répertoire et lien symbolique refusés
+            hors = Path(tmp) / "secret.md"
+            hors.write_text("ne pas toucher\n", encoding="utf-8")
+            for piege in ("../../../../secret", "../secret", "..", "/etc/passwd"):
+                try:
+                    lib.supprimer_intrant("nordval", piege, jour)
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError(f"nom piégé accepté : {piege}")
+            assert hors.is_file(), "un fichier hors du cas a été supprimé"
+
+            # d) un lien symbolique vers un fichier extérieur n'est jamais suivi
+            lien = dossier_intrants / "piege.md"
+            lien.symlink_to(hors)
+            assert lib.supprimer_intrant("nordval", "piege", jour) == [], \
+                "un lien symbolique ne doit pas être supprimé (cible hors cas)"
+            assert hors.is_file(), "le lien symbolique a été suivi"
+    passer(
+        "WEB-15",
+        "intrants listés depuis le disque · suppression .md + .meta.json · "
+        "traversée et lien symbolique refusés",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
-        test_web_12, test_web_13, test_web_14,
+        test_web_12, test_web_13, test_web_14, test_web_15,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()
