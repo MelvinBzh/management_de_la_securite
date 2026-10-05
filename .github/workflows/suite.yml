@@ -39,10 +39,14 @@ jobs:
 
       - name: Suite de vérification (verification.py)
         run: |
-          make suite 2>&1 | tail -40
-          python3 soutenance/tests/verification.py > /tmp/suite.txt 2>&1
-          tail -5 /tmp/suite.txt
-          grep -q "RESULTAT GLOBAL  OK" /tmp/suite.txt || { echo "Suite NON verte"; exit 1; }
+          # La suite est lancée UNE seule fois (l'exécuter deux fois de suite rendait
+          # la CI fragile). Sortie capturée pour pouvoir diagnostiquer un échec.
+          make suite 2>&1 | tee /tmp/suite.txt | tail -40
+          if ! grep -q "RESULTAT GLOBAL  OK" /tmp/suite.txt; then
+            echo "::error::Suite NON verte — détail :"
+            grep -E "FAIL|SKIP|Traceback" /tmp/suite.txt || echo "(aucune ligne FAIL/SKIP)"
+            exit 1
+          fi
 
       - name: Exporter un PDF (smoke test WeasyPrint)
         run: |
