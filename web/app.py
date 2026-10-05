@@ -799,10 +799,11 @@ elif page == PAGES[3]:
 
     st.subheader("Lancement depuis l'application")
     st.caption(
-        "Le modèle utilisé est celui enregistré dans « Réglages modèles » (aucun "
-        "modèle n'est imposé ici) ; la configuration opencode d'exécution "
-        f"(`{run_agent.NOM_CONFIG_RUNTIME}`) est générée au lancement et passée via "
-        "`OPENCODE_CONFIG`."
+        "Rien à saisir ici. Le modèle vient du profil actif de « Réglages modèles » : "
+        "s'il s'agit d'Ollama, le serveur est sondé au lancement et, s'il ne répond pas, "
+        f"toute la chaîne part automatiquement sur **{reglages.MODELE_SECOURS}** "
+        "(vous êtes prévenu juste après le clic). Pour rester sur opencode en permanence, "
+        "choisissez le profil « opencode » dans les réglages."
     )
     if not cas:
         st.info(
@@ -812,24 +813,47 @@ elif page == PAGES[3]:
     run = st.session_state.get("run_chaine")
     if not run:
         if st.button("▶ Lancer la chaîne maintenant", type="primary", key="lancer_chaine"):
-            # Réglages modèles : le modèle de chaîne et la configuration opencode
-            # d'exécution (endpoint réglé par l'analyste). Si le fichier n'existe
-            # pas encore, on lance sans `OPENCODE_CONFIG` : opencode lit alors son
-            # propre `opencode.jsonc` — rien n'est cassé s'il ignore la variable.
+            # Réglages modèles : la décision de lancement est prise ici, pas par
+            # l'analyste. `decider_lancement` sonde le serveur Ollama, réaligne les
+            # en-têtes `model:` des agents (les deux magasins) et renvoie le modèle à
+            # imposer ainsi que le endpoint à fournir à opencode.
             reglages_courants = reglages.charger()
-            env = None
             try:
-                chemin_config = run_agent.fichier_config_opencode(reglages_courants)
-            except ValueError as exc:
-                st.warning(f"Configuration opencode non écrite : {exc}")
-                chemin_config = None
-            if chemin_config is not None and Path(chemin_config).is_file():
-                env = {"OPENCODE_CONFIG": str(chemin_config)}
+                decision = reglages.decider_lancement(reglages_courants)
+            except Exception as exc:  # noqa: BLE001 — on n'empêche pas de lancer
+                st.warning(
+                    f"Réglages des agents illisibles ({exc}) — la chaîne part sur "
+                    f"{reglages.MODELE_SECOURS}."
+                )
+                decision = {
+                    "profil": reglages.PROFIL_OPENCODE,
+                    "modele": reglages.MODELE_SECOURS,
+                    "endpoint": "",
+                    "repli": True,
+                    "raison": str(exc),
+                    "alignes": 0,
+                }
+            st.session_state["decision_lancement"] = decision
+            env = None
+            if decision["endpoint"]:
+                # Configuration opencode d'exécution (endpoint réglé par l'analyste).
+                # Si le fichier n'existe pas encore, on lance sans `OPENCODE_CONFIG` :
+                # opencode lit alors son propre `opencode.jsonc` — rien n'est cassé
+                # s'il ignore la variable.
+                try:
+                    chemin_config = run_agent.fichier_config_opencode(
+                        reglages.appliquer_profil(dict(reglages_courants))
+                    )
+                except ValueError as exc:
+                    st.warning(f"Configuration opencode non écrite : {exc}")
+                    chemin_config = None
+                if chemin_config is not None and Path(chemin_config).is_file():
+                    env = {"OPENCODE_CONFIG": str(chemin_config)}
             try:
                 st.session_state["run_chaine"] = run_agent.lancer(
                     cas,
                     dossier=lib.DOSSIER_ANALYSES / cible,
-                    modele=reglages_courants["modele_chaine"] or None,
+                    modele=decision["modele"] or None,
                     env=env,
                 )
             except run_agent.ChaineError as exc:
@@ -849,6 +873,25 @@ elif page == PAGES[3]:
             marque = "✓" if entree["terminee"] else "○"
             livrables = f" ({', '.join(entree['fichiers'])})" if entree["terminee"] else ""
             st.caption(f"{marque} {entree['etape']}{livrables}")
+        # La décision de lancement est rappelée tant que la session existe : c'est
+        # elle qui dit si la chaîne a démarré sur Ollama ou sur le modèle de secours.
+        decision = st.session_state.get("decision_lancement")
+        if decision:
+            if decision.get("repli"):
+                st.warning(
+                    f"⚠️ Repli automatique sur **{reglages.MODELE_SECOURS}** — "
+                    f"{decision['raison']} La chaîne n'est pas plantée : elle part sans GPU. "
+                    "Vérifiez l'endpoint dans « Réglages modèles », ou choisissez le profil "
+                    "« opencode » pour rester sur big-pickle en permanence."
+                )
+            else:
+                st.caption(
+                    f"Modèle de la chaîne : **{decision['modele'] or 'modèle de chaque agent'}** "
+                    f"(profil « {decision['profil']} »)"
+                    + (f" — {decision['raison']}" if decision.get("raison") else "")
+                    + (f" · {decision['alignes']} agent(s) aligné(s)"
+                       if decision.get("alignes") else "")
+                )
         if run_agent.est_vivant(proc):
             st.info(f"Analyse en cours… PID {run['pid']}")
         else:
@@ -1160,6 +1203,12 @@ elif page == PAGES[5]:
             f"Actif : **{reglages.libelle_profil(profil_choisi, courants)}** — "
             f"modèle « {courants['modele_chaine'] or 'non imposé'} »."
         )
+        if profil_choisi == reglages.PROFIL_OLLAMA:
+            st.caption(
+                f"Secours automatique : si le serveur ne répond pas au lancement, toute la "
+                f"chaîne part sur **{reglages.MODELE_SECOURS}** (et vous êtes prévenu). "
+                "Choisissez le profil « opencode » pour ne jamais dépendre du GPU."
+            )
     with st.expander("Créer ou supprimer un profil"):
         nouveau_nom = st.text_input(
             "Nom du nouveau profil",

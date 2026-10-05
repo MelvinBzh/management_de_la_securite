@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-22).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-23).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -1351,13 +1351,127 @@ def test_web_22():
     )
 
 
+# --------------------------------------------------------------------------- WEB-23
+def test_web_23():
+    """WEB-23 : le lancement décide seul — Ollama par défaut, big-pickle en repli.
+
+    L'analyste choisit un profil, il ne commande rien. Le repli ne doit surtout pas
+    se limiter à la ligne de commande : un sous-agent dont l'en-tête dirait
+    `ollama/...` échouerait, le `--model` du parent ne le couvre pas. D'où l'alignement
+    de tous les en-têtes par `aligner`, et son appel dans **tous** les cas.
+    """
+    etat = reglages.defauts()
+    etat["profils"]["ollama"]["endpoint"] = "http://192.168.2.144:11434"
+    etat["profil_actif"] = "ollama"
+
+    def aligneur(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {"modifies": ["e21-menaces", "orchestrator"]}
+
+    def sonde_ok(endpoint):
+        probes.append(endpoint)
+        return {"joignable": True, "modeles": ["llama3.1:8b", "mistral:7b"],
+                "message": "Joignable — 2 modèle(s)"}
+
+    def sonde_ko(endpoint):
+        probes.append(endpoint)
+        return {"joignable": False, "modeles": [],
+                "message": "Ollama ne répond pas sur %s : délai dépassé" % endpoint}
+
+    # 1) serveur joignable : Ollama, endpoint transmis, aucun modèle imposé
+    #    (chaque agent suit l'en-tête qui vient d'être aligné)
+    calls, probes = [], []
+    d = reglages.decider_lancement(etat, sonde=sonde_ok, aligner=aligneur)
+    assert d["profil"] == "ollama" and d["repli"] is False, d
+    assert d["endpoint"] == "http://192.168.2.144:11434", d
+    assert d["modele"] == "", f"un modèle ne doit pas être imposé : {d['modele']}"
+    assert probes == ["http://192.168.2.144:11434"], probes
+    assert calls == [(("ollama",), {"modeles_disponibles": ("llama3.1:8b", "mistral:7b")})], \
+        f"les modèles installés doivent être connus du choix : {calls}"
+    assert d["alignes"] == 2 and "Joignable" in d["raison"], d
+
+    # 2) serveur muet : repli automatique, en-tête compris, endpoint retiré
+    calls, probes = [], []
+    d = reglages.decider_lancement(etat, sonde=sonde_ko, aligner=aligneur)
+    assert d["repli"] is True and d["profil"] == "opencode", d
+    assert d["modele"] == reglages.MODELE_SECOURS, f"secours attendu : {d}"
+    assert d["endpoint"] == "", "un endpoint mort ne doit pas être transmis à opencode"
+    assert calls == [(("opencode",), {})], \
+        f"tous les agents doivent repasser sur le secours : {calls}"
+    assert "délai dépassé" in d["raison"], d
+
+    # 3) profil « opencode » choisi à la main : aucune sonde (rien à attendre),
+    #    aucun repli annoncé (ce n'est pas une panne), big-pickle
+    calls, probes = [], []
+    d = reglages.decider_lancement(reglages.defauts(), sonde=sonde_ok, aligner=aligneur)
+    assert probes == [], f"une sonde inutile retarderait le lancement : {probes}"
+    assert d["repli"] is False and d["modele"] == reglages.MODELE_SECOURS, d
+    assert calls == [(("opencode",), {})], calls
+
+    # 4) profil « ollama » sans endpoint : repli explicite, on ne lance pas « à l'aveugle »
+    calls, probes = [], []
+    sans_endpoint = reglages.defauts()
+    sans_endpoint["profils"]["ollama"]["endpoint"] = ""
+    sans_endpoint["profil_actif"] = "ollama"
+    d = reglages.decider_lancement(sans_endpoint, sonde=sonde_ok, aligner=aligneur)
+    assert d["repli"] is True and probes == [], d
+    assert calls == [(("opencode",), {})], calls
+    assert "Aucun serveur Ollama" in d["raison"], d
+
+    # 5) une sonde qui lève ne doit pas empêcher le lancement : repli propre
+    def sonde_cassee(endpoint):
+        raise OSError("réseau injoignable")
+
+    def aligneur_casse(*args, **kwargs):
+        raise OSError("base en lecture seule")
+
+    d = reglages.decider_lancement(etat, sonde=sonde_cassee, aligner=aligneur)
+    assert d["repli"] is True and d["modele"] == reglages.MODELE_SECOURS, d
+    assert "Sonde impossible" in d["raison"], d
+    d = reglages.decider_lancement(etat, sonde=sonde_ko, aligner=aligneur_casse)
+    assert d["repli"] is True and d["modele"] == reglages.MODELE_SECOURS, \
+        f"alignement impossible : on doit quand même lancer sur le secours : {d}"
+
+    # 6) modèle de chaîne valide et imposé : il prime, pour la racine
+    impose = reglages.defauts()
+    impose["profils"]["ollama"]["endpoint"] = "http://192.168.2.144:11434"
+    impose["profils"]["ollama"]["modele_chaine"] = "ollama/llama3.1:8b"
+    impose["profil_actif"] = "ollama"
+    d = reglages.decider_lancement(impose, sonde=sonde_ok, aligner=aligneur)
+    assert d["modele"] == "ollama/llama3.1:8b", d
+
+    # 7) sonde réelle (sans réseau) : un port fermé doit être un repli, pas une exception
+    ferme = reglages.defauts()
+    ferme["profils"]["ollama"]["endpoint"] = "http://127.0.0.1:9"
+    ferme["profil_actif"] = "ollama"
+    d = reglages.decider_lancement(ferme, aligner=aligneur)
+    assert d["repli"] is True and d["raison"], f"sonde réelle : {d}"
+
+    # 8) le chemin réel (sonde + alignement par défaut) doit être câblé : un appel
+    #    sans injection ne peut pas partir sur le secours par mégarde.
+    #    Un port fermé est utilisé car il échoue vite et déterministe.
+    reel = reglages.defauts()
+    reel["profils"]["ollama"]["endpoint"] = "http://127.0.0.1:9"
+    reel["profil_actif"] = "ollama"
+    d = reglages.decider_lancement(reel)
+    assert d["repli"] is True, f"port fermé → repli attendu : {d}"
+    assert d["modele"] == reglages.MODELE_SECOURS, \
+        f"le modèle de secours ne doit jamais être écrasé par une valeur vide : {d}"
+    passer(
+        "WEB-23",
+        "lancement automatique : Ollama joignable → Ollama · muet/sans endpoint/absent "
+        "→ repli big-pickle (agents inclus) · sonde ou écriture en échec → repli propre · "
+        "chemin réel câblé",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
         test_web_01, test_web_02, test_web_03, test_web_04, test_web_05, test_web_06,
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
-        test_web_18, test_web_19, test_web_20, test_web_21, test_web_22,
+        test_web_18, test_web_19, test_web_20, test_web_21, test_web_22, test_web_23,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

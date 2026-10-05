@@ -6,6 +6,17 @@
     make agents-modele PROFIL=ollama      # un modèle Ollama par agent, calibré 12 Go
     make agents-modele PROFIL=ollama DRY=1   # affiche sans écrire
 
+Le profil `ollama` choisit, pour chaque agent, le **premier modèle recommandé déjà
+présent** sur le serveur. La liste se donne explicitement, parce que l'outil ne peut
+pas interroger le PC GPU depuis le serveur Docker :
+
+    make agents-modele PROFIL=ollama MODELES=llama3.1:8b,mistral:7b,qwen3-vl:8b
+
+Sans cette liste, c'est le premier recommandé qui est retenu — donc un agent peut
+pointer un modèle absent du serveur (Ollama le tirera au premier appel, ce qui est
+long, voire impossible hors ligne). Les modèles retenus sont affichés avant toute
+écriture : `DRY=1` permet de vérifier.
+
 Pourquoi un outil plutôt qu'une édition manuelle : le modèle d'un agent vit dans
 son **en-tête `model:`**, et ce même contenu existe à **deux endroits** — la base
 du Studio (`stockage_local/e21.sqlite3`, source de vérité) et les fichiers
@@ -55,7 +66,7 @@ __all__ = ["PROFILS", "MODELE_OPENCODE", "modele_pour", "appliquer_modele",
            "appliquer_profil", "lister_agents", "main"]
 
 
-def modele_pour(profil: str, agent: str) -> str | None:
+def modele_pour(profil: str, agent: str, modeles_disponibles=()) -> str | None:
     """Modèle à écrire pour `agent` selon `profil`, ou `None` pour ne rien changer.
 
     `None` signifie « ne rien écrire » : uniquement le cas d'un **profil inconnu**
@@ -67,8 +78,24 @@ def modele_pour(profil: str, agent: str) -> str | None:
     if profil == PROFIL_OPENCODE:
         return MODELE_OPENCODE
     if profil == "ollama":
-        modele, _present = modeles_ollama.choisir(agent, ())
-        modele = modele or modeles_ollama.RECOMMANDATION_DEFAUT
+        modele, _present = modeles_ollama.choisir(agent, modeles_disponibles)
+        if modele is None:
+            # agent absent de la table : on part du modèle par défaut du profil,
+            # et — si l'analyste a déclaré ses modèles installés mais que le
+            # défaut n'en fait pas partie — du premier modèle connu réellement
+            # installé qui tient dans le budget. On ne pointerait jamais un
+            # modèle absent du serveur.
+            modele = modeles_ollama.RECOMMANDATION_DEFAUT
+            if modeles_disponibles and modele not in set(modeles_disponibles):
+                installes = [
+                    nom
+                    for nom in modeles_disponibles
+                    if nom in modeles_ollama.CATALOGUE
+                    and modeles_ollama.CATALOGUE[nom]["vram_go"]
+                    <= modeles_ollama.VRAM_UTILE_GO
+                ]
+                if installes:
+                    modele = installes[0]
         # opencode résout un modèle via son fournisseur : `ollama/llama3.1:8b`.
         return f"ollama/{modele}"
     return None
@@ -105,8 +132,12 @@ def appliquer_profil(
     chemin_db: Path | None = None,
     dossier_agents: Path | None = None,
     dry_run: bool = False,
+    modeles_disponibles=(),
 ) -> dict:
     """Applique `profil` à tous les agents, **base Studio et fichiers** en une fois.
+
+    `modeles_disponibles` : tags Ollama réellement installés (voir `main` et le
+    `MODELES=` du Makefile). Vide = on prend le premier modèle recommandé.
 
     Renvoie `{"profil", "modifies": [...], "inchangees": [...], "sans_modele": [...],
     "ecrits_base": int, "ecrits_fichiers": int, "dry_run": bool}`.
@@ -131,7 +162,7 @@ def appliquer_profil(
         "dry_run": bool(dry_run),
     }
     for agent in lister_agents(dossier):
-        modele = modele_pour(profil, agent)
+        modele = modele_pour(profil, agent, modeles_disponibles)
         if modele is None:
             bilan["inchangees"].append(agent)
             continue
@@ -170,20 +201,29 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     profil = PROFIL_OPENCODE
     dry_run = False
-    for arg in argv:
+    modeles: tuple[str, ...] = ()
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
         if arg in ("--dry-run", "-n"):
             dry_run = True
         elif arg in ("-h", "--help"):
             print(__doc__)
             return 0
+        elif arg == "--modeles" and index + 1 < len(argv):
+            modeles = tuple(m.strip() for m in argv[index + 1].split(",") if m.strip())
+            index += 1
         else:
             profil = arg
+        index += 1
     try:
-        bilan = appliquer_profil(profil, dry_run=dry_run)
+        bilan = appliquer_profil(profil, dry_run=dry_run, modeles_disponibles=modeles)
     except ValueError as exc:
         print(f"Refus : {exc}", file=sys.stderr)
         return 1
     prefixe = "[simulation] " if dry_run else ""
+    if modeles:
+        print(f"Modèles considérés comme installés : {', '.join(modeles)}")
     print(f"{prefixe}Profil « {profil} » : {len(bilan['modifies'])} agent(s) à "
           f"basculer, {len(bilan['inchangees'])} déjà conforme(s).")
     for entree in bilan["modifies"]:

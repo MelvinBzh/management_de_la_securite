@@ -65,11 +65,17 @@ NOM_PROFIL_MAX = 32
 RE_PROFIL = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 PROFIL_OPENCODE = "opencode"      # config opencode déjà présente dans le conteneur
 PROFIL_OLLAMA = "ollama"          # serveur Ollama (distant ou local)
+# Modèle de secours : celui qui fonctionne sans GPU, sans réseau et sans clé.
+# C'est lui que les agents reprennent automatiquement quand le serveur Ollama
+# ne répond pas — et celui du profil « opencode », choisi à la main.
+MODELE_SECOURS = "opencode/big-pickle"
 LONGUEUR_MAX_CLE = 200
 MASQUE_CLE = "••••"
 DELAI_SONDE = 2.0
 
 __all__ = [
+    "MODELE_SECOURS",
+    "decider_lancement",
     "RACINE",
     "DOSSIER_LOCAL",
     "NOM_FICHIER",
@@ -735,3 +741,114 @@ def sonder(endpoint: str, delai: float = DELAI_SONDE) -> dict:
     resultat["modeles"] = modeles
     resultat["message"] = f"Joignable — {len(modeles)} modèle(s)"
     return resultat
+
+# --------------------------------------------------------------- décision de lancement
+def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
+    """Décide, au clic sur « Lancer la chaîne », quel modèle les agents vont utiliser.
+
+    L'analyste n'a rien à commander : il choisit **un profil** dans les réglages, et
+    c'est cette fonction qui fait le reste, dans cet ordre :
+
+    1. le profil actif est-il `ollama` **et** un endpoint est-il renseigné ?
+    2. ce serveur répond-il (`sonde`) ? — un simple `GET /api/tags`, sans envoi de
+       donnée, avec un délai court ;
+    3. les lignes `model:` des agents sont réalignées sur la décision
+       (`aligner` = `tools.studio.modeles_agents.appliquer_profil`) ;
+    4. renvoi du modèle à passer à opencode, du endpoint à lui fournir, et du
+       motif lisible par l'analyste.
+
+    **Ollama ne répond pas** → repli automatique sur `opencode/big-pickle` pour toute
+    la chaîne, fichiers d'agents compris, et `repli=True` : l'appelant affiche alors
+    un avertissement. Le repli porte sur les **agents** et pas seulement sur la
+    commande de lancement : un sous-agent dont l'en-tête dirait `ollama/...`
+    échouerait sinon, le `--model` de la ligne de commande ne le couvre pas.
+
+    **Profil `opencode` choisi à la main** → aucun repli n'est annoncé (`repli=False`) :
+    ce n'est pas une panne, c'est un choix. Rien n'est sondé, rien ne bloque.
+
+    Renvoie `{"profil", "modele", "endpoint", "repli", "raison", "alignes"}`.
+    `sonde` et `aligner` sont injectables pour être testables sans réseau ni écriture.
+    """
+    etat = appliquer_profil(dict(etat or {}))
+    profil = etat.get("profil_actif") or PROFIL_OPENCODE
+    endpoint = str(etat.get("endpoint") or "").strip()
+    wants_ollama = profil == PROFIL_OLLAMA
+
+    if not callable(sonde):  # un appelant qui passerait None ne doit pas tout casser
+        sonde = sonder
+    if aligner is None:
+        from tools.studio import modeles_agents  # import tardif : web/ reste autonome
+
+        aligner = modeles_agents.appliquer_profil
+
+    def _aligner(cible: str, **options) -> dict:
+        """Aligne les en-têtes ; un échec est signalé, jamais avalé en silence."""
+        nonlocal bilan, raison, repli, endpoint, modele
+        try:
+            return aligner(cible, **options) or {}
+        except Exception as exc:  # noqa: BLE001 — un refus d'écriture ne bloque pas
+            raison = (f"{raison} " if raison else "") + (
+                f"alignement des agents impossible ({_raison_courte(exc)})"
+            )
+            repli = True
+            endpoint = ""
+            modele = MODELE_SECOURS
+            return {}
+
+    bilan: dict = {}
+    modeles_installes: tuple[str, ...] = ()
+    repli = False
+    raison = ""
+    if not endpoint:
+        repli = wants_ollama
+        raison = (
+            "Aucun serveur Ollama n'est renseigné dans le profil « ollama » "
+            "(page « Réglages modèles »)."
+            if repli
+            else ""
+        )
+    else:
+        try:
+            reponse = sonde(endpoint) or {}
+        except Exception as exc:  # noqa: BLE001 — une sonde ne doit pas bloquer un lancement
+            reponse = {"joignable": False, "message": f"Sonde impossible : {_raison_courte(exc)}"}
+        if reponse.get("joignable"):
+            modeles_installes = tuple(reponse.get("modeles") or ())
+            raison = str(reponse.get("message") or "")
+        else:
+            repli = True
+            raison = str(
+                reponse.get("message") or f"Ollama ne répond pas sur {endpoint}."
+            )
+            endpoint = ""
+
+    if repli:
+        # Panne ou réglage incomplet : on ne laisse aucun agent pointer Ollama.
+        bilan = _aligner(PROFIL_OPENCODE)
+        modele = str(etat.get("modele_chaine") or "").strip() or MODELE_SECOURS
+        if not modele_valide(modele):
+            modele = MODELE_SECOURS
+    elif wants_ollama:
+        bilan = _aligner(PROFIL_OLLAMA, modeles_disponibles=modeles_installes)
+        # Modèle imposé de la ligne de commande : celui des réglages s'il est valide,
+        # sinon aucun — chaque agent suit alors l'en-tête qui vient d'être aligné.
+        # On ne l'écrit que si `_aligner` n'a pas déclenché de repli : sinon son
+        # modèle de secours serait écrasé par une valeur vide.
+        if not repli:
+            modele = str(etat.get("modele_chaine") or "").strip()
+            if not modele_valide(modele):
+                modele = ""
+    else:
+        bilan = _aligner(PROFIL_OPENCODE)
+        modele = str(etat.get("modele_chaine") or "").strip() or MODELE_SECOURS
+        if not modele_valide(modele):
+            modele = MODELE_SECOURS
+
+    return {
+        "profil": PROFIL_OPENCODE if repli else profil,
+        "modele": modele,
+        "endpoint": endpoint,
+        "repli": repli,
+        "raison": raison,
+        "alignes": len(bilan.get("modifies") or []),
+    }
