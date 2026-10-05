@@ -524,6 +524,19 @@ def enregistrer(reglages: dict, profil: str | None = None) -> dict:
     for champ in ("endpoint", "cle", "modele_chaine"):
         if champ in reglages and reglages[champ] is not None:
             courant[champ] = reglages[champ]
+    # Le profil « opencode » ne porte **ni endpoint ni clé** : opencode lit la
+    # configuration du conteneur, un endpoint ici le ferait pointer par erreur vers
+    # un serveur qui n'est pas celui du conteneur. Le formulaire de l'application
+    # renvoie l'endpoint plat affiché — l'enregistrer après une bascule de profil
+    # contaminait donc le secours (constaté : opencode affiché avec l'adresse Ollama).
+    if cible == PROFIL_OPENCODE:
+        for champ, nom_champ in (("endpoint", "endpoint"), ("cle", "clé d'API")):
+            if str(courant.get(champ) or "").strip():
+                raise ValueError(
+                    f"Réglages refusés : le profil « opencode » ne peut pas porter de "
+                    f"{nom_champ} — opencode lit la configuration du conteneur. Videz le "
+                    f"champ, ou renseignez le profil « {PROFIL_OLLAMA} »."
+                )
     if "modeles_agents" in reglages and reglages["modeles_agents"] is not None:
         etat["modeles_agents"] = dict(reglages["modeles_agents"])
     etat["profils"][cible] = courant
@@ -568,6 +581,10 @@ def activer_profil(nom: str) -> dict:
             f"{', '.join(sorted(etat['profils']))})."
         )
     etat["profil_actif"] = nom
+    if nom == PROFIL_OPENCODE:
+        # Le secours doit repartir propre : un endpoint laissé par un formulaire
+        #依旧是 displays « Ollama » alors que la chaîne part sur big-pickle.
+        etat["profils"][nom] = {"endpoint": "", "cle": ""}
     return appliquer_profil(_ecrire(etat), nom)
 
 

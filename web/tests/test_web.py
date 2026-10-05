@@ -44,6 +44,7 @@ vérifiée.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -874,6 +875,12 @@ def test_web_16():
             "les défauts ne doivent contenir aucun secret"
 
         # d) écriture réelle dans un dossier TEMPORAIRE, puis FUSION.
+        #    L'écriture vise le profil « ollama » : c'est le seul qui porte un
+        #    endpoint (le profil « opencode » lit la configuration du conteneur,
+        #    un endpoint y serait refusé — voir WEB-28). On l'active d'abord pour
+        #    que le miroir plat corresponde, comme dans l'application.
+        activer_local = dans_stockage_temporaire(reglages.activer_profil)
+        activer_local(reglages.PROFIL_OLLAMA)
         premier = enregistrer_local({
             "endpoint": "http://192.168.1.50:11434",
             "cle": "cle-locale-1",
@@ -1888,6 +1895,76 @@ def test_web_27():
     )
 
 
+def test_web_28():
+    """WEB-28 : la chaîne doit pouvoir lire, et le profil « opencode » rester propre.
+
+    Deux défauts constatés en lançant la chaîne **depuis le site**, reproduits ici.
+
+    1. **Une permission `ask` vaut refus en non-interactif.** Le bouton
+       « ▶ Lancer la chaîne » lance opencode sans personne pour répondre : tout ce
+       qui est en `ask` est *auto-rejeté*. L'orchestrateur n'avait que
+       `gh *`, `git *`, `mkdir *` : son tout premier `ls` a été refusé et la chaîne
+       est morte en code 0, sans livrable. Il lui faut les commandes de lecture —
+       équivalentes à `read: allow`, déjà accordé.
+
+    2. **Le formulaire contamineit le profil `opencode`.** « Enregistrer les
+       réglages » écrit dans le profil *actif* l'endpoint affiché. Après une bascule
+       vers `opencode`, le secours se retrouvait avec l'adresse Ollama : l'interface
+       annonçait « opencode — Ollama · http://192.168.2.144:11434 ». Le profil
+       `opencode` ne peut porter ni endpoint ni clé : opencode lit la configuration
+       du conteneur.
+    """
+    # --- 1) l'orchestrateur peut lire
+    orchestrateur = (db.DOSSIER_AGENTS / "orchestrator.md").read_text(encoding="utf-8")
+    bloc = orchestrateur.split("---")[1].split("bash:", 1)[1]  # frontmatter seul
+    for commande in ("ls", "cat", "head", "tail", "pwd"):
+        assert re.search(rf"^\s+{commande}(?:\s+\*)?: allow$", bloc, re.M), \
+            f"`{commande}` doit être autorisé : sans lecture, la chaîne s'arrête au " \
+            f"premier appel non interactif. bloc bash = {bloc.strip()[:200]}"
+    assert re.search(r"^\s+'?\*'?:\s*ask$", bloc, re.M), \
+        f"le reste doit rester en `ask` : {bloc.strip()[:200]}"
+
+    # --- 2a) le profil opencode refuse endpoint et clé
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "reglages-modeles.json"
+        original = reglages.NOM_FICHIER
+        try:
+            reglages.NOM_FICHIER = local
+            reglages.enregistrer({
+                "profils": {"ollama": {"endpoint": "http://192.168.2.144:11434",
+                                        "cle": "", "modele_chaine": "llama3.1:8b"}},
+                "profil_actif": "ollama",
+            })
+            # le profil actif bascule, on enregistre la valeur *plate* encore affichée
+            etat = reglages.activer_profil("opencode")
+            assert etat["profil_actif"] == "opencode", etat
+            assert not etat["profils"]["opencode"].get("endpoint"), \
+                f"le secours doit repartir sans endpoint : {etat['profils']['opencode']}"
+            try:
+                reglages.enregistrer({"endpoint": "http://192.168.2.144:11434"})
+            except ValueError as exc:
+                assert "opencode" in str(exc), exc
+            else:
+                raise AssertionError(
+                    "un endpoint écrit dans le profil opencode doit être refusé — "
+                    "l'interface afficherait alors « opencode — Ollama »"
+                )
+            # `modele_chaine` reste modifiable : le secours peut forcer un modèle
+            etat = reglages.enregistrer({"modele_chaine": "opencode/big-pickle"})
+            assert etat["profils"]["opencode"]["modele_chaine"] == "opencode/big-pickle", etat
+            # et le libellé redevient lisible
+            assert "conteneur" in reglages.libelle_profil("opencode", etat), \
+                reglages.libelle_profil("opencode", etat)
+        finally:
+            reglages.NOM_FICHIER = original
+    passer(
+        "WEB-28",
+        "chaîne non interactive : l'orchestrateur peut lire (sinon auto-rejet au "
+        "premier appel) · reste en `ask` · profil « opencode » sans endpoint ni clé, "
+        "libellé « config du conteneur »",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
@@ -1895,7 +1972,7 @@ def executer_tests() -> int:
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
         test_web_18, test_web_19, test_web_20, test_web_21, test_web_22, test_web_23,
-        test_web_24, test_web_25, test_web_26, test_web_27,
+        test_web_24, test_web_25, test_web_26, test_web_27, test_web_28,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

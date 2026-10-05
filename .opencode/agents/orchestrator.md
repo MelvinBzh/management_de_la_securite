@@ -14,6 +14,12 @@ permission:
     gh *: allow
     git *: allow
     mkdir *: allow
+    ls *: allow
+    cat *: allow
+    head *: allow
+    tail *: allow
+    wc *: allow
+    pwd: allow
     '*': ask
 ---
 
