@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-23).
+"""Tests autonomes de l'interface web E21 (WEB-01 → WEB-25).
 
 Exécution sans dépendance externe :
     python3 web/tests/test_web.py
@@ -1465,6 +1465,230 @@ def test_web_23():
     )
 
 
+# --------------------------------------------------------------------------- WEB-24
+def test_web_24():
+    """WEB-24 : le profil « opencode » (le secours) existe toujours, et on ne peut
+    pas le supprimer.
+
+    Régression réelle : la migration d'un fichier de réglages plat ne créait qu'un
+    seul profil — `ollama` dès qu'un endpoint existait. L'analyste se retrouvait avec
+    une liste de profils ne contenant que « ollama » : impossible de choisir le
+    secours, et impossible de revenir à big-pickle à la main.
+    """
+    # 1) fichier plat avec endpoint (le cas réel) -> les deux profils existent
+    plat = {"endpoint": "http://192.168.2.144:11434", "cle": "", "modele_chaine": ""}
+    etat = reglages.normaliser_profils(plat)
+    assert sorted(etat["profils"]) == ["ollama", "opencode"], \
+        f"le secours doit être créé d'office : {sorted(etat['profils'])}"
+    assert etat["profils"]["opencode"] == {"endpoint": "", "cle": "", "modele_chaine": ""}, \
+        f"le secours ne doit rien porter : {etat['profils']['opencode']}"
+    assert etat["profil_actif"] == "ollama", "l'endpoint existant reste le choix actif"
+
+    # 2) déjà profilé mais sans opencode (état rencontre après migration) -> idem
+    sans_secours = {
+        "profils": {"ollama": {"endpoint": "http://hote:11434", "cle": "",
+                               "modele_chaine": "ollama/llama3.1:8b"}},
+        "profil_actif": "ollama",
+    }
+    etat = reglages.normaliser_profils(sans_secours)
+    assert "opencode" in etat["profils"], "le secours doit être rétabli"
+
+    # 3) les valeurs existantes ne sont jamais écrasées
+    etat = reglages.normaliser_profils(
+        {"profils": {"opencode": {"endpoint": "", "cle": "", "modele_chaine": ""}},
+         "profil_actif": "opencode"}
+    )
+    assert etat["profils"]["opencode"]["endpoint"] == "", "valeur existante préservée"
+
+    # 4) un profil « opencode » avec un endpoint n'est ni sondé ni utilisé
+    with_endpoint = {
+        "profils": {
+            "ollama": {"endpoint": "http://hote:11434", "cle": "", "modele_chaine": ""},
+            "opencode": {"endpoint": "http://perdu:11434", "cle": "", "modele_chaine": ""},
+        },
+        "profil_actif": "opencode",
+    }
+    appels = []
+    d = reglages.decider_lancement(
+        with_endpoint,
+        sonde=lambda e: appels.append(e) or {"joignable": False, "message": "muet"},
+        aligner=lambda *a, **k: {"modifies": []},
+    )
+    assert appels == [], f"choisir opencode ne doit sonder personne : {appels}"
+    assert d["endpoint"] == "" and d["repli"] is False, d
+    assert d["modele"] == reglages.MODELE_SECOURS, d
+
+    # 5) le secours est protégé : suppression refusée avec une raison
+    import tempfile
+    from pathlib import Path as _Path
+    with tempfile.TemporaryDirectory() as tmp:
+        cible = _Path(tmp) / "reglages-modeles.json"
+        cible.write_text(__import__("json").dumps({
+            "profils": {
+                "ollama": {"endpoint": "http://hote:11434", "cle": "", "modele_chaine": ""},
+                "opencode": {"endpoint": "", "cle": "", "modele_chaine": ""},
+                "temp": {"endpoint": "http://x:1", "cle": "", "modele_chaine": ""},
+            },
+            "profil_actif": "ollama",
+        }), encoding="utf-8")
+        original = reglages.chemin_fichier
+        reglages.chemin_fichier = lambda: cible
+        try:
+            try:
+                reglages.supprimer_profil("opencode")
+            except ValueError as exc:
+                assert "secours" in str(exc), f"motif attendu : {exc}"
+            else:
+                raise AssertionError("la suppression du secours doit être refusée")
+            # les autres profils se suppriment toujours
+            etat = reglages.supprimer_profil("temp")
+            assert "temp" not in etat["profils"] and "opencode" in etat["profils"], etat
+        finally:
+            reglages.chemin_fichier = original
+    passer(
+        "WEB-24",
+        "profil opencode (secours) toujours présent après migration · existant préservé · "
+        "choisir opencode ne sonde personne · suppression du secours refusée",
+    )
+
+
+# --------------------------------------------------------------------------- WEB-25
+def test_web_25():
+    """WEB-25 : l'endpointollama est écrit là où opencode le lit vraiment.
+
+    Mesuré sur opencode 1.18.32 : `OPENCODE_CONFIG` n'est pas lu, et un fournisseur
+    absent de `opencode.jsonc` ne donne pas un repli propre mais une erreur serveur
+    (« Unexpected server error ») — l'erreur exacte remontée par l'analyste. Seul le
+    `baseURL` du bloc `ollama` du fichier de projet change quelque chose ; c'est donc
+    lui qui est aligné, puis remis à sa valeur livrée lors d'un repli.
+    """
+    import tempfile
+    from pathlib import Path as _Path
+
+    # 1) le fichier réel du dépôt : une seule ligne change, commentaires intacts
+    source = run_agent.CHEMIN_CONFIG_PROJET.read_text(encoding="utf-8")
+    lignes_avant = source.splitlines()
+    with tempfile.TemporaryDirectory() as tmp:
+        copie = _Path(tmp) / "opencode.jsonc"
+        copie.write_text(source, encoding="utf-8")
+        r = run_agent.ecrire_baseurl_ollama("http://192.168.2.144:11434", chemin=copie)
+        assert r["ecrit"] is True and r["valeur"] == "http://192.168.2.144:11434/v1", r
+        apres = copie.read_text(encoding="utf-8")
+        differentes = [
+            (a, b) for a, b in zip(lignes_avant, apres.splitlines()) if a != b
+        ]
+        assert len(differentes) == 1, f"une seule ligne doit changer : {differentes}"
+        assert "localhost:11434" not in apres.splitlines()[
+            [i for i, l in enumerate(apres.splitlines()) if "baseURL" in l][0]
+        ], "l'endpoint livré doit être remplacé"
+        assert apres.count("//") == source.count("//"), "les commentaires doivent rester"
+
+        # 2) idempotent : rien n'est réécrit, et le fichier ne bouge pas
+        r2 = run_agent.ecrire_baseurl_ollama("http://192.168.2.144:11434", chemin=copie)
+        assert r2["ecrit"] is False, f"déjà configuré : {r2}"
+        assert copie.read_text(encoding="utf-8") == apres, "fichier touché pour rien"
+
+        # 3) « /v1 » ne peut pas être doublé, quelle que soit la saisie
+        for saisie in ("http://hote:11434", "http://hote:11434/", "http://hote:11434/v1"):
+            r3 = run_agent.ecrire_baseurl_ollama(saisie, chemin=copie)
+            assert r3["valeur"] == "http://hote:11434/v1", f"{saisie} → {r3['valeur']}"
+
+        # 4) restauration : la valeur livrée avec le dépôt revient
+        run_agent.restaurer_baseurl_ollama(chemin=copie)
+        assert run_agent.BASEURL_OLLAMA_LIVREE in copie.read_text(encoding="utf-8"), \
+            "la valeur livrée doit être rétablie"
+
+    # 5) un autre fournisseur avec son propre baseURL n'est PAS touché
+    melange = """{
+  // deux fournisseurs
+  "provider": {
+    "autre": {
+      "options": { "baseURL": "https://api.exemple.fr/v1" },
+      "models": { "x": { "name": "x" } }
+    },
+    "ollama": {
+      "options": { "baseURL": "http://localhost:11434/v1" },
+      "models": { "llama3.1:8b": { "name": "llama3.1:8b" } }
+    }
+  }
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        f = _Path(tmp) / "opencode.jsonc"
+        f.write_text(melange, encoding="utf-8")
+        bloc = run_agent._bloc_fournisseur(f.read_text(encoding="utf-8"), "ollama")
+        assert bloc is not None, "le bloc ollama doit être trouvé"
+        segment = melange[bloc[0] : bloc[1] + 1]
+        assert "localhost" in segment and "exemple.fr" not in segment, \
+            "le bloc doit être celui du fournisseur demandé"
+        run_agent.ecrire_baseurl_ollama("http://gpu:11434", chemin=f)
+        final = f.read_text(encoding="utf-8")
+        assert "https://api.exemple.fr/v1" in final, "le fournisseur voisin est intact"
+        assert '"baseURL": "http://gpu:11434/v1"' in final, final
+
+        # 6) refus explicite, sans écriture, si la clé n'est pas là
+        sans_cle = '{"provider": {"ollama": {"options": {}}}}'
+        f.write_text(sans_cle, encoding="utf-8")
+        r6 = run_agent.ecrire_baseurl_ollama("http://gpu:11434", chemin=f)
+        assert r6["ecrit"] is False and "baseURL" in r6["raison"], r6
+        assert f.read_text(encoding="utf-8") == sans_cle, "rien ne doit être écrit"
+        # ... ni si le fournisseur est absent
+        f.write_text('{"provider": {}}', encoding="utf-8")
+        r7 = run_agent.ecrire_baseurl_ollama("http://gpu:11434", chemin=f)
+        assert r7["ecrit"] is False and "ollama" in r7["raison"], r7
+
+    # 7) un tag Ollama nu reçoit son préfixe — mais seulement s'il est installé
+    installes = ("llama3.1:8b", "mistral:7b")
+    assert reglages._modele_resolu("llama3.1:8b", installes) == "ollama/llama3.1:8b"
+    assert reglages._modele_resolu("ollama/llama3.1:8b", installes) == "ollama/llama3.1:8b"
+    assert reglages._modele_resolu("big-pickle", installes) == "big-pickle", \
+        "un modèle d'un autre fournisseur ne doit pas être réécrit"
+    assert reglages._modele_resolu("llama3.2:3b", installes) == "llama3.2:3b", \
+        "une faute de frappe reste visible"
+    assert reglages._modele_resolu("llama3.1:8b", ()) == "llama3.1:8b", \
+        "sans liste de serveurs connus, on n'invente pas de préfixe"
+
+    # 8) le choix de lancement en tient compte, et remet le dépôt en l'état au repli
+    with tempfile.TemporaryDirectory() as tmp:
+        cible = _Path(tmp) / "opencode.jsonc"
+        cible.write_text(source, encoding="utf-8")
+        etat = reglages.defauts()
+        etat["profils"]["ollama"]["endpoint"] = "http://192.168.2.144:11434"
+        etat["profils"]["ollama"]["modele_chaine"] = "llama3.1:8b"
+        etat["profil_actif"] = "ollama"
+        original_config = run_agent.CHEMIN_CONFIG_PROJET
+        run_agent.CHEMIN_CONFIG_PROJET = cible
+        try:
+            d = reglages.decider_lancement(
+                etat,
+                sonde=lambda e: {"joignable": True, "modeles": ["llama3.1:8b"],
+                                 "message": "Joignable — 1 modèle(s)"},
+                aligner=lambda *a, **k: {"modifies": []},
+            )
+            assert d["modele"] == "ollama/llama3.1:8b", \
+                f"le tag nu ne doit pas atteindre la ligne de commande : {d}"
+            assert "192.168.2.144" in cible.read_text(encoding="utf-8"), \
+                "l'endpoint du GPU doit être écrit dans opencode.jsonc"
+            d = reglages.decider_lancement(
+                etat,
+                sonde=lambda e: {"joignable": False, "message": "muet"},
+                aligner=lambda *a, **k: {"modifies": []},
+            )
+            # le modèle du profil en panne ne doit jamais être repassé : il est
+            # injoignable par définition, et la chaîne retomberait en erreur.
+            assert d["repli"] is True and d["modele"] == reglages.MODELE_SECOURS, d
+            assert cible.read_text(encoding="utf-8") == source, \
+                "au repli, le dépôt doit revenir à son état livré"
+        finally:
+            run_agent.CHEMIN_CONFIG_PROJET = original_config
+    passer(
+        "WEB-25",
+        f"opencode.jsonc : une seule ligne écrite · commentaires intacts · idempotent · "
+        f"/v1 non doublé · fournisseur voisin intact · refus sans clé · valeur livrée "
+        f"restaurée au repli · tag nu préfixé ({reglages.PROFIL_OLLAMA}/…)",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
     tests = [
@@ -1472,6 +1696,7 @@ def executer_tests() -> int:
         test_web_07, test_web_08, test_web_09, test_web_10, test_web_11,
         test_web_12, test_web_13, test_web_14, test_web_15, test_web_16, test_web_17,
         test_web_18, test_web_19, test_web_20, test_web_21, test_web_22, test_web_23,
+        test_web_24, test_web_25,
     ]
     for test in tests:
         tid = test.__name__.replace("test_", "").upper()

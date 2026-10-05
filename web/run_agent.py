@@ -25,14 +25,22 @@ Paramètres ajoutés pour la page « Réglages modèles » (`web/reglages.py`) :
   (utilisé par l'appelant pour `OPENCODE_CONFIG`). Rien n'est imposé par défaut :
   le processus hérite de l'environnement courant.
 - `fichier_config_opencode(reglages)` écrit un fragment de configuration opencode
-  (`stockage_local/opencode-runtime.json`, gitignoré) pointant le fournisseur
-  `ollama` sur l'`endpoint` réglé. C'est **l'appelant** qui le passe à opencode via
-  `OPENCODE_CONFIG` ; ce module ne prétend pas garantir la résolution de cette
-  variable côté opencode.
+  (`stockage_local/opencode-runtime.json`, gitignoré). **Vérifié inutile** : sur
+  opencode 1.18.32, `OPENCODE_CONFIG` n'est pas lu et, même lu, ne_prime pas sur la
+  configuration du projet — un fournisseur absent de `opencode.jsonc` provoque au
+  mieux une erreur « Unexpected server error », au pire une connexion vers
+  l'endpoint par défaut. La fonction est conservée (elle reste inoffensive et testée)
+  mais plus rien n'en dépend : voir `ecrire_baseurl_ollama`.
+- `ecrire_baseurl_ollama(endpoint)` / `restaurer_baseurl_ollama()` : le seul
+  mécanisme qui fonctionne est le fichier `opencode.jsonc` du projet. Ces deux
+  fonctions y règlent — puis restaurent — `provider.ollama.options.baseURL`, en ne
+  touchant **qu'à cette valeur** : commentaires, indentation et tout le reste sont
+  préservés caractère par caractère (le fichier est du JSONC, illisible par `json`).
 """
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -273,3 +281,140 @@ __all__ = [
     "lire_log",
     "etape_terminees",
 ]
+
+
+# --------------------------------------------------------- endpoint Ollama du projet
+# Valeur livrée avec le dépôt : valable quand Ollama tourne sur la machine qui
+# héberge opencode. Toute autre adresse est écrite par `ecrire_baseurl_ollama`.
+BASEURL_OLLAMA_LIVREE = "http://localhost:11434/v1"
+CHEMIN_CONFIG_PROJET = RACINE / "opencode.jsonc"
+# Une seule clé, un seul remplacement : le premier « baseURL » du bloc « ollama ».
+RE_BASEURL = re.compile(r'("baseURL"\s*:\s*")([^"]*)(")')
+
+
+def _bloc_fournisseur(source: str, fournisseur: str) -> tuple[int, int] | None:
+    """Bornes du bloc JSONC `{ … }` dont la clé est exactement `"fournisseur"`.
+
+    Le fichier est du JSONC : une accolade peut se trouver dans un commentaire ou
+    dans une chaîne. On repère donc la clé comme **clé de premier niveau** — chaîne
+    suivie de `:` puis de `{` — et on compte les accolades en sautant chaînes et
+    commentaires `//`. Renvoie `(debut, fin)` ou `None` si le fournisseur est absent.
+    """
+    cible = '"' + str(fournisseur) + '"'
+    n = len(source)
+    i = 0
+    while i < n:
+        caractere = source[i]
+        if caractere == "/" and source[i : i + 2] == "//":
+            saut = source.find("\n", i)
+            i = n if saut == -1 else saut
+            continue
+        if caractere != '"':
+            i += 1
+            continue
+        # chaîne courante, échappements compris
+        j = i + 1
+        echappe = False
+        while j < n:
+            if echappe:
+                echappe = False
+            elif source[j] == "\\":
+                echappe = True
+            elif source[j] == '"':
+                break
+            j += 1
+        chaine = source[i : j + 1]
+        k = j + 1
+        while k < n and source[k] in " \t\r\n":
+            k += 1
+        if chaine == cible and k < n and source[k] == ":":
+            k += 1
+            while k < n and source[k] in " \t\r\n":
+                k += 1
+            if k < n and source[k] == "{":
+                profondeur = 0
+                m = k
+                dans_chaine = False
+                echappe = False
+                while m < n:
+                    c = source[m]
+                    if dans_chaine:
+                        if echappe:
+                            echappe = False
+                        elif c == "\\":
+                            echappe = True
+                        elif c == '"':
+                            dans_chaine = False
+                    elif c == '"':
+                        dans_chaine = True
+                    elif c == "/" and source[m : m + 2] == "//":
+                        saut = source.find("\n", m)
+                        m = n if saut == -1 else saut
+                        continue
+                    elif c == "{":
+                        profondeur += 1
+                    elif c == "}":
+                        profondeur -= 1
+                        if profondeur == 0:
+                            return k, m
+                    m += 1
+                return None
+        i = j + 1
+    return None
+
+
+def ecrire_baseurl_ollama(endpoint: str, chemin: Path | None = None) -> dict:
+    """Règle `provider.ollama.options.baseURL` dans `opencode.jsonc`.
+
+    Seule la valeur est réécrite : le reste du fichier — commentaires du dépôt
+    compris — est conservé tel quel, car le fichier est du JSONC que `json` refuse
+    de lire. Un endpoint sans `/v1` se le voit ajouter (opencode parle à Ollama par
+    son API compatible OpenAI).
+
+    Renvoie `{"ecrit", "valeur", "chemin", "raison"}`. Refus explicite, sans
+    écriture, si le fichier est absent, illisible, sans bloc `ollama` ou sans
+    `baseURL` : mieux vaut un lancement annoncé comme « non configuré » qu'un
+    fichier ouvert du mauvais côté.
+    """
+    chemin = Path(chemin) if chemin is not None else CHEMIN_CONFIG_PROJET
+    attendu = str(endpoint or "").strip().rstrip("/")
+    if not attendu:
+        return {"ecrit": False, "valeur": "", "chemin": chemin,
+                "raison": "Aucun endpoint à écrire."}
+    if attendu.endswith("/v1"):
+        attendu = attendu[: -len("/v1")]
+    valeur = f"{attendu}/v1"
+    try:
+        source = chemin.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return {"ecrit": False, "valeur": valeur, "chemin": chemin,
+                "raison": f"{chemin.name} illisible : {exc}"}
+
+    bloc = _bloc_fournisseur(source, "ollama")
+    if bloc is None:
+        return {"ecrit": False, "valeur": valeur, "chemin": chemin,
+                "raison": f"Aucun bloc « ollama » dans {chemin.name}."}
+    debut, fin = bloc
+    segment = source[debut : fin + 1]
+    motif = RE_BASEURL
+    trouve = motif.search(segment)
+    if trouve is None:
+        return {"ecrit": False, "valeur": valeur, "chemin": chemin,
+                "raison": f"Aucune clé « baseURL » dans le bloc « ollama » de {chemin.name}."}
+    deja = trouve.group(2)
+    if deja == valeur:
+        return {"ecrit": False, "valeur": valeur, "chemin": chemin,
+                "raison": "Déjà configuré — rien n'est réécrit."}
+    nouveau_segment = motif.sub(lambda m: m.group(1) + valeur + m.group(3), segment, count=1)
+    chemin.write_text(source[:debut] + nouveau_segment + source[fin + 1 :], encoding="utf-8")
+    return {"ecrit": True, "valeur": valeur, "chemin": chemin,
+            "raison": f"{chemin.name} : baseURL ollama → {valeur}"}
+
+
+def restaurer_baseurl_ollama(chemin: Path | None = None) -> dict:
+    """Remet l'endpoint livré avec le dépôt (Ollama sur la machine d'opencode).
+
+    Appelé lors d'un repli sur le modèle de secours : le dépôt n'est alors plus
+    modifié, et `git status` reste propre si la chaîne a basculé sur big-pickle.
+    """
+    return ecrire_baseurl_ollama(BASEURL_OLLAMA_LIVREE, chemin=chemin)
