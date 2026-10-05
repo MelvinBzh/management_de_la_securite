@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tests autonomes du socle Studio E21 (STUDIO-01 → STUDIO-07).
+"""Tests autonomes du socle Studio E21 (STUDIO-01 → STUDIO-08).
 
 Exécution sans dépendance externe :
     python3 tools/studio/tests/test_db.py
@@ -539,12 +539,78 @@ def test_studio_07():
     )
 
 
+# --------------------------------------------------------------------------- STUDIO-08
+def test_studio_08():
+    """STUDIO-08 : le déploiement refuse d'écrire un en-tête qu'opencode refuserait.
+
+    opencode ne signale pas un agent refusé : il bascule sur l'agent par défaut et
+    la chaîne démarre sans ses consignes, en sortant en code 0. Le seul endroit où
+    l'on peut encore dire « non » avant que le dépôt soit cassé, c'est ici.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        racine = Path(tmp)
+        chemin = base_temporaire(racine)
+        agents = racine / "agents"
+        skills = racine / "skills"
+        db.init(chemin).close()
+
+        def entete(mode: str) -> str:
+            return f"---\ndescription: agent de test\nmode: {mode}\n---\n\nCorps.\n"
+
+        bon = entete("subagent")
+        casse = entete("agent")
+        db.sauvegarder("agent", "e21-bon", bon, chemin_db=chemin)
+        db.sauvegarder("agent", "e21-casse", casse, chemin_db=chemin)
+
+        leverer(
+            lambda: db.deployer_vers_opencode(
+                agents, skills, chemin_db=chemin
+            ),
+            ValueError,
+            "e21-casse",
+        )
+        assert not (agents / "e21-casse.md").exists(), \
+            "un en-tête refusé ne doit surtout pas atteindre le disque"
+        assert not (agents / "e21-bon.md").exists(), \
+            "le refus doit être global : un déploiement partiel est un dépôt incohérent"
+
+        message = leverer(
+            lambda: db.deployer_vers_opencode(agents, skills, chemin_db=chemin),
+            ValueError,
+            "opencode",
+        )
+        assert "n'est pas enregistré" in message and "défaut" in message, \
+            f"le message doit rappeler la conséquence silencieuse : « {message} »"
+        assert "Aucun fichier n'a été écrit" in message, \
+            f"le message doit dire que le dépôt est intact : « {message} »"
+
+        # réparé : le déploiement passe, et rien n'est réécrit une seconde fois
+        db.sauvegarder("agent", "e21-casse", entete("primary"), chemin_db=chemin)
+        bilan = db.deployer_vers_opencode(agents, skills, chemin_db=chemin)
+        assert bilan["ecrits"] == 2, bilan
+        assert (agents / "e21-casse.md").read_text(encoding="utf-8").find(
+            "mode: primary"
+        ) != -1, "le fichier doit porter le mode réparé"
+        assert db.deployer_vers_opencode(agents, skills, chemin_db=chemin)["ecrits"] == 0, \
+            "déploiement doit rester idempotent"
+
+        # un agent sans en-tête reste déployable : c'est opencode qui est seul juge
+        db.sauvegarder("agent", "e21-sans-entete", "Corps seul.\n", chemin_db=chemin)
+        bilan = db.deployer_vers_opencode(agents, skills, chemin_db=chemin)
+        assert bilan["ecrits"] == 1, bilan
+    passer(
+        "STUDIO-08",
+        "en-tête mode invalide : déploiement refusé, rien sur disque, message nommant "
+        "la conséquence silencieuse · réparé puis idempotent · agent sans en-tête accepté",
+    )
+
+
 # ------------------------------------------------------------------------ exécution
 def executer_tests() -> int:
-    """Exécute STUDIO-01 → STUDIO-07 ; renvoie 0 si aucun FAIL."""
+    """Exécute STUDIO-01 → STUDIO-08 ; renvoie 0 si aucun FAIL."""
     tests = [
         test_studio_01, test_studio_02, test_studio_03,
-        test_studio_04, test_studio_05, test_studio_06, test_studio_07,
+        test_studio_04, test_studio_05, test_studio_06, test_studio_07, test_studio_08,
     ]
     for test in tests:
         tid = test.__name__.replace("test_studio_", "STUDIO-")
