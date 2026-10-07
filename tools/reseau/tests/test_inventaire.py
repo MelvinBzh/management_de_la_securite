@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -207,8 +208,17 @@ def test_reseau_06_reproductible():
                     text=True,
                 )
                 assert res.returncode == 0
-            r1 = (Path(td1) / "anon" / "inventaire-anonymise.md").read_bytes()
-            r2 = (Path(td2) / "anon" / "inventaire-anonymise.md").read_bytes()
+            # La date de génération est à la seconde près : deux runs successifs
+            # sont forcément différents sur cette ligne (test « bombe » flottant,
+            # échouait dès que le second changeait entre les deux exécutions, ce
+            # qui arrive presque toujours sur une CI lente). On neutralise CETTE
+            # ligne et on compare tout le reste — c'est bien cela la valeur de
+            # « reproductible » : rôles, tableau, mentions, absence d'IP/MAC.
+            def _sans_date(brut: bytes) -> bytes:
+                return re.sub(rb"^Date : .*$", b"Date : <neutralisee>", brut, flags=re.M)
+
+            r1 = _sans_date((Path(td1) / "anon" / "inventaire-anonymise.md").read_bytes())
+            r2 = _sans_date((Path(td2) / "anon" / "inventaire-anonymise.md").read_bytes())
             assert r1 == r2
 
 
