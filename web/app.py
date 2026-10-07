@@ -530,10 +530,11 @@ elif page == PAGES[1]:
     )
     documents = st.session_state.get("documents") or []
     with st.form("form_preparation"):
-        nom_saisi = st.text_input(
-            "Nom du cas",
-            placeholder="ex. boutique-en-ligne",
-            help="Minuscules, chiffres et tirets — le dossier sera analyses/<date>_<nom>.",
+        analyses_exist = lib.lister_analyses()
+        options_cas = ["(Nouveau cas)"] + [d.name for d in analyses_exist]
+        cas_choisi_form = st.selectbox(
+            "Cas",
+            options=options_cas,
         )
         selection = []
         if documents:
@@ -554,37 +555,51 @@ elif page == PAGES[1]:
             )
         st.stop()
     try:
-        cas = lib.nom_cas_sur(nom_saisi)
+        if 'cas_choisi_form' in locals() and cas_choisi_form != "(Nouveau cas)":
+            cas = lib.cas_depuis_dossier(cas_choisi_form)
+            dossier_cible = Path('analyses') / cas_choisi_form
+        else:
+            from datetime import date
+            import re
+            base = "cas"
+            if documents and selection:
+                base = Path(selection[0]).stem
+            base = re.sub(r'[^a-z0-9-]+', '-', base.lower()).strip('-')
+            if not base:
+                base = "cas"
+            cas = f"{date.today().isoformat()}_{base}"
+            dossier_cible = lib.dossier_cas(cas)
     except ValueError as exc:
         st.error(str(exc))
         st.stop()
-    if not selection:
+    is_existing = ('cas_choisi_form' in locals() and cas_choisi_form != "(Nouveau cas)")
+    if not is_existing and not selection:
         st.error("Aucun document sélectionné : cochez au moins un intrant, ou ingérez des documents.")
         st.stop()
 
-    dossier = lib.dossier_cas(cas)
+    dossier = dossier_cible if is_existing else lib.dossier_cas(cas)
     titre = lib.titre_lisible(cas)
     try:
-        with st.spinner("Copie des intrants et rédaction du brouillon…"):
-            with tempfile.TemporaryDirectory() as tmp:
-                for nom in selection:
-                    document = next(d for d in documents if d["nom"] == nom)
-                    base = Path(nom).stem
-                    (Path(tmp) / f"{base}.md").write_text(document["markdown"], encoding="utf-8")
-                    (Path(tmp) / f"{base}.meta.json").write_text(
-                        lib.meta_en_json(document["meta"]), encoding="utf-8"
-                    )
-                copies = lib.copier_intrants(sorted(Path(tmp).iterdir()), cas)
-            # Réutilisation des fonctions internes de `tools/ingest/preparer.py`
-            # (lecture des intrants, rédaction du brouillon, questions auto).
-            intrants = preparer.lire_intrants_depuis_dossier(lib.intrants_du_cas(cas))
-            description = preparer.generer_description(titre, intrants)
-            questions = preparer.generer_questions_auto(intrants)
-            dossier.mkdir(parents=True, exist_ok=True)
-            brouillon = dossier / "00-description.brouillon.md"
-            fichier_questions = dossier / "questions-auto.md"
-            brouillon.write_text(description, encoding="utf-8")
-            fichier_questions.write_text(questions, encoding="utf-8")
+        copies = []
+        if not is_existing:
+            with st.spinner("Copie des intrants et rédaction du brouillon..."):
+                with tempfile.TemporaryDirectory() as tmp:
+                    for nom in selection:
+                        document = next(d for d in documents if d["nom"] == nom)
+                        base = Path(nom).stem
+                        (Path(tmp) / f"{base}.md").write_text(document["markdown"], encoding="utf-8")
+                        (Path(tmp) / f"{base}.meta.json").write_text(
+                            lib.meta_en_json(document["meta"]), encoding="utf-8"
+                        )
+                    copies = lib.copier_intrants(sorted(Path(tmp).iterdir()), cas)
+        intrants = preparer.lire_intrants_depuis_dossier(dossier / "intrants")
+        description = preparer.generer_description(titre, intrants)
+        questions = preparer.generer_questions_auto(intrants)
+        dossier.mkdir(parents=True, exist_ok=True)
+        brouillon = dossier / "00-description.brouillon.md"
+        fichier_questions = dossier / "questions-auto.md"
+        brouillon.write_text(description, encoding="utf-8")
+        fichier_questions.write_text(questions, encoding="utf-8")
     except Exception as exc:  # garde-fou : un cas raté ne casse pas l'application
         st.error(f"Préparation impossible : {exc}")
         st.stop()

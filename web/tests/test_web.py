@@ -1125,26 +1125,29 @@ def test_web_19():
         (cas / "02-methodes.md").write_text("Aucune mention ici.\n", encoding="utf-8")
 
         with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
-            cites = lib.artefacts_citant("mon-cas", "Nordval")
+            # jour explicite : sinon dossier_cas utilise date.today() et le test
+            # « bombe » dès que le jour change (régression WEB-19 datée 2026-10-06)
+            jour_test = date(2026, 10, 6)
+            cites = lib.artefacts_citant("mon-cas", "Nordval", jour_test)
             assert cites == ["00-description.brouillon.md", "questions-auto.md"], \
                 f"artefacts cités non détectés : {cites}"
             # le nom d'intrant est refusé s'il n'est pas un nom de fichier simple
             for piege in ("../evasion", "a/b", ""):
                 lever_value_error(
-                    lambda p=piege: lib.artefacts_citant("mon-cas", p),
+                    lambda p=piege: lib.artefacts_citant("mon-cas", p, jour_test),
                     "Nom d'intrant refusé",
                 )
-            supprimes = lib.supprimer_intrant("mon-cas", "Nordval")
+            supprimes = lib.supprimer_intrant("mon-cas", "Nordval", jour_test)
             assert len(supprimes) == 1 and supprimes[0].endswith("Nordval.md"), \
                 f"suppression inattendue : {supprimes}"
             # l'audit reste utile APRÈS la suppression : les fichiers dérivés
             # continuent de citer le document, ils sont simplement signalés comme
             # n'étant plus à jour (c'est l'information donnée à l'analyste).
-            assert lib.artefacts_citant("mon-cas", "Nordval") == cites, \
+            assert lib.artefacts_citant("mon-cas", "Nordval", jour_test) == cites, \
                 "les artefacts cités doivent rester signalés après suppression"
-            assert lib.artefacts_citant("mon-cas", "Autre") == [], \
+            assert lib.artefacts_citant("mon-cas", "Autre", jour_test) == [], \
                 "un intrant jamais cité ne doit produire aucun artefact"
-            restants = [i["base"] for i in lib.lister_intrants("mon-cas")]
+            restants = [i["base"] for i in lib.lister_intrants("mon-cas", jour_test)]
             assert restants == ["Autre"], f"intrants restants inattendus : {restants}"
     passer(
         "WEB-19",

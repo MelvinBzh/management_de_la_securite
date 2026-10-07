@@ -72,7 +72,7 @@ Pour chaque étape, dans l'ordre :
 
 1. `e21-synthese` produit la synthèse finale et les recommandations.
 2. `github-manager` : PR vers `main` (liée à l'issue), résumé final, déplacement de l'issue en **Done**.
-3. Si une connaissance nouvelle fiable est découverte → la proposer à `research` pour enrichir `knowledge_base/`.
+3. Si une connaissance nouvelle fiable est découverte → la documenter dans knowledge_base pour enrichir `knowledge_base/`.
 
 ## Règles absolues
 
