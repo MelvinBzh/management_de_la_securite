@@ -227,6 +227,25 @@ def test_t_ing_10_formule_xlsx():
     assert "| srv-01 | 4 |" not in markdown
 
 
+def test_t_ing_11_zip_membres_ooxml():
+    """T-ING-11 — ZIP : membres DOCX/PPTX/XLSX parsés depuis la mémoire (jamais de brut latin-1)."""
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w") as zf:
+        for nom in ("archi.pptx", "cahier-des-charges.docx", "inventaire.xlsx"):
+            zf.writestr(f"lot/{nom}", fixture(nom).read_bytes())
+    meta = {"avertissements": [], "tableaux": 0}
+    corps = archive.parse_bytes("ooxml.zip", tampon.getvalue(), meta)
+    # Chaque membre est analysé par SON parseur…
+    assert "Diapositive 1" in corps, "le membre PPTX n'est pas parsé"
+    assert "API publique" in corps, "le texte du PPTX est absent"
+    assert "authentification" in corps.lower(), "le membre DOCX n'est pas parsé"
+    assert "| srv-boutique-01 | 22 | ssh |" in corps, "le membre XLSX n'est pas parsé"
+    # …et aucun octet binaire n'est déversé dans l'intrant (régression).
+    assert "[Content_Types]" not in corps, "contenu ZIP brut déversé dans le markdown"
+    assert "\x03\x04" not in corps, "octets binaires présents dans le markdown"
+    assert meta["tableaux"] >= 1, "les tableaux des membres OOXML doivent être comptés"
+
+
 TESTS = [
     ("T-ING-01", "PDF texte + ligne d'instruction piégée verbatim", test_t_ing_01_pdf_texte_et_ligne_piegee_verbatim),
     ("T-ING-02", "PDF scanné : OCR (ou SKIP si backend absent)", test_t_ing_02_pdf_scanne_ocr),
@@ -238,6 +257,7 @@ TESTS = [
     ("T-ING-08", "zip-slip : membre ../evil refusé, rien sur disque", test_t_ing_08_zip_slip),
     ("T-ING-09", "Type non supporté : message + exit 2", test_t_ing_09_type_non_supporte),
     ("T-ING-10", "XLSX : formule =2+2 conservée en texte", test_t_ing_10_formule_xlsx),
+    ("T-ING-11", "ZIP : membres OOXML parsés, aucun binaire brut", test_t_ing_11_zip_membres_ooxml),
 ]
 
 

@@ -48,6 +48,27 @@ def extraire_bloc_donnees(contenu: str) -> str:
     return contenu[debut:fin]
 
 
+def _est_binaire(texte: str) -> bool:
+    """Vrai si le contenu d'un intrant ressemble à du binaire (octet nul ou contrôles)."""
+    if not texte:
+        return False
+    if "\x00" in texte:
+        return True
+    controles = sum(1 for c in texte if ord(c) < 9 or 13 < ord(c) < 32)
+    return controles / len(texte) > 0.02
+
+
+def _refuser_binaire(intrants: List[dict], invalides: List[str]) -> None:
+    """Erreur explicite si un intrant est binaire : jamais de brouillon pollué."""
+    if invalides:
+        raise ValueError(
+            "Intrant(s) binaire(s) illisible(s) : "
+            + ", ".join(invalides)
+            + " — supprimez-le(s) via la bibliothèque puis réingérez le(s) document(s) "
+            "concerné(s)."
+        )
+
+
 def lire_intrants_depuis_dossier(dossier: Path) -> List[dict]:
     """Lit tous les fichiers `.md` du dossier et construit la liste d'intrants.
     
@@ -62,17 +83,22 @@ def lire_intrants_depuis_dossier(dossier: Path) -> List[dict]:
         raise ValueError(f"« {dossier} » doit être un dossier")
 
     md_files = sorted(dossier.glob("*.md"))
+    invalides: List[str] = []
     for md_path in md_files:
         try:
             contenu_md = md_path.read_text(encoding="utf-8")
         except Exception as exc:
             raise RuntimeError(f"Impossible de lire « {md_path.name} » : {exc}")
 
+        if _est_binaire(contenu_md):
+            invalides.append(md_path.name)
+            continue
         bloc = extraire_bloc_donnees(contenu_md)
         intrants.append({
             "fichier": md_path.name,
             "contenu": bloc,
         })
+    _refuser_binaire(intrants, invalides)
     return intrants
 
 def lire_intrants_depuis_fichier(md_path: Path) -> List[dict]:
@@ -87,6 +113,11 @@ def lire_intrants_depuis_fichier(md_path: Path) -> List[dict]:
     except Exception as exc:
         raise RuntimeError(f"Impossible de lire « {md_path.name} » : {exc}")
 
+    if _est_binaire(contenu_md):
+        raise ValueError(
+            f"Intrant binaire illisible : {md_path.name} — supprimez-le via la "
+            "bibliothèque puis réingérez le document concerné."
+        )
     bloc = extraire_bloc_donnees(contenu_md)
     return [{
         "fichier": md_path.name,
