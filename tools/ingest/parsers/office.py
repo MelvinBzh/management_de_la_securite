@@ -75,9 +75,21 @@ def parse_csv_bytes(nom: str, donnees: bytes, meta: dict) -> str:
 
 
 def parse_bytes(nom: str, donnees: bytes, meta: dict) -> str:
-    """Entrée générique (dispatch TXT ou CSV) depuis des octets."""
-    if nom.lower().endswith((".csv", ".tsv")):
+    """Entrée générique depuis des octets (membre d'archive, zéro écriture disque).
+
+    Les OOXML sont réellement **parsés depuis la mémoire** : sans ce dispatch, un
+    membre `.docx`/`.pptx`/`.xlsx` d'un ZIP retombait sur `_texte()`, qui déversait
+    le binaire décodé latin-1 dans l'intrant (régression T-ING-11).
+    """
+    bas = nom.lower()
+    if bas.endswith((".csv", ".tsv")):
         return _csv(nom, donnees, meta)
+    if bas.endswith(".docx"):
+        return parse_docx(io.BytesIO(donnees), meta)
+    if bas.endswith(".pptx"):
+        return parse_pptx(io.BytesIO(donnees), meta)
+    if bas.endswith((".xlsx", ".xlsm")):
+        return parse_xlsx(io.BytesIO(donnees), meta)
     return _texte(nom, donnees, meta)
 
 
@@ -230,5 +242,21 @@ def parse_txt_bytes(nom: str, donnees: bytes, meta: dict) -> str:
 
 
 def _texte(nom: str, donnees: bytes, meta: dict) -> str:
+    if _est_binaire(donnees):
+        # Garde-fou : jamais d'octets binaires déversés dans un intrant Markdown
+        # (un fichier renommé `.txt` ne doit pas polluer le brouillon de l'étape 1).
+        commun.avertir(meta, f"Fichier binaire non analysable (contenu ignoré) : {nom}")
+        return f"## Contenu — {nom}\n\n*(contenu binaire non exploitable)*"
     texte = commun.normaliser(_decoder(donnees))
     return f"## Contenu — {nom}\n\n{texte}" if texte else f"## Contenu — {nom}\n\n*(fichier vide)*"
+
+
+def _est_binaire(donnees: bytes) -> bool:
+    """Vrai si le bloc ressemble à du binaire : octet nul ou trop de contrôles."""
+    if not donnees:
+        return False
+    if b"\x00" in donnees:
+        return True
+    # Octets de contrôle hors tabulation / retour ligne / form feed.
+    controles = sum(1 for octet in donnees if octet < 9 or 13 < octet < 32)
+    return controles / len(donnees) > 0.02

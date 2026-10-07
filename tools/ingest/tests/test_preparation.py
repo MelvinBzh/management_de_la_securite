@@ -223,6 +223,36 @@ Serveur test avec admin.
         return echouer(tid, str(e))
 
 
+def test_t_prp_07():
+    tid = "T-PRP-07"
+    try:
+        # Un intrant binaire (octets nuls) ne doit jamais polluer le brouillon :
+        # la préparation échoue avec un message explicite nommant le fichier.
+        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as tmpdir:
+            tmp_path = Path(tmpdir)
+            (tmp_path / "archive_polluee.md").write_bytes(
+                b"# Extrait\n\n<<<DONNEES>>>\nPK\x03\x04\x00binaire\x00\n<<<FIN DONNEES>>>\n"
+            )
+            (tmp_path / "sain.md").write_text(
+                "# Extrait\n\n<<<DONNEES>>>\nServeur test.\n\n<<<FIN DONNEES>>>\n",
+                encoding="utf-8",
+            )
+            rc, out, err = executer_preparer(tmp_path, out_dir=tmp_path / "out")
+            if rc == 0:
+                return echouer(tid, "la préparation aurait dû échouer sur un intrant binaire")
+            msg = (err + out).lower()
+            if "archive_polluee.md" not in msg:
+                return echouer(tid, f"le fichier fautif n'est pas nommé : {msg}")
+            if "binaire" not in msg:
+                return echouer(tid, f"message non explicite : {msg}")
+            # Aucun brouillon produit : jamais de sortie polluée.
+            if (tmp_path / "out" / "00-description.md").exists():
+                return echouer(tid, "un brouillon ne doit pas être écrit")
+            return passer(tid, "refus explicite, aucun brouillon")
+    except Exception as e:
+        return echouer(tid, str(e))
+
+
 def executer_tests():
     tests = [
         test_t_prp_01,
@@ -231,6 +261,7 @@ def executer_tests():
         test_t_prp_04,
         test_t_prp_05,
         test_t_prp_06,
+        test_t_prp_07,
     ]
     for t in tests:
         try:
