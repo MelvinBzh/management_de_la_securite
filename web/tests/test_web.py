@@ -1501,6 +1501,67 @@ def test_web_23():
     )
 
 
+# --------------------------------------------------------------------------- WEB-30
+def test_web_30():
+    """WEB-30 : la sonde mesure le plafond de contexte, le lancement alerte sans bloquer.
+
+    Le serveur Ollama tronque la fin de la tâche quand sa fenêtre (`num_ctx`) est
+    trop courte, SANS erreur ni avertissement : c'est la panne silencieuse constatée.
+    La sonde doit donc la mesurer, et la décision de lancement doit la dire — sans
+    se replier : une fenêtre courte ne rend pas le serveur injoignable.
+    """
+    etat = reglages.defauts()
+    etat["profils"]["ollama"]["endpoint"] = "http://192.168.2.144:11434"
+    etat["profil_actif"] = "ollama"
+
+    def aligneur(*args, **kwargs):
+        return {"modifies": ["orchestrator"]}
+
+    # 1) serveur joignable mais fenêtre courte (défaut 2048) : alerte explicite
+    def sonde_alerte(endpoint):
+        return {"joignable": True, "modeles": ["qwen3-vl:8b"],
+                "message": "Joignable — 1 modèle(s)",
+                "contexte": {"plafond": 2050, "tronque": True, "seuil": 16384,
+                             "modele": "qwen3-vl:8b"}}
+
+    d = reglages.decider_lancement(etat, sonde=sonde_alerte, aligner=aligneur)
+    assert d["repli"] is False, "une fenêtre courte ne doit pas faire replier"
+    assert d["contexte"] == {"plafond": 2050, "tronque": True, "seuil": 16384,
+                             "modele": "qwen3-vl:8b"}, d
+    assert "OLLAMA_CONTEXT_LENGTH" in d["raison"], d
+
+    # 2) fenêtre saine : aucune alerte, rien à rapporter (pas de bruit dans l'UI)
+    def sonde_saine(endpoint):
+        return {"joignable": True, "modeles": ["qwen3-vl:8b"],
+                "message": "Joignable — 1 modèle(s)",
+                "contexte": {"plafond": 16384, "tronque": False, "seuil": 16384,
+                             "modele": "qwen3-vl:8b"}}
+
+    d2 = reglages.decider_lancement(etat, sonde=sonde_saine, aligner=aligneur)
+    assert d2["contexte"] == {}, f"rien à signaler en fenêtre saine : {d2['contexte']}"
+    assert "OLLAMA_CONTEXT_LENGTH" not in d2["raison"], d2
+
+    # 3) sonde ancienne sans mesure (déjà déployée) : ni blocage ni fausse alerte
+    def sonde_sans_mesure(endpoint):
+        return {"joignable": True, "modeles": ["qwen3-vl:8b"], "message": "Joignable"}
+
+    d3 = reglages.decider_lancement(etat, sonde=sonde_sans_mesure, aligner=aligneur)
+    assert d3["contexte"] == {}, d3
+
+    # 4) une mesure impossible (port fermé) ne doit JAMAIS alerter : fail-open silencieux
+    mesure = reglages._mesurer_contexte("http://127.0.0.1:9", ["qwen3-vl:8b"], delai=1.0)
+    assert mesure["plafond"] is None and mesure["tronque"] is False, mesure
+    assert mesure["modele"] == "qwen3-vl:8b", mesure
+    sans_modele = reglages._mesurer_contexte("http://127.0.0.1:9", [], delai=1.0)
+    assert sans_modele["plafond"] is None and sans_modele["tronque"] is False, sans_modele
+    passer(
+        "WEB-30",
+        "sonde : plafond de contexte mesuré (prompt synthétique, aucun intrant) · "
+        "fenêtre courte → alerte OLLAMA_CONTEXT_LENGTH sans repli · mesure impossible "
+        "→ jamais de fausse alerte",
+    )
+
+
 # --------------------------------------------------------------------------- WEB-24
 def test_web_24():
     """WEB-24 : le profil « opencode » (le secours) existe toujours, et on ne peut

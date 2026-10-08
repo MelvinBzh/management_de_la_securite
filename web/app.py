@@ -930,12 +930,55 @@ elif page == PAGES[3]:
                     + (f" · {decision['config']['raison']}"
                        if decision.get("config", {}).get("ecrit") else "")
                 )
+                if decision.get("contexte", {}).get("tronque"):
+                    # Le serveur tronque : la chaîne partira mais n'aura pas la tâche.
+                    # C'est un défaut de réglage du PC GPU, pas une panne applicative.
+                    st.warning(
+                        f"⚠️ Le serveur Ollama coupe le contexte à "
+                        f"**{decision['contexte'].get('plafond')} tokens** "
+                        f"(minimum conseillé : {decision['contexte'].get('seuil')}). "
+                        "La fin de la tâche sera perdue. Réglez "
+                        "`OLLAMA_CONTEXT_LENGTH="
+                        f"{decision['contexte'].get('seuil')}` sur le PC GPU et "
+                        "redémarrez Ollama, puis relancez la chaîne."
+                    )
         if run_agent.est_vivant_lancer(run):
             st.info(f"Analyse en cours… PID {run['pid']}")
         else:
-            st.success(
-                "Chaîne terminée — ouvrez les livrables dans « Bibliothèque des analyses »."
-            )
+            # Chaîne terminée : la fin du journal porte le code de sortie. Un code 0
+            # n'est PAS une garantie de travail fait — opencode termine proprement
+            # même quand le modèle n'a rien produit (budget de sortie épuisé en
+            # raisonnement, contexte serveur tronqué…). On vérifie donc les livrables.
+            dernieres = run_agent.lire_log(run["fichier_log"], n=1).strip()
+            code_sortie = None
+            if dernieres.startswith("=== fin (code "):
+                try:
+                    code_sortie = int(dernieres.split("(")[1].split(")")[0].replace("code", "").strip())
+                except (IndexError, ValueError):
+                    code_sortie = None
+            etapes = lib.avancement_chaine(Path(run["dossier"]))
+            n_faites = sum(1 for entree in etapes if entree["terminee"])
+            aucun_livrable = n_faites == 0
+            if code_sortie not in (0, None) or aucun_livrable:
+                st.error(
+                    "Chaîne terminée **sans livrable** — opencode a rendu la main "
+                    "sans produire d'analyse."
+                    + (f" Code de sortie : {code_sortie}." if code_sortie not in (0, None) else "")
+                    + " Causes fréquentes : fenêtre de contexte du serveur Ollama "
+                      "trop courte (la tâche est coupée), ou modèle qui épuise son "
+                      "budget de sortie en raisonnement. Corrigez puis relancez — "
+                      "les intrants, eux, sont conservés."
+                )
+            elif n_faites < len(etapes):
+                st.warning(
+                    f"Chaîne terminée **partiellement** ({n_faites}/{len(etapes)} "
+                    "étapes ont abouti) — certains livrables manquent. Relancez la "
+                    "chaîne après correction, ou complétez à la main."
+                )
+            else:
+                st.success(
+                    "Chaîne terminée — ouvrez les livrables dans « Bibliothèque des analyses »."
+                )
             fin = run_agent.lire_log(run["fichier_log"], n=5)
             if fin:
                 st.caption("Toute fin du journal :")
