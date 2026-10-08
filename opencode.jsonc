@@ -30,11 +30,23 @@
         // un modèle absent du serveur Ollama n'est appelé que si un agent le réclame.
         //
         // Sélection par agent pour une carte 12 Go : `web/modeles_ollama.py`.
-        "llama3.1:8b": { "name": "llama3.1:8b" },   // raisonnement (par défaut E21)
-        "mistral:7b":  { "name": "mistral:7b" },    // rédaction rapide
-        "qwen3-vl:8b": { "name": "qwen3-vl:8b" },   // lecture d'images (multimodal)
-        "llava:7b":    { "name": "llava:7b" },      // vision (déprécié)
-        "qwen2.5:7b":  { "name": "qwen2.5:7b" }     // sorties structurées
+        //
+        // `limit` est OBLIGATOIRE pour les fournisseurs locaux : opencode ne connaît
+        // pas les modèles Ollama (absents de son cache models.dev) et applique sans
+        // cela son défaut — contexte 4096 / sortie 2048 — ce qui fait exploser le
+        // budget des agents (« finish: length », aucune action, chaîne vide).
+        //
+        // Avertissement : ces limites déclarent ce qu'opencode PEUT envoyer. Le
+        // serveur Ollama, lui, tronque le prompt à sa fenêtre effective (`num_ctx`,
+        // défaut 2048) SANS erreur ni avertissement. Les valeurs ci-dessous ne sont
+        // utilisables que si le serveur est réglé en conséquence :
+        // `OLLAMA_CONTEXT_LENGTH=16384` (ou un Modelfile `PARAMETER num_ctx 16384`).
+        // La sonde de lancement (web/reglages.py) mesure le plafond réel et alerte.
+        "llama3.1:8b": { "name": "llama3.1:8b", "limit": { "context": 16384, "output": 4096 } },   // raisonnement (par défaut E21)
+        "mistral:7b":  { "name": "mistral:7b",  "limit": { "context": 16384, "output": 4096 } },   // rédaction rapide
+        "qwen3-vl:8b": { "name": "qwen3-vl:8b", "limit": { "context": 16384, "output": 8192 } },   // lecture d'images + raisonnement (thinking)
+        "llava:7b":    { "name": "llava:7b",    "limit": { "context": 16384, "output": 4096 } },   // vision (déprécié)
+        "qwen2.5:7b":  { "name": "qwen2.5:7b",  "limit": { "context": 16384, "output": 4096 } }    // sorties structurées
       }
     }
   }

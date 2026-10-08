@@ -72,6 +72,13 @@ MODELE_SECOURS = "opencode/big-pickle"
 LONGUEUR_MAX_CLE = 200
 MASQUE_CLE = "••••"
 DELAI_SONDE = 2.0
+# Délai accordé à la MESURE du contexte (elle charge un modèle et lui envoie
+# ~20 000 tokens : bien plus long qu'un simple /api/tags, surtout à froid).
+# Borné — une mesure qui dépasse n'alerte pas, elle s'ignore.
+DELAI_MESURE = 120.0
+# Fenêtre de contexte minimale conseillée pour une étape d'analyse E21 (system prompt
+# d'agent + intrants + consigne). En dessous, le serveur tronque la fin de la tâche.
+CONTEXTE_MIN_CONSEILLE = 16384
 
 __all__ = [
     "MODELE_SECOURS",
@@ -85,6 +92,10 @@ __all__ = [
     "LONGUEUR_MAX_CLE",
     "MASQUE_CLE",
     "DELAI_SONDE",
+    "DELAI_MESURE",
+    "CONTEXTE_MIN_CONSEILLE",
+    "sonder",
+    "_mesurer_contexte",
     "chemin_fichier",
     "defauts",
     "PROFIL_OPENCODE",
@@ -101,7 +112,6 @@ __all__ = [
     "valider",
     "masquer",
     "modele_valide",
-    "sonder",
 ]
 
 
@@ -678,14 +688,86 @@ class _SANS_REDIRECTION(urllib.request.HTTPRedirectHandler):
         raise urllib.error.HTTPError(req.full_url, code, "redirection refusée", headers, fp)
 
 
+def _mesurer_contexte(
+    adresse: str,
+    modeles: list[str],
+    delai: float = DELAI_MESURE,
+    seuil: int = CONTEXTE_MIN_CONSEILLE,
+) -> dict:
+    """Mesure la fenêtre de contexte **effective** du serveur Ollama.
+
+    Pourquoi mesurer : l'endpoint OpenAI `/v1` d'Ollama ignore `num_ctx`, et la
+    fenêtre réelle vient du serveur (`num_ctx`, défaut 2048 — réglable par
+    `OLLAMA_CONTEXT_LENGTH`). Sans mesure, une fenêtre courte **tronque la fin du
+    prompt sans aucune erreur** : les agents « terminent » sans avoir reçu la
+    tâche. C'est exactement la panne silencieuse observée.
+
+    Méthode : on envoie un prompt SYNTHÉTIQUE (du texte répété, aucune donnée
+    d'analyse) nettement plus long que le seuil conseillé, et on lit
+    `prompt_eval_count` renvoyé par l'API native — Ollama y compte les tokens
+    réellement gardés. Si le compte retombe au-dessous du seuil, le serveur
+    tronque (fenêtre trop courte). Point important : on n'a pas besoin du
+    plafond exact, seulement de savoir si le serveur garde au moins le seuil —
+    d'où un prompt unique, au-dessus du seuil (≈ 20 000 tokens).
+
+    Renvoie `{"plafond", "tronque", "modele", "seuil"}` :
+    - `plafond` : tokens de prompt gardés par le serveur (int), ou `None` si la
+      mesure n'a pas pu être faite (aucun modèle, timeout, modèle qui refuse…) —
+      jamais une fausse alerte : sans mesure, `tronque` reste faux ;
+    - `tronque` : `True` si `plafond < seuil` (le serveur couperait la tâche) ;
+    - `modele` : modèle utilisé pour la mesure ;
+    - `seuil` : la fenêtre conseillée.
+    """
+    if not adresse or not modeles:
+        return {"plafond": None, "tronque": False, "modele": "", "seuil": seuil}
+    from web import modeles_ollama  # import local : pas de cycle au chargement
+
+    catalogue = set(modeles_ollama.CATALOGUE)
+    modele = next((m for m in modeles if m in catalogue), modeles[0])
+    # « alpha beta gamma delta epsilon zeta » ≈ 7 tokens (constaté sur le serveur) ;
+    # 2 900 répétitions ≈ 20 000 tokens, nettement au-dessus du seuil 16384 même
+    # avec une variation du tokenizer — si le serveur les garde tous, sa fenêtre
+    # est suffisante, c'est tout ce qu'on doit savoir.
+    contenu = "alpha beta gamma delta epsilon zeta " * 2900 + \
+        "Question de controle : quel est ce texte ?"
+    corps = {
+        "model": modele,
+        "messages": [{"role": "user", "content": contenu}],
+        "stream": False,
+        "options": {"num_predict": 1},
+    }
+    resultat = {"plafond": None, "tronque": False, "modele": modele, "seuil": seuil}
+    try:
+        requete = urllib.request.Request(
+            f"{adresse}/api/chat",
+            data=json.dumps(corps).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.build_opener(_SANS_REDIRECTION).open(
+            requete, timeout=delai
+        ) as reponse:
+            brut = reponse.read(1_000_000).decode("utf-8", "replace")
+        document = json.loads(brut)
+        compte = document.get("prompt_eval_count")
+        if isinstance(compte, int) and compte > 0:
+            resultat["plafond"] = compte
+            # Tolérance tokenizer : on exige le seuil, pas la taille envoyée.
+            resultat["tronque"] = compte < seuil
+    except Exception:  # noqa: BLE001 — une mesure qui échoue ne doit pas alerter
+        pass
+    return resultat
+
+
 def sonder(endpoint: str, delai: float = DELAI_SONDE) -> dict:
     """Sonde HTTP **bornée** de l'API Ollama : `GET <endpoint>/api/tags`.
 
-    Renvoie `{"joignable", "modeles", "message", "endpoint"}` :
+    Renvoie `{"joignable", "modeles", "message", "endpoint", "contexte"}` :
     - `joignable` : l'API a répondu ;
     - `modeles` : noms de modèles annoncés (`/api/tags`) ;
     - `message` : phrase en français, sans aucun secret ;
-    - `endpoint` : l'adresse sondée.
+    - `endpoint` : l'adresse sondée ;
+    - `contexte` : résultat de `_mesurer_contexte` (plafond mesuré, alerte de
+      troncature) — mesuré **après** les tags, car il charge un modèle.
 
     Garde-fous : délai d'attente borné (`delai`), **aucune redirection suivie**
     (une sonde ne doit pas être détournée vers une autre URL), aucune donnée
@@ -693,7 +775,8 @@ def sonder(endpoint: str, delai: float = DELAI_SONDE) -> dict:
     appel réseau.
     """
     adresse = (endpoint or "").strip()
-    resultat = {"joignable": False, "modeles": [], "message": "", "endpoint": adresse}
+    resultat = {"joignable": False, "modeles": [], "message": "", "endpoint": adresse,
+                "contexte": {"plafond": None, "tronque": False, "modele": "", "seuil": 0}}
     if not adresse:
         resultat["message"] = "Aucune adresse à tester : renseignez d'abord l'endpoint."
         return resultat
@@ -773,6 +856,16 @@ def sonder(endpoint: str, delai: float = DELAI_SONDE) -> dict:
     resultat["joignable"] = True
     resultat["modeles"] = modeles
     resultat["message"] = f"Joignable — {len(modeles)} modèle(s)"
+    # Mesure du plafond de contexte APRÈS les tags : elle charge un modèle, c'est
+    # l'opération longue de la sonde. Un échec n'alerte pas (plafond = None).
+    resultat["contexte"] = _mesurer_contexte(adresse, modeles)
+    if resultat["contexte"].get("tronque"):
+        plafond = resultat["contexte"].get("plafond") or 0
+        resultat["message"] += (
+            f" ⚠️ plafond de contexte {plafond} tokens — la fin de la tâche sera "
+            f"coupée (réglage conseillé : OLLAMA_CONTEXT_LENGTH="
+            f"{resultat['contexte'].get('seuil')} puis redémarrage d'Ollama)."
+        )
     return resultat
 
 # --------------------------------------------------------------- décision de lancement
@@ -871,6 +964,7 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
 
     bilan: dict = {}
     modeles_installes: tuple[str, ...] = ()
+    contexte: dict = {}
     repli = False
     raison = ""
     if not wants_ollama:
@@ -895,6 +989,18 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
         if reponse.get("joignable"):
             modeles_installes = tuple(reponse.get("modeles") or ())
             raison = str(reponse.get("message") or "")
+            contexte = reponse.get("contexte") or {}
+            if contexte.get("tronque"):
+                # Le serveur couperait la fin de la tâche : on ne bloque pas, mais
+                # on le dit — un lancement tronqué vaut mieux qu'un lancement menteur.
+                raison += (
+                    f" ⚠️ le serveur coupe le contexte à "
+                    f"{contexte.get('plafond')} tokens (minimum conseillé : "
+                    f"{contexte.get('seuil')}). Réglez OLLAMA_CONTEXT_LENGTH et "
+                    "redémarrez Ollama, puis relancez."
+                )
+            else:
+                contexte = {}
         else:
             repli = True
             raison = str(
@@ -936,4 +1042,5 @@ def decider_lancement(etat: dict, sonde=sonder, aligner=None) -> dict:
         "raison": raison,
         "alignes": len(bilan.get("modifies") or []),
         "config": config,
+        "contexte": contexte,
     }
