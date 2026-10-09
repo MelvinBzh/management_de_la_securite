@@ -353,7 +353,7 @@ def supprimer_entite(type_: str, nom: str) -> None:
     st.rerun()
 
 
-def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True) -> None:
+def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True, telecharger: bool = False) -> None:
     """Livrables déjà écrits, lisibles dans la page, avec téléchargement.
 
     Un livrable apparaît dès que l'agent l'a terminé : l'analyste lit l'étape 1 pendant que
@@ -368,10 +368,11 @@ def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True) -> 
         with st.expander(f"✓ {libelle}", expanded=(libelle == recent)):
             texte = chemin.read_text(encoding="utf-8", errors="replace")
             st.markdown(texte)
-            st.download_button(
-                f"Télécharger {chemin.name}", texte.encode("utf-8"), file_name=chemin.name,
-                mime="text/markdown", key=f"dl_{cle}_{chemin.name}",
-            )
+            if telecharger:  # le téléchargement est réservé à la page « Résultats » (fin de parcours)
+                st.download_button(
+                    f"Télécharger {chemin.name}", texte.encode("utf-8"), file_name=chemin.name,
+                    mime="text/markdown", key=f"dl_{cle}_{chemin.name}",
+                )
 
 
 # --------------------------------------------------------------------- sidebar
@@ -407,22 +408,36 @@ for cle_attente, cle in (("_projet_a_selectionner", "projet_courant"), ("_nav_a_
     if cle_attente in st.session_state:
         st.session_state[cle] = st.session_state.pop(cle_attente)
 
-# Projet unique : choisi ici, il s'applique à TOUTES les pages du parcours.
+# Projet unique : choisi ici, il s'applique à TOUTES les pages du parcours. L'option « Créer »
+# est la première de la liste : on crée un projet là où on le choisit.
+NOUVEAU_PROJET = "＋ Créer un nouveau projet"
 _projets = [d.name for d in reversed(lib.lister_analyses())]  # le plus récent d'abord
-if _projets:
-    if st.session_state.get("projet_courant") not in _projets:
-        st.session_state["projet_courant"] = _projets[0]
-    projet = st.sidebar.selectbox(
-        "Projet en cours", _projets, key="projet_courant",
-        format_func=lambda nom: f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} · {lib.jour_depuis_dossier(nom)}",
-        help="Le même projet est utilisé pour lancer, consulter et valider l'analyse.",
-    )
-else:
-    projet = ""
-    st.sidebar.info("Aucun projet : commencez par « ① Documents ».")
-st.sidebar.caption(
-    f"Dossier : `analyses/{projet}`" if projet else "Créez un projet en déposant des documents."
+_options_projet = [NOUVEAU_PROJET] + _projets
+if st.session_state.get("projet_courant") not in _options_projet:
+    st.session_state["projet_courant"] = _projets[0] if _projets else NOUVEAU_PROJET
+choix_projet = st.sidebar.selectbox(
+    "Projet en cours", _options_projet, key="projet_courant",
+    format_func=lambda nom: nom if nom == NOUVEAU_PROJET
+    else f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} · {lib.jour_depuis_dossier(nom)}",
+    help="Le même projet est utilisé pour déposer, lancer, consulter et valider.",
 )
+if choix_projet == NOUVEAU_PROJET:
+    projet = ""
+    nom_nouveau = st.sidebar.text_input(
+        "Nom du projet", key="nom_nouveau_projet", placeholder="ex. nordval-test",
+        help="Lettres, chiffres et tirets. La date du jour est ajoutée automatiquement.",
+    )
+    if st.sidebar.button("Créer le projet", key="creer_projet", type="primary", disabled=not nom_nouveau.strip()):
+        try:
+            st.session_state["_projet_a_selectionner"] = lib.creer_projet(nom_nouveau)
+            st.session_state.pop("nom_nouveau_projet", None)
+            st.rerun()
+        except ValueError as exc:
+            st.sidebar.error(str(exc))
+    st.sidebar.caption("Le nom sera suivi de la date : `<date>_<nom>`.")
+else:
+    projet = choix_projet
+    st.sidebar.caption(f"Dossier : `analyses/{projet}`")
 etiquette_page = st.sidebar.radio("Parcours", list(NAV), key="nav")
 page = NAV[etiquette_page]
 st.sidebar.divider()
@@ -483,48 +498,32 @@ if page == PAGES[0]:
         "dépose les intrants dans le cas choisi. Un fichier illisible est signalé, "
         "jamais bloquant pour les autres."
     )
-    # Cible du dépôt : une étude EN COURS (dossier déjà existant) ou un nouveau cas.
-    # Les dossiers existants sont proposés en premier : un analyste reprend son
-    # analyse du jour ou de la semaine précédente sans créer de doublon.
-    NOUVEAU_CAS = "(nouveau cas)"
-    dossiers_existants = [dossier.name for dossier in lib.lister_analyses()]
-    cible = st.selectbox(
-        "Déposer dans",
-        options=[NOUVEAU_CAS] + dossiers_existants,
-        index=(1 + dossiers_existants.index(projet)) if projet in dossiers_existants else 0,
-        format_func=lambda nom: (
-            "(+) Nouveau cas d'analyse" if nom == NOUVEAU_CAS
-            else f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} — {nom}"
-        ),
-        key="cible_depot",
-        help="Choisissez une étude en cours pour y ajouter des documents, ou un nouveau cas.",
-    )
-    jour_lot: date | None = None  # None = cas créé aujourd'hui ; sinon, date d'origine
-    if cible == NOUVEAU_CAS:
-        nom_cas_lot = st.text_input(
-            "Nom du cas",
-            placeholder="ex. boutique-en-ligne",
-            key="nom_cas_lot",
-            help="Minuscules, chiffres et tirets — le nom est assaini puis refusé (fail "
-            "closed) s'il contient un séparateur de chemin ou un marqueur d'instruction.",
+    # Le dépôt va directement dans le PROJET EN COURS choisi dans le menu de gauche : plus de
+    # « Déposer dans » ni de « Nom du cas » à ressaisir sur cette page.
+    cible = projet
+    dossier_cible = projet
+    nom_cas_lot = lib.cas_depuis_dossier(projet) if projet else ""
+    jour_lot: date | None = lib.jour_depuis_dossier(projet) if projet else None
+    if projet:
+        st.caption(
+            f"Les documents seront ajoutés au projet **{lib.titre_lisible(nom_cas_lot)}** "
+            f"(`analyses/{projet}/intrants/`)."
         )
-        dossier_cible = lib.dossier_cas(nom_cas_lot).name if nom_cas_lot.strip() else ""
     else:
-        nom_cas_lot = lib.cas_depuis_dossier(cible)
-        dossier_cible = cible
-        st.caption(f"Documents ajoutés à l'étude en cours : `analyses/{cible}/intrants/`")
+        st.warning(
+            "Aucun projet sélectionné. Dans le menu de gauche, ouvrez « Projet en cours » puis "
+            "choisissez « ＋ Créer un nouveau projet » : donnez-lui un nom, la date s'ajoute toute seule."
+        )
     if st.button(
         "Ingérer en un clic (fichiers + dossiers)",
         type="primary",
         key="ingerer_lot",
-        disabled=not recus,
+        disabled=not recus or not projet,
     ):
         with tempfile.TemporaryDirectory() as tmp:
             chemins = chemins_de_televersement(recus, Path(tmp))
             with st.spinner("Ingestion du lot en cours…"):
                 try:
-                    if cible != NOUVEAU_CAS:
-                        jour_lot = lib.jour_depuis_dossier(cible)
                     copies, messages = lib.ingérer_en_lot(chemins, nom_cas_lot, jour_lot)
                 except ValueError as exc:
                     copies, messages = [], []
@@ -718,7 +717,7 @@ elif page == PAGES[2]:
     st.title("③ Résultats")
     analyses = lib.lister_analyses()
     if not analyses:
-        st.warning("Aucun projet : déposez d'abord des documents (« ① Documents »).")
+        st.warning("Aucun projet sélectionné : créez-en un dans le menu de gauche (« Projet en cours » → « ＋ Créer un nouveau projet »).")
         st.stop()
     choisie = projet
     dossier = lib.DOSSIER_ANALYSES / choisie
@@ -727,7 +726,7 @@ elif page == PAGES[2]:
         "de la démarche. Lisez-les ici ; la décision sur chaque risque se prend en **④ Validation**."
     )
     st.subheader("Livrables de l'analyse")
-    afficher_livrables(dossier, "res")
+    afficher_livrables(dossier, "res", telecharger=True)
     st.divider()
     cas_choisi = lib.cas_depuis_dossier(choisie)
     jour_choisi = lib.jour_depuis_dossier(choisie)
@@ -878,7 +877,7 @@ elif page == PAGES[3]:
         "l'analyse continue. Chaque livrable apparaît ci-dessous dès qu'il est prêt."
     )
     if not projet:
-        st.info("Aucun projet : déposez d'abord des documents dans « ① Documents ».")
+        st.info("Aucun projet sélectionné : créez-en un dans le menu de gauche (« Projet en cours » → « ＋ Créer un nouveau projet »).")
         st.stop()
     cible = projet
     cas = lib.cas_depuis_dossier(cible)
@@ -1094,7 +1093,7 @@ elif page == PAGE_VALIDATION:
         "`valide_par` du registre), puis la synthèse peut être mise à jour pour en tenir compte."
     )
     if not projet:
-        st.info("Aucun projet : déposez d'abord des documents dans « ① Documents ».")
+        st.info("Aucun projet sélectionné : créez-en un dans le menu de gauche (« Projet en cours » → « ＋ Créer un nouveau projet »).")
         st.stop()
     dossier = lib.DOSSIER_ANALYSES / projet
     colonnes, risques = lib.lire_registre(dossier)

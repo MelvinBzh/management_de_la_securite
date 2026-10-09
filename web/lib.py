@@ -148,6 +148,17 @@ def dossier_cas(nom: str, jour: date | None = None) -> Path:
     return DOSSIER_ANALYSES / f"{jour.isoformat()}_{cas}"
 
 
+def creer_projet(nom: str, jour: date | None = None) -> str:
+    """Crée un projet `analyses/<AAAA-MM-JJ>_<nom>/intrants/` et renvoie le nom du dossier.
+
+    Le nom saisi est assaini (`nom_cas_sur`) puis préfixé de la date du jour : un nom vide ou dangereux
+    est refusé (ValueError). Un projet déjà existant n'est pas écrasé : on renvoie son dossier.
+    """
+    dossier = dossier_cas(nom, jour)
+    (dossier / DOSSIER_INTRANTS).mkdir(parents=True, exist_ok=True)
+    return dossier.name
+
+
 def intrants_du_cas(nom: str, jour: date | None = None) -> Path:
     """Chemin `analyses/<AAAA-MM-JJ>_<cas>/intrants/` (dossier des intrants)."""
     return dossier_cas(nom, jour) / DOSSIER_INTRANTS
@@ -892,6 +903,7 @@ __all__ = [
     "risques_du_registre",
     "valider_registre",
     "lire_registre",
+    "creer_projet",
     "enregistrer_decisions",
     "livrables_disponibles",
     "DECISIONS",
