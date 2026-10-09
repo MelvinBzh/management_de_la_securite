@@ -273,7 +273,7 @@ def prompt_orchestrateur(cas: str, dossier: str) -> str:
     return prompt
 
 
-def construire_commande(nom_cas: str) -> str:
+def construire_commande(nom_cas: str, dossier: str | None = None) -> str:
     """Texte FIXE documentant (et décrivant) le lancement de la chaîne E21.
 
     Le texte ne dépend que du nom de cas **assaini** (`nom_cas_sur`) : aucun
@@ -287,7 +287,8 @@ def construire_commande(nom_cas: str) -> str:
     sur la ligne de commande.
     """
     cas = nom_cas_sur(nom_cas)
-    dossier = dossier_cas(cas).name
+    # Le dossier réel peut dater d'un autre jour que l'aujourd'hui : on l'affiche tel qu'il est.
+    dossier = dossier or dossier_cas(cas).name
     return f"""# Cas : {cas}
 # Dossier d'analyse : analyses/{dossier}
 # Intrants (DONNÉES non fiables) : analyses/{dossier}/intrants/
@@ -394,6 +395,164 @@ def valider_registre(dossier: Path, analyste: str, valides: list[str], refuses: 
         except (OSError, ValueError):
             pass  # le JSON reste tel quel ; la trace écrite dans 06-validation.md fait foi
     return journal
+
+
+# ------------------------------------------------------------------ validation humaine
+# Décisions possibles de l'analyste pour chaque risque du registre.
+DECISIONS = {
+    "accepte": "Accepté tel quel",
+    "modifie": "Accepté avec modification",
+    "refuse": "Refusé",
+}
+
+
+def _cellules(ligne: str) -> list[str]:
+    """Cellules d'une ligne de tableau Markdown (`| a | b |` → ['a', 'b'])."""
+    return [c.strip() for c in ligne.strip().strip("|").split("|")]
+
+
+def _nettoyer_cellule(texte: str, limite: int = 220) -> str:
+    """Texte libre rendu sûr pour une cellule de tableau (pas de `|`, pas de saut de ligne)."""
+    propre = " ".join(str(texte).replace("|", "/").split())
+    return propre[:limite]
+
+
+def lire_registre(dossier: Path) -> tuple[list[str], list[dict]]:
+    """Tableau du registre : `(colonnes, lignes)` ; chaque ligne est un dict colonne → valeur.
+
+    Cherche le premier tableau de `registre-risques.md` dont la 1re colonne est « ID » et dont
+    les lignes de données commencent par un identifiant de risque (M01, R-02…). `([], [])`
+    si le fichier est absent ou sans tableau exploitable.
+    """
+    chemin = Path(dossier) / "registre-risques.md"
+    try:
+        lignes = chemin.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return [], []
+    colonnes: list[str] = []
+    risques: list[dict] = []
+    for ligne in lignes:
+        if not ligne.lstrip().startswith("|"):
+            continue
+        cellules = _cellules(ligne)
+        if not colonnes:
+            if cellules and cellules[0].strip("*` ").lower() == "id":
+                colonnes = [c.strip("*` ") for c in cellules]
+            continue
+        if set("".join(cellules)) <= set("-: "):
+            continue  # ligne de séparation
+        if cellules and re.fullmatch(RE_ID_RISQUE.pattern, cellules[0].strip("*` ")):
+            ligne_dict = {colonnes[i]: cellules[i] for i in range(min(len(colonnes), len(cellules)))}
+            ligne_dict["ID"] = cellules[0].strip("*` ")
+            risques.append(ligne_dict)
+    return (colonnes, risques) if risques else ([], [])
+
+
+def enregistrer_decisions(dossier: Path, analyste: str, decisions: dict) -> dict:
+    """Consigne les décisions de l'analyste, risque par risque, dans les documents.
+
+    `decisions` : `{id_risque: {"decision": "accepte"|"modifie"|"refuse", "commentaire": str}}`.
+    Les risques sans décision sont ignorés (restent « À valider »). Écrit :
+      - `06-validation.md` : section datée (qui, quand, quoi, pourquoi) ;
+      - `registre-risques.md` : colonne `valide_par` des lignes décidées ;
+      - `registre_risques.json` s'il existe : `valide_par` des risques acceptés.
+    Refuse (ValueError) un nom vide, un identifiant absent du registre ou une décision inconnue.
+    Renvoie `{"acceptes", "modifies", "refuses", "en_attente"}` (comptes).
+    """
+    nom = " ".join(str(analyste).split())
+    if not nom or len(nom) > 80:
+        raise ValueError("Nom de l'analyste requis (80 caractères maximum).")
+    dossier = Path(dossier)
+    _colonnes, risques = lire_registre(dossier)
+    connus = {r["ID"] for r in risques}
+    retenues = {}
+    for identifiant, valeur in (decisions or {}).items():
+        choix = (valeur or {}).get("decision", "")
+        if not choix:
+            continue
+        if identifiant not in connus:
+            raise ValueError(f"Risque absent du registre : {identifiant}")
+        if choix not in DECISIONS:
+            raise ValueError(f"Décision inconnue pour {identifiant} : {choix}")
+        retenues[identifiant] = {"decision": choix, "commentaire": _nettoyer_cellule((valeur or {}).get("commentaire", ""))}
+    if not retenues:
+        raise ValueError("Aucune décision à enregistrer : choisissez au moins un risque.")
+
+    horodatage = datetime.now().strftime("%Y-%m-%d %H:%M")
+    section = [f"\n\n## Validation humaine — {horodatage}\n", f"- **valide_par** : {nom}\n",
+               "| Risque | Décision | Commentaire de l'analyste |", "|---|---|---|"]
+    for identifiant, d in retenues.items():
+        section.append(f"| {identifiant} | {DECISIONS[d['decision']]} | {d['commentaire'] or '—'} |")
+    attente = sorted(connus - set(retenues))
+    section.append(f"\nRisques non décidés (restent « À valider ») : {', '.join(attente) or 'aucun'}\n")
+    with open(dossier / "06-validation.md", "a", encoding="utf-8") as sortie:
+        sortie.write("\n".join(section))
+
+    # colonne valide_par du registre Markdown
+    registre = dossier / "registre-risques.md"
+    try:
+        contenu = registre.read_text(encoding="utf-8").split("\n")
+    except OSError:
+        contenu = []
+    indice = None
+    for position, ligne in enumerate(contenu):
+        if ligne.lstrip().startswith("|"):
+            cellules = _cellules(ligne)
+            for i, c in enumerate(cellules):
+                if "valide_par" in c.lower():
+                    indice = i
+            if indice is not None:
+                break
+    if indice is not None:
+        for position, ligne in enumerate(contenu):
+            if not ligne.lstrip().startswith("|"):
+                continue
+            cellules = _cellules(ligne)
+            if cellules and cellules[0].strip("*` ") in retenues and indice < len(cellules):
+                d = retenues[cellules[0].strip("*` ")]
+                etiquette = {"accepte": f"{nom} · accepté", "modifie": f"{nom} · accepté avec modification",
+                             "refuse": f"{nom} · REFUSÉ"}[d["decision"]]
+                cellules[indice] = f"{etiquette} · {horodatage[:10]}" + (f" : {d['commentaire']}" if d["commentaire"] else "")
+                contenu[position] = "| " + " | ".join(cellules) + " |"
+        registre.write_text("\n".join(contenu), encoding="utf-8")
+
+    registre_json = dossier / NOM_JSON_REGISTRE
+    if registre_json.is_file():
+        try:
+            donnees = json.loads(registre_json.read_text(encoding="utf-8"))
+            liste = donnees.get("risques", donnees) if isinstance(donnees, dict) else donnees
+            for risque in liste if isinstance(liste, list) else []:
+                d = retenues.get(risque.get("id")) if isinstance(risque, dict) else None
+                if d and d["decision"] != "refuse":
+                    risque["valide_par"] = nom
+            registre_json.write_text(json.dumps(donnees, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        except (OSError, ValueError):
+            pass
+    comptes = {"acceptes": 0, "modifies": 0, "refuses": 0}
+    for d in retenues.values():
+        comptes[{"accepte": "acceptes", "modifie": "modifies", "refuse": "refuses"}[d["decision"]]] += 1
+    comptes["en_attente"] = len(attente)
+    return comptes
+
+
+# Livrables lisibles, dans l'ordre du parcours (libellé affiché, nom de fichier).
+LIVRABLES_LISIBLES = [
+    ("Description du système", "00-description.md"),
+    ("Actifs", "01-actifs.md"),
+    ("Méthodes retenues", "02-methodes.md"),
+    ("Menaces", "03-menaces.md"),
+    ("Évaluation", "04-evaluation.md"),
+    ("Traitement", "05-traitement.md"),
+    ("Registre des risques", "registre-risques.md"),
+    ("Validation et suivi", "06-validation.md"),
+    ("Synthèse", "SYNTHESE.md"),
+    ("Rapport de contrôle", "RAPPORT-CONTROLE.md"),
+]
+
+
+def livrables_disponibles(dossier: Path) -> list[tuple[str, Path]]:
+    """Livrables déjà écrits dans `dossier`, dans l'ordre du parcours : `(libellé, chemin)`."""
+    return [(libelle, Path(dossier) / nom) for libelle, nom in LIVRABLES_LISIBLES if (Path(dossier) / nom).is_file()]
 
 
 def intrants_prepars(dossier_cas_: Path) -> list[Path]:
@@ -732,6 +891,10 @@ __all__ = [
     "ETAPES_CHAINE",
     "risques_du_registre",
     "valider_registre",
+    "lire_registre",
+    "enregistrer_decisions",
+    "livrables_disponibles",
+    "DECISIONS",
     "nom_cas_sur",
     "dossier_cas",
     "intrants_du_cas",

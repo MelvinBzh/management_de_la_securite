@@ -165,6 +165,7 @@ def lancer(
     modele: str | None = None,
     env: dict | None = None,
     pilote: bool = False,
+    synthese: bool = False,
 ) -> dict:
     """Lance la chaîne d'agents sur un cas et renvoie les infos de pilotage.
 
@@ -210,6 +211,8 @@ def lancer(
         # tient pas la chaîne (llama3.1:8b : 4 appels d'outils sur 6 seulement).
         modele_reel = "auto" if modele_reel.startswith("ollama/") else (modele_reel or reglages.MODELE_SECOURS)
         argv = [sys.executable, "-m", "web.chaine", nom, dossier_reel.name, modele_reel]
+        if synthese:  # étape 7 seule, après la validation humaine
+            argv.append("--synthese")
     else:
         prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)
         argv = [cli, "run", "--agent", "orchestrator"]

@@ -102,5 +102,27 @@ verifier("run précédent archivé (non détruit)", archive is not None and (arc
 verifier("les livrables ne sont plus à la racine (pas de faux succès)", not (d / "00-description.md").exists() and (d / "questions-auto.md").exists())
 verifier("rien à archiver : pas de dossier vide créé", chaine.archiver_precedent(dossier_avec({"questions-auto.md": "q"})) is None)
 
+# --- validation humaine risque par risque ----------------------------------------------------
+REG = ("# Registre" + chr(10) + chr(10) + "| ID | Actif | Menace | `valide_par` | Date validation |" + chr(10)
+       + "|----|---|---|---|---|" + chr(10) + "| M01 | Site | Spoofing | *À valider par l'analyste* | — |" + chr(10)
+       + "| M02 | Base | Fuite | *À valider par l'analyste* | — |" + chr(10))
+d = dossier_avec({"registre-risques.md": REG, "06-validation.md": "# v" + chr(10)})
+colonnes, risques = lib.lire_registre(d)
+verifier("registre lu : 2 risques, colonnes nommées", len(risques) == 2 and risques[0]["Actif"] == "Site" and "ID" in colonnes)
+bilan = lib.enregistrer_decisions(d, "Mélanie", {"M01": {"decision": "accepte", "commentaire": ""}, "M02": {"decision": "refuse", "commentaire": "hors périmètre | test"}})
+registre = (d / "registre-risques.md").read_text(encoding="utf-8")
+verifier("valide_par renseigné pour M01 dans le registre", "Mélanie · accepté" in registre)
+verifier("refus consigné avec son motif (sans casser le tableau)", "REFUSÉ" in registre and "hors périmètre / test" in registre)
+verifier("décisions tracées dans 06-validation.md", "Refusé" in (d / "06-validation.md").read_text(encoding="utf-8"))
+verifier("bilan des décisions", bilan["acceptes"] == 1 and bilan["refuses"] == 1 and bilan["en_attente"] == 0)
+verifier("le tableau reste lisible après édition", len(lib.lire_registre(d)[1]) == 2)
+for mauvais in (("", {"M01": {"decision": "accepte"}}), ("A", {}), ("A", {"M99": {"decision": "accepte"}}), ("A", {"M01": {"decision": "peut-etre"}})):
+    try:
+        lib.enregistrer_decisions(d, *mauvais)
+        verifier("décision invalide refusée", False)
+    except ValueError:
+        verifier("décision invalide refusée", True)
+verifier("commande : dossier réel affiché (pas la date du jour)", "analyses/2026-01-01_x" in lib.construire_commande("x", "2026-01-01_x"))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

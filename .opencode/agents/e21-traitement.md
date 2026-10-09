@@ -10,6 +10,7 @@ permission:
   edit:
     "**": deny
     "analyses/**": allow
+    '**/analyses/**': allow
   bash:
     git status *: allow
     '*': deny

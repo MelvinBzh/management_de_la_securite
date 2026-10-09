@@ -353,6 +353,27 @@ def supprimer_entite(type_: str, nom: str) -> None:
     st.rerun()
 
 
+def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True) -> None:
+    """Livrables déjà écrits, lisibles dans la page, avec téléchargement.
+
+    Un livrable apparaît dès que l'agent l'a terminé : l'analyste lit l'étape 1 pendant que
+    l'étape 4 tourne. Le dernier en date est déplié.
+    """
+    disponibles = lib.livrables_disponibles(dossier)
+    if not disponibles:
+        st.info("Aucun livrable pour l'instant : ils apparaissent ici au fil de l'analyse.")
+        return
+    recent = max(disponibles, key=lambda item: item[1].stat().st_mtime)[0] if ouvrir_dernier else None
+    for libelle, chemin in disponibles:
+        with st.expander(f"✓ {libelle}", expanded=(libelle == recent)):
+            texte = chemin.read_text(encoding="utf-8", errors="replace")
+            st.markdown(texte)
+            st.download_button(
+                f"Télécharger {chemin.name}", texte.encode("utf-8"), file_name=chemin.name,
+                mime="text/markdown", key=f"dl_{cle}_{chemin.name}",
+            )
+
+
 # --------------------------------------------------------------------- sidebar
 st.sidebar.title("E21")
 st.sidebar.caption("Analyses de risques — prototype local")
@@ -365,7 +386,45 @@ PAGES = [
     "Réglages modèles",
     "À propos / Garde-fous",
 ]
-page = st.sidebar.radio("Navigation", PAGES)
+PAGE_VALIDATION = "Validation des risques"
+# Parcours dans l'ordre où l'analyste travaille ; les pages techniques sont regroupées en « Avancé ».
+NAV = {
+    "① Documents": PAGES[0],
+    "② Lancer l'analyse": PAGES[3],
+    "③ Résultats": PAGES[2],
+    "④ Validation": PAGE_VALIDATION,
+    "Avancé · Préparer un cas (optionnel)": PAGES[1],
+    "Avancé · Studio E21": PAGES[4],
+    "Avancé · Réglages modèles": PAGES[5],
+    "À propos / Garde-fous": PAGES[6],
+}
+NAV_LANCER = "② Lancer l'analyse"
+NAV_VALIDATION = "④ Validation"
+
+# Sélections posées par une page avant un st.rerun() : un widget ne peut pas être modifié
+# après sa création dans le même passage, on les applique donc ici, avant de les créer.
+for cle_attente, cle in (("_projet_a_selectionner", "projet_courant"), ("_nav_a_selectionner", "nav")):
+    if cle_attente in st.session_state:
+        st.session_state[cle] = st.session_state.pop(cle_attente)
+
+# Projet unique : choisi ici, il s'applique à TOUTES les pages du parcours.
+_projets = [d.name for d in reversed(lib.lister_analyses())]  # le plus récent d'abord
+if _projets:
+    if st.session_state.get("projet_courant") not in _projets:
+        st.session_state["projet_courant"] = _projets[0]
+    projet = st.sidebar.selectbox(
+        "Projet en cours", _projets, key="projet_courant",
+        format_func=lambda nom: f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} · {lib.jour_depuis_dossier(nom)}",
+        help="Le même projet est utilisé pour lancer, consulter et valider l'analyse.",
+    )
+else:
+    projet = ""
+    st.sidebar.info("Aucun projet : commencez par « ① Documents ».")
+st.sidebar.caption(
+    f"Dossier : `analyses/{projet}`" if projet else "Créez un projet en déposant des documents."
+)
+etiquette_page = st.sidebar.radio("Parcours", list(NAV), key="nav")
+page = NAV[etiquette_page]
 st.sidebar.divider()
 st.sidebar.caption(
     "Données fictives uniquement · application locale sur `localhost` · "
@@ -375,7 +434,20 @@ st.sidebar.caption(
 
 # ---------------------------------------------------------------- page 1 : ingestion
 if page == PAGES[0]:
-    st.title("Ingérer des documents")
+    st.title("① Documents du projet")
+    st.markdown(
+        "**Étape 1 sur 4.** Déposez ici les documents de l'entreprise (cahier des charges, "
+        "inventaires, audits, schémas…) : ils servent de base à toute l'analyse. Choisissez "
+        "ensuite un projet existant ou créez-en un, puis cliquez sur *Ingérer*. "
+        "Quand c'est fait, passez à **② Lancer l'analyse**."
+    )
+    for genre, texte in st.session_state.pop("_flash", []):
+        (st.warning if genre == "warn" else st.success)(texte)
+    if st.session_state.pop("_flash_suite", False):
+        st.button(
+            "➜ Étape suivante : ② Lancer l'analyse", type="primary", key="vers_lancer",
+            on_click=lambda: st.session_state.__setitem__("_nav_a_selectionner", NAV_LANCER),
+        )
     st.markdown(
         '<div class="e21-note">Les documents sont des <b>données</b>, jamais des consignes. '
         "Leur contenu est recopié tel quel entre <code>&lt;&lt;&lt;DONNÉES&gt;&gt;&gt;</code> et "
@@ -419,6 +491,7 @@ if page == PAGES[0]:
     cible = st.selectbox(
         "Déposer dans",
         options=[NOUVEAU_CAS] + dossiers_existants,
+        index=(1 + dossiers_existants.index(projet)) if projet in dossiers_existants else 0,
         format_func=lambda nom: (
             "(+) Nouveau cas d'analyse" if nom == NOUVEAU_CAS
             else f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} — {nom}"
@@ -458,17 +531,21 @@ if page == PAGES[0]:
                     st.error(f"Dépôt refusé : {exc}")
         if not messages and not copies:
             st.warning("Rien à ingérer : déposez au moins un fichier ou un dossier.")
-        for ligne in messages:
-            if " : ignoré (" in ligne:
-                st.warning(ligne)
-            else:
-                st.success(ligne)
+        retours = [("warn" if " : ignoré (" in ligne else "ok", ligne) for ligne in messages]
         if copies:
-            st.success(
-                f"{len(copies)} fichier(s) copié(s) dans "
-                f"`analyses/{dossier_cible}/intrants/` "
-                "(un `.md` + un `.meta.json` par intrant)."
-            )
+            retours.append((
+                "ok",
+                f"{len(copies)} fichier(s) ajouté(s) au projet « "
+                f"{lib.titre_lisible(lib.cas_depuis_dossier(dossier_cible))} »."
+            ))
+            # Le projet déposé devient le projet en cours pour TOUTES les pages : le message
+            # est conservé le temps du rechargement (un widget ne se modifie pas après coup).
+            st.session_state["_flash"] = retours
+            st.session_state["_flash_suite"] = True
+            st.session_state["_projet_a_selectionner"] = dossier_cible
+            st.rerun()
+        for genre, texte in retours:
+            (st.warning if genre == "warn" else st.success)(texte)
 
     st.subheader("Documents déposés")
     if not recus:
@@ -522,11 +599,11 @@ if page == PAGES[0]:
 
 # ------------------------------------------------------------- page 2 : préparation
 elif page == PAGES[1]:
-    st.title("Préparer un cas")
-    st.markdown(
-        "Étape 1 de la chaîne : les intrants ingérés sont copiés dans "
-        "`analyses/<AAAA-MM-JJ>_<cas>/intrants/`, puis l'outil en tire un "
-        "**brouillon** de description et une liste de questions à l'analyste."
+    st.title("Préparer un cas (optionnel)")
+    st.info(
+        "Cette page est **facultative** : l'analyse (« ② Lancer l'analyse ») lit directement les "
+        "documents déposés. Elle sert seulement à produire, à partir des documents, un **brouillon "
+        "de description** et une **liste de questions** pour repérer ce qui manque avant de lancer."
     )
     documents = st.session_state.get("documents") or []
     with st.form("form_preparation"):
@@ -638,19 +715,20 @@ elif page == PAGES[1]:
 
 # ------------------------------------------------------------ page 3 : bibliothèque
 elif page == PAGES[2]:
-    st.title("Bibliothèque des analyses")
+    st.title("③ Résultats")
     analyses = lib.lister_analyses()
     if not analyses:
-        st.warning(
-            "Aucun dossier d'analyse : lancez `orchestrator` depuis opencode, ou préparez "
-            "un cas depuis l'onglet précédent."
-        )
+        st.warning("Aucun projet : déposez d'abord des documents (« ① Documents »).")
         st.stop()
-    choisie = st.selectbox(
-        "Cas", options=[dossier.name for dossier in analyses],
-        format_func=lambda nom: f"{lib.titre_lisible(lib.cas_depuis_dossier(nom))} — {nom}",
-    )
+    choisie = projet
     dossier = lib.DOSSIER_ANALYSES / choisie
+    st.markdown(
+        "**Étape 3 sur 4.** Les documents produits par l'analyse pour ce projet, dans l'ordre "
+        "de la démarche. Lisez-les ici ; la décision sur chaque risque se prend en **④ Validation**."
+    )
+    st.subheader("Livrables de l'analyse")
+    afficher_livrables(dossier, "res")
+    st.divider()
     cas_choisi = lib.cas_depuis_dossier(choisie)
     jour_choisi = lib.jour_depuis_dossier(choisie)
     st.caption(
@@ -793,52 +871,31 @@ elif page == PAGES[2]:
 
 # ------------------------------------------------------------- page 4 : chaîne E21
 elif page == PAGES[3]:
-    st.title("Lancer la chaîne d'agents")
+    st.title("② Lancer l'analyse")
     st.markdown(
-        '<div class="e21-note">Cette application peut <b>lancer la chaîne en local</b> '
-        "via opencode, avec la commande fixe affichée ci-dessous. Les intrants restent "
-        "des <b>données</b> jamais exécutées et l'<b>humain reste décideur final</b> : "
-        "chaque risque est validé par l'analyste.</div>",
-        unsafe_allow_html=True,
+        "**Étape 2 sur 4.** L'analyse déroule les 7 étapes sur les documents du projet choisi "
+        "dans le menu de gauche. Elle dure de 20 à 40 minutes : vous pouvez fermer la page, "
+        "l'analyse continue. Chaque livrable apparaît ci-dessous dès qu'il est prêt."
     )
-    analyses = lib.lister_analyses()
-    cible = st.selectbox(
-        "Cas ciblé", options=["(nouveau cas)"] + [dossier.name for dossier in analyses],
-        index=1 if analyses else 0,
-        format_func=lambda nom: (
-            nom if nom.startswith("(") else lib.titre_lisible(lib.cas_depuis_dossier(nom))
-        ),
-    )
-    cas = "" if cible.startswith("(") else lib.cas_depuis_dossier(cible)
-    commande = lib.construire_commande(cas or "mon-cas")
-    st.code(commande, language="bash")
-    if st.button("Copier la commande", key="copier_cmd"):
-        st.session_state["commande_copiee"] = commande
-        st.toast("Commande copiée : sélectionnez le champ ci-dessous et faites Ctrl+C.")
-    if st.session_state.get("commande_copiee"):
-        st.text_input(
-            "Commande (copie manuelle : Ctrl+A puis Ctrl+C)",
-            value=st.session_state["commande_copiee"], key="champ_commande",
-        )
-    st.caption(
-        "Le texte affiché est fixe : seul le nom du cas y figure (assaini en "
-        "`[a-z0-9-]`). Aucun contenu d'intrant — donc aucune instruction malveillante — "
-        "ne peut y être injecté."
-    )
-
-    st.subheader("Lancement depuis l'application")
-    st.caption(
-        "Rien à saisir ici. Le modèle vient du profil actif de « Réglages modèles » : "
-        "s'il s'agit d'Ollama, le serveur est sondé au lancement et, s'il ne répond pas, "
-        f"toute la chaîne part automatiquement sur **{reglages.MODELE_SECOURS}** "
-        "(vous êtes prévenu juste après le clic). Pour rester sur opencode en permanence, "
-        "choisissez le profil « opencode » dans les réglages."
-    )
-    if not cas:
-        st.info(
-            "Préparez d'abord un cas (onglet « Préparer un cas ») pour pouvoir lancer la chaîne."
-        )
+    if not projet:
+        st.info("Aucun projet : déposez d'abord des documents dans « ① Documents ».")
         st.stop()
+    cible = projet
+    cas = lib.cas_depuis_dossier(cible)
+    nb_intrants = len(lib.intrants_prepars(lib.DOSSIER_ANALYSES / cible))
+    st.markdown(f"Projet : **{lib.titre_lisible(cas)}** · {nb_intrants} document(s) déposé(s)")
+    if nb_intrants == 0:
+        st.warning("Ce projet n'a aucun document : ajoutez-en dans « ① Documents » avant de lancer.")
+    with st.expander("Avancé : commande équivalente, modèles utilisés"):
+        commande = lib.construire_commande(cas, cible)
+        st.code(commande, language="bash")
+        st.caption(
+            "Le texte affiché est fixe : seul le nom du projet y figure (assaini en `[a-z0-9-]`). "
+            "Aucun contenu d'un document — donc aucune instruction malveillante — ne peut y être injecté. "
+            "Le modèle vient du profil actif de « Réglages modèles » ; en profil Ollama, chaque agent "
+            f"reçoit le modèle qui lui convient (routage automatique) et, si le serveur ne répond pas, "
+            f"toute l'analyse part sur **{reglages.MODELE_SECOURS}**."
+        )
     run = st.session_state.get("run_chaine")
     if not run:
         # La chaîne est détachée : elle survit à un rechargement de page. Sans cela,
@@ -898,6 +955,8 @@ elif page == PAGES[3]:
                 st.error(str(exc))
             else:
                 st.rerun()
+        st.subheader("Livrables déjà produits")
+        afficher_livrables(lib.DOSSIER_ANALYSES / cible, "lanc")
     else:
         # Le processus n'existe que s'il vient d'être lancé dans CET onglet ; après un
         # rechargement, seule l'information disque est disponible et l'état est lu via
@@ -986,30 +1045,27 @@ elif page == PAGES[3]:
                 st.success(
                     "Chaîne terminée — ouvrez les livrables dans « Bibliothèque des analyses »."
                 )
-            risques_a_valider = lib.risques_du_registre(Path(run["dossier"]))
-            if risques_a_valider:
+            if lib.lire_registre(Path(run["dossier"]))[1]:
                 # La chaîne livre le registre avec `valide_par` VIDE : la validation est un
                 # acte humain, jamais celui d'un agent (étape 6 non interactive).
-                with st.expander("✍️ Validation humaine du registre (obligatoire)", expanded=True):
-                    analyste = st.text_input("Nom de l'analyste", key="valid_analyste")
-                    ok_ids = st.multiselect("Risques validés", risques_a_valider, key="valid_ok")
-                    ko_ids = st.multiselect(
-                        "Risques refusés", [r for r in risques_a_valider if r not in ok_ids], key="valid_ko")
-                    if st.button("Enregistrer ma décision", key="valid_btn"):
-                        try:
-                            trace = lib.valider_registre(Path(run["dossier"]), analyste, ok_ids, ko_ids)
-                            st.success(f"Décision consignée dans {trace.name}.")
-                        except ValueError as exc:
-                            st.error(str(exc))
+                st.info("Le registre des risques est prêt : il reste à le valider, risque par risque.")
+                st.button(
+                    "➜ Étape suivante : ④ Validation", type="primary", key="vers_validation",
+                    on_click=lambda: st.session_state.__setitem__("_nav_a_selectionner", NAV_VALIDATION),
+                )
             fin = run_agent.lire_log(run["fichier_log"], n=5)
             if fin:
                 st.caption("Toute fin du journal :")
                 st.code(fin, language="text")
-        st.text_area(
-            "Sortie de la chaîne",
-            value=run_agent.lire_log(run["fichier_log"], n=40),
-            height=200, disabled=True, key="zone_log_chaine",
-        )
+        st.subheader("Livrables disponibles")
+        st.caption("Chaque document apparaît dès que son étape est terminée.")
+        afficher_livrables(Path(run["dossier"]), "run")
+        with st.expander("Journal technique de l'analyse"):
+            st.text_area(
+                "Sortie de la chaîne",
+                value=run_agent.lire_log(run["fichier_log"], n=40),
+                height=200, disabled=True, key="zone_log_chaine",
+            )
         st.caption(
             f"Journal : `{Path(run['fichier_log']).name}` · dernier rafraîchissement à "
             f"{time.strftime('%H:%M:%S')}."
@@ -1027,6 +1083,99 @@ elif page == PAGES[3]:
         if run_agent.est_vivant_lancer(run):
             time.sleep(1.2)
             st.rerun()
+
+# ------------------------------------------------------ page ④ : validation humaine
+elif page == PAGE_VALIDATION:
+    st.title("④ Validation des risques")
+    st.markdown(
+        "**Étape 4 sur 4.** L'analyse propose un registre de risques ; **c'est vous qui décidez**. "
+        "Pour chaque risque : *accepté tel quel*, *accepté avec modification* ou *refusé*. Vos "
+        "décisions sont écrites dans les documents du projet (`06-validation.md`, colonne "
+        "`valide_par` du registre), puis la synthèse peut être mise à jour pour en tenir compte."
+    )
+    if not projet:
+        st.info("Aucun projet : déposez d'abord des documents dans « ① Documents ».")
+        st.stop()
+    dossier = lib.DOSSIER_ANALYSES / projet
+    colonnes, risques = lib.lire_registre(dossier)
+    if not risques:
+        st.info(
+            "Le registre des risques n'est pas encore prêt. Lancez l'analyse dans « ② Lancer "
+            "l'analyse » : il apparaîtra ici dès l'étape 6."
+        )
+        st.stop()
+    CHAMPS_ADMIN = {"id", "valide_par", "date validation"}
+    for genre, texte in st.session_state.pop("_flash_valid", []):
+        (st.success if genre == "ok" else st.error)(texte)
+    analyste = st.text_input(
+        "Votre nom", key="valid_analyste",
+        help="Il sera inscrit dans la colonne « valide_par » : seule une personne peut valider.",
+    )
+    deja = sum(1 for r in risques if any(m in str(r.get("valide_par", "")) for m in ("accepté", "REFUSÉ")))
+    st.caption(f"{len(risques)} risque(s) à examiner · {deja} déjà décidé(s).")
+    with st.form("form_validation"):
+        choix = {}
+        for risque in risques:
+            with st.container(border=True):
+                identifiant = risque["ID"]
+                resume = " · ".join(
+                    str(risque[c]) for c in colonnes[1:3] if c.lower() not in CHAMPS_ADMIN and risque.get(c)
+                )
+                st.markdown(f"#### {identifiant} — {resume[:140]}")
+                for colonne in colonnes[1:]:
+                    if colonne.lower() in CHAMPS_ADMIN or not risque.get(colonne):
+                        continue
+                    st.markdown(f"**{colonne}** : {risque[colonne]}")
+                etat = str(risque.get("valide_par", ""))
+                if any(m in etat for m in ("accepté", "REFUSÉ")):
+                    st.caption(f"Décision actuelle : {etat}")
+                decision = st.radio(
+                    "Votre décision", ["", "accepte", "modifie", "refuse"], horizontal=True,
+                    key=f"dec_{identifiant}",
+                    format_func=lambda v: {"": "À décider", **lib.DECISIONS}[v],
+                )
+                commentaire = st.text_input(
+                    "Commentaire (obligatoire pour une modification ou un refus)",
+                    key=f"com_{identifiant}",
+                )
+                choix[identifiant] = {"decision": decision, "commentaire": commentaire}
+        envoyer = st.form_submit_button("Enregistrer mes décisions", type="primary")
+    if envoyer:
+        manque = [i for i, c in choix.items() if c["decision"] in ("modifie", "refuse") and not c["commentaire"].strip()]
+        if manque:
+            st.error(f"Un commentaire est obligatoire pour : {', '.join(manque)}.")
+        else:
+            try:
+                bilan = lib.enregistrer_decisions(dossier, analyste, choix)
+                st.session_state["_flash_valid"] = [(
+                    "ok",
+                    f"Décisions enregistrées : {bilan['acceptes']} accepté(s), {bilan['modifies']} modifié(s), "
+                    f"{bilan['refuses']} refusé(s), {bilan['en_attente']} en attente.",
+                )]
+                st.rerun()
+            except ValueError as exc:
+                st.error(str(exc))
+    fichier_validation = dossier / "06-validation.md"
+    if fichier_validation.is_file() and "Validation humaine" in fichier_validation.read_text(encoding="utf-8", errors="replace"):
+        st.divider()
+        st.subheader("Mettre à jour la synthèse")
+        st.caption(
+            "Relance uniquement l'étape 7 : la synthèse tient compte de vos décisions (risques refusés "
+            "écartés, modifications reprises). L'ancienne est conservée dans `SYNTHESE.avant-validation.md`."
+        )
+        if st.button("Mettre à jour la synthèse avec mes décisions", key="resynthese"):
+            try:
+                decision_lancement = reglages.decider_lancement(reglages.charger())
+                lancement = run_agent.lancer(
+                    lib.cas_depuis_dossier(projet), dossier=dossier,
+                    modele=decision_lancement["modele"] or None, pilote=True, synthese=True,
+                )
+                run_agent.enregistrer_etat(Path(lancement["dossier"]), lancement)
+                st.session_state["run_chaine"] = lancement
+                st.session_state["_nav_a_selectionner"] = NAV_LANCER
+                st.rerun()
+            except (run_agent.ChaineError, ValueError) as exc:
+                st.error(str(exc))
 
 # --------------------------------------------------------------- page 5 : studio E21
 elif page == PAGES[4]:
