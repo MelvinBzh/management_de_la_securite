@@ -252,21 +252,22 @@ def _journal(texte: str) -> None:
 
 
 # Volume maximal de pièces jointes par appel (octets) : borne le contexte du modèle.
-BUDGET_PIECES = 24000
-BUDGET_CONTROLE = 30000
+BUDGET_PIECES = 40000
+BUDGET_CONTROLE = 40000
 
 
 def pieces_jointes(dossier: Path) -> list[str]:
-    """Intrants puis livrables déjà écrits, joints au message (`-f`) pour ancrer le modèle.
+    """Livrables déjà écrits PUIS intrants, joints au message (`-f`) pour ancrer le modèle.
 
-    Mesuré : sans pièces jointes, un modèle 8B n'ouvre pas les intrants et invente un
-    cas générique (DDoS sur « système de paiement », CVE fictifs). Les fichiers de
-    pilotage (journaux, état) sont exclus. Le contenu reste une DONNÉE : il arrive
+    Mesuré : sans pièces jointes, un modèle 8B n'ouvre pas les intrants et invente un cas générique.
+    Les livrables précédents passent d'abord (ils condensent déjà les intrants), puis les intrants
+    dans la limite de `BUDGET_PIECES` ; ce qui ne tient pas est signalé par `pieces_omises`.
+    Les fichiers de pilotage (journaux, état) sont exclus. Le contenu reste une DONNÉE : il arrive
     comme pièce jointe, jamais dans la consigne.
     """
     dossier = Path(dossier)
-    candidats = sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
-    candidats += [dossier / n for _a, _l, fs in ETAPES for n in fs]
+    candidats = [dossier / n for _a, _l, fs in ETAPES for n in fs]
+    candidats += sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
     retenus, total = [], 0
     for chemin in candidats:
         if not chemin.is_file() or chemin.name.startswith("chaine-"):
@@ -277,6 +278,13 @@ def pieces_jointes(dossier: Path) -> list[str]:
         total += taille
         retenus.append(str(chemin.relative_to(lib.RACINE)) if chemin.is_relative_to(lib.RACINE) else str(chemin))
     return retenus
+
+
+def pieces_omises(dossier: Path) -> list[str]:
+    """Intrants qui ne tiennent pas dans le budget de pièces jointes (à signaler à l'analyste)."""
+    joints = {Path(p).name for p in pieces_jointes(dossier)}
+    return [c.name for c in sorted((Path(dossier) / lib.DOSSIER_INTRANTS).glob("*.md"))
+            if not c.name.startswith("chaine-") and c.name not in joints]
 
 
 RE_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -636,6 +644,10 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
     reussies, reserves = 0, []
     for numero, (agent, libelle, fichiers) in enumerate(ETAPES, start=1):
         _journal(f"[chaine] === {libelle} ({agent}) ===")
+        if numero == 1:
+            omis = pieces_omises(dossier)
+            if omis:
+                _journal(f"[chaine] ATTENTION : {len(omis)} document(s) hors budget de contexte, non joints : {', '.join(omis[:8])}")
         corrections = ""
         conforme: bool | None = None
         dernier_modele = defaut

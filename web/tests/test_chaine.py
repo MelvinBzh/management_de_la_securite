@@ -124,5 +124,16 @@ for mauvais in (("", {"M01": {"decision": "accepte"}}), ("A", {}), ("A", {"M99":
         verifier("décision invalide refusée", True)
 verifier("commande : dossier réel affiché (pas la date du jour)", "analyses/2026-01-01_x" in lib.construire_commande("x", "2026-01-01_x"))
 
+# --- pièces jointes : tous les intrants d'un gros cas (22 documents ≈ 40 Ko) ----------------------
+d = dossier_avec({})
+(d / "intrants").mkdir()
+for i in range(22):
+    (d / "intrants" / f"doc{i:02}.md.md").write_text("x" * 1800, encoding="utf-8")
+verifier("22 documents de 1,8 Ko tous joints", len(chaine.pieces_jointes(d)) == 22 and chaine.pieces_omises(d) == [])
+(d / "intrants" / "gros.md.md").write_text("y" * 30000, encoding="utf-8")
+verifier("un document hors budget est signalé, pas ignoré en silence", chaine.pieces_omises(d) == ["gros.md.md"])
+(d / "01-actifs.md").write_text("# A" + "z" * 600, encoding="utf-8")
+verifier("les livrables précédents passent avant les intrants", chaine.pieces_jointes(d)[0].endswith("01-actifs.md"))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)
