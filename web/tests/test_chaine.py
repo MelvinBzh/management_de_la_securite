@@ -82,5 +82,19 @@ verifier("diagnostic : source inexistante nommée", "ISO27002-8.1" in chaine.dia
 verifier("consigne : liste des sources autorisées", "ISO27002-5.15" in chaine.consigne("e21-menaces", "d", ["03-menaces.md"]))
 verifier("consigne de contrôle : lecture seule", "AUCUN fichier" in chaine.consigne_controle("d", 3, ["03-menaces.md"]))
 
+# --- ancrage dans les informations d'origine ----------------------------------------------------
+base = "le site php sur hebergement mutualise ; fibrepay paie ; back-office admin ; ssh"
+verifier("nginx absent des intrants détecté", "nginx" in chaine.termes_non_fondes("Le serveur nginx héberge le site.", base))
+verifier("terme présent dans les intrants accepté", chaine.termes_non_fondes("Le site PHP utilise SSH.", base) == [])
+verifier("sigle usuel (HTTPS) toléré", chaine.termes_non_fondes("Flux HTTPS vers l'API.", base) == [])
+verifier("terme surveillé (DPO) détecté", "dpo" in [x.lower() for x in chaine.termes_non_fondes("Le DPO valide.", base)])
+verifier("sigle légitime hors liste (CNIL) non signalé", chaine.termes_non_fondes("La CNIL contrôle.", base) == [])
+d = dossier_avec({"01-actifs.md": "# A\nLe CTO administre nginx."})
+(d / "intrants").mkdir()
+(d / "intrants" / "a.md.md").write_text("Site PHP, FibrePay, back-office admin.", encoding="utf-8")
+verifier("faits inventés remontés pour un fichier de faits", "nginx" in chaine.faits_non_fondes(d, ["01-actifs.md"]))
+verifier("les recommandations (étape 5) ne sont pas contrôlées", chaine.faits_non_fondes(d, ["05-traitement.md"]) == "")
+verifier("relecture : consigne en lecture seule et sans exécution", "AUCUN outil" in chaine.consigne_relecture("d"))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)
