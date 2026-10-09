@@ -59,5 +59,28 @@ for args in (("", ["R-01"]), ("A", ["R-99"])):
     except ValueError:
         verifier("validation invalide refusée", True)
 
+# --- routage par agent et contrôle bloquant ------------------------------------------------
+ins = {"qwen3.5:9b", "granite4:7b-a1b-h", "gemma4:12b", "qwen3:14b", "llama3.1:8b"}
+verifier("routage : extraction sur le modèle rapide", chaine.choisir_modele("e21-analyse-existant", 1, ins, "d") == "ollama/granite4:7b-a1b-h")
+verifier("routage : raisonnement sur qwen3.5", chaine.choisir_modele("e21-menaces", 1, ins, "d") == "ollama/qwen3.5:9b")
+verifier("routage : la 2e tentative change de modèle", chaine.choisir_modele("e21-analyse-existant", 2, ins, "d") == "ollama/qwen3.5:9b")
+verifier("routage : repli si le modèle manque", chaine.choisir_modele("e21-menaces", 1, {"qwen3:14b"}, "d") == "ollama/qwen3:14b")
+verifier("routage : jamais un modèle à 4/6 d'outils pour écrire", all(m not in ("llama3.1:8b", "mistral:7b", "gemma4:12b", "qwen3-vl:8b") for l in chaine.ROUTAGE.values() for m in l))
+verifier("juge : autre famille que le producteur (qwen -> gemma)", chaine.choisir_juge("ollama/qwen3.5:9b", ins, "d") == "ollama/gemma4:12b")
+verifier("juge : granite relu par qwen", chaine.choisir_juge("ollama/granite4:7b-a1b-h", ins, "d") == "ollama/qwen3.5:9b")
+verifier("juge : défaut si aucune autre famille", chaine.choisir_juge("ollama/qwen3.5:9b", {"qwen3.5:9b"}, "d") == "d")
+verifier("verdict CONFORME lu", chaine.analyser_verdict("txt\nRESULTAT-CONTROLE: CONFORME") == (True, ""))
+conforme, corr = chaine.analyser_verdict("a\nRESULTAT-CONTROLE: NON CONFORME\n1. CVE inventé")
+verifier("verdict NON CONFORME + corrections lus", conforme is False and "CVE inventé" in corr)
+verifier("verdict illisible = indéterminé", chaine.analyser_verdict("rien") == (None, ""))
+verifier("le premier verdict prime sur une citation ultérieure", chaine.analyser_verdict("RESULTAT-CONTROLE: CONFORME"+chr(10)+"RESULTAT-CONTROLE: NON CONFORME")[0] is True)
+verifier("l'écho de la consigne ne déclenche aucun verdict", chaine.analyser_verdict(chaine.consigne_controle("d", 3, ["03-menaces.md"]))[0] is None)
+verifier("le juge reçoit le livrable AVANT les intrants", chaine.pieces_controle(dossier_avec({"SYNTHESE.md": "x" * 20000}), ["SYNTHESE.md"])[0].endswith("SYNTHESE.md"))
+verifier("M01 reconnu comme identifiant de risque", lib.risques_du_registre(dossier_avec({"registre-risques.md": "| M01 | x | M13 | R-02 |"})) == ["M01", "M13", "R-02"])
+verifier("verdict en gras reconnu", chaine.analyser_verdict("**RESULTAT-CONTROLE: CONFORME**")[0] is True)
+verifier("diagnostic : source inexistante nommée", "ISO27002-8.1" in chaine.diagnostiquer(dossier_avec({"05-traitement.md": "# T\n" + TABLE + "ISO27002-8.1 " + "x" * 400}), ["05-traitement.md"]))
+verifier("consigne : liste des sources autorisées", "ISO27002-5.15" in chaine.consigne("e21-menaces", "d", ["03-menaces.md"]))
+verifier("consigne de contrôle : lecture seule", "AUCUN fichier" in chaine.consigne_controle("d", 3, ["03-menaces.md"]))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

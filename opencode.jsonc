@@ -40,18 +40,21 @@
         // serveur Ollama, lui, tronque le prompt à sa fenêtre effective (`num_ctx`,
         // défaut 2048) SANS erreur ni avertissement. Les valeurs ci-dessous ne sont
         // utilisables que si le serveur est réglé en conséquence :
-        // `OLLAMA_CONTEXT_LENGTH=16384` (ou un Modelfile `PARAMETER num_ctx 16384`).
+        // `OLLAMA_CONTEXT_LENGTH=32768` (ou un Modelfile `PARAMETER num_ctx 16384`).
         // La sonde de lancement (web/reglages.py) mesure le plafond réel et alerte.
         // Modèles testés pour l'appel d'outils (audit 2026-10-09) : qwen3:8b = 6/6 appels valides,
         // llama3.1:8b / mistral:7b / qwen3-vl:8b = 4/6 seulement → inutilisables pour piloter la chaîne.
-        "qwen3:8b":           { "name": "qwen3:8b",           "limit": { "context": 16384, "output": 8192 } },   // recommandé (outils fiables)
-        "qwen3:14b":          { "name": "qwen3:14b",          "limit": { "context": 16384, "output": 8192 } },   // plus capable, serré sur 12 Go
-        "qwen2.5:7b-instruct": { "name": "qwen2.5:7b-instruct", "limit": { "context": 16384, "output": 4096 } }, // sans thinking, rapide
-        "llama3.1:8b": { "name": "llama3.1:8b", "limit": { "context": 16384, "output": 4096 } },   // raisonnement (par défaut E21)
-        "mistral:7b":  { "name": "mistral:7b",  "limit": { "context": 16384, "output": 4096 } },   // rédaction rapide
-        "qwen3-vl:8b": { "name": "qwen3-vl:8b", "limit": { "context": 16384, "output": 8192 } },   // lecture d'images + raisonnement (thinking)
-        "llava:7b":    { "name": "llava:7b",    "limit": { "context": 16384, "output": 4096 } },   // vision (déprécié)
-        "qwen2.5:7b":  { "name": "qwen2.5:7b",  "limit": { "context": 16384, "output": 4096 } }    // sorties structurées
+        "qwen3.5:9b":         { "name": "qwen3.5:9b",         "limit": { "context": 32768, "output": 8192 } },   // raisonnement + outils (6/6, 93 tok/s)
+        "granite4:7b-a1b-h":  { "name": "granite4:7b-a1b-h",  "limit": { "context": 32768, "output": 4096 } },   // extraction rapide (6/6, 249 tok/s)
+        "gemma4:12b":         { "name": "gemma4:12b",         "limit": { "context": 32768, "output": 4096 } },   // juge d'une autre famille (sans outils : 4/6)
+        "qwen3:8b":           { "name": "qwen3:8b",           "limit": { "context": 32768, "output": 8192 } },   // recommandé (outils fiables)
+        "qwen3:14b":          { "name": "qwen3:14b",          "limit": { "context": 32768, "output": 8192 } },   // plus capable, serré sur 12 Go
+        "qwen2.5:7b-instruct": { "name": "qwen2.5:7b-instruct", "limit": { "context": 32768, "output": 4096 } }, // sans thinking, rapide
+        "llama3.1:8b": { "name": "llama3.1:8b", "limit": { "context": 32768, "output": 4096 } },   // raisonnement (par défaut E21)
+        "mistral:7b":  { "name": "mistral:7b",  "limit": { "context": 32768, "output": 4096 } },   // rédaction rapide
+        "qwen3-vl:8b": { "name": "qwen3-vl:8b", "limit": { "context": 32768, "output": 8192 } },   // lecture d'images + raisonnement (thinking)
+        "llava:7b":    { "name": "llava:7b",    "limit": { "context": 32768, "output": 4096 } },   // vision (déprécié)
+        "qwen2.5:7b":  { "name": "qwen2.5:7b",  "limit": { "context": 32768, "output": 4096 } }    // sorties structurées
       }
     }
   }

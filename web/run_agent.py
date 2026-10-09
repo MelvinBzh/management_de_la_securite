@@ -205,7 +205,10 @@ def lancer(
     if pilote:
         # Pilote déterministe (web/chaine.py) : l'ordre des 7 étapes, les relances et
         # la vérification des livrables sont du code, pas une décision du modèle.
-        modele_reel = modele_reel or reglages.MODELE_SECOURS
+        # Profil Ollama : le pilote route lui-même chaque agent vers le meilleur modèle
+        # installé (« auto », cf. web/chaine.ROUTAGE) ; le modèle unique des réglages ne
+        # tient pas la chaîne (llama3.1:8b : 4 appels d'outils sur 6 seulement).
+        modele_reel = "auto" if modele_reel.startswith("ollama/") else (modele_reel or reglages.MODELE_SECOURS)
         argv = [sys.executable, "-m", "web.chaine", nom, dossier_reel.name, modele_reel]
     else:
         prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)

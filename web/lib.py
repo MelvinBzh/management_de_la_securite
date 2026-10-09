@@ -335,7 +335,7 @@ def avancement_chaine(dossier: Path) -> list[dict]:
     return etapes
 
 
-RE_ID_RISQUE = re.compile(r"\bR-?\d{1,3}\b")
+RE_ID_RISQUE = re.compile(r"\b[MR]-?\d{1,3}\b")
 
 
 def risques_du_registre(dossier: Path) -> list[str]:

@@ -960,7 +960,13 @@ elif page == PAGES[3]:
             etapes = lib.avancement_chaine(Path(run["dossier"]))
             n_faites = sum(1 for entree in etapes if entree["terminee"])
             aucun_livrable = n_faites == 0
-            if code_sortie not in (0, None) or aucun_livrable:
+            if code_sortie == 2 and n_faites == len(etapes):
+                st.warning(
+                    "Chaîne terminée **avec réserves** : le contrôle (véracité, sources, "
+                    "injection) reste « non conforme » sur certaines étapes malgré les reprises. "
+                    "Lisez `RAPPORT-CONTROLE.md` avant de valider le registre."
+                )
+            elif code_sortie not in (0, None) or aucun_livrable:
                 st.error(
                     "Chaîne terminée **sans livrable** — opencode a rendu la main "
                     "sans produire d'analyse."
