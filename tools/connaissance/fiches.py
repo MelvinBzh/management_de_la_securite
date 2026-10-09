@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from . import ollama, texte
 
 MODELE_EXTRACTION = "qwen3.5:9b"
-MAX_FAITS = 12
+MAX_FAITS = 25
 
 SCHEMA_FAITS = {
     "type": "object",
@@ -23,7 +23,7 @@ SCHEMA_FAITS = {
 CONSIGNE = (
     "Voici un document. Extrais jusqu'à {maximum} FAITS ATOMIQUES (une idée par fait, formulée en une "
     "phrase autonome). Pour chaque fait, donne l'EXTRAIT EXACT du document qui le prouve : copie-le MOT "
-    "POUR MOT (20 mots maximum), sans rien reformuler ni inventer. N'écris aucun fait que le document "
+    "POUR MOT (40 mots maximum) : la PHRASE ou la LIGNE DE TABLEAU COMPLÈTE qui contient le fait, jamais un simple fragment ou une cellule isolée. Sans rien reformuler ni inventer. N'écris aucun fait que le document "
     "ne dit pas.\n\nDOCUMENT :\n{document}"
 )
 

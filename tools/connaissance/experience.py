@@ -16,7 +16,7 @@ import random
 import sys
 import time
 
-from . import alias, contradictions, fiches, ollama, relations, texte
+from . import alias, contradictions, couverture, fiches, ollama, passages, relations, texte
 from .index import Index
 
 TAILLE_MIN_DOC = 300
@@ -37,10 +37,36 @@ def lire_documents(dossier: str) -> dict[str, str]:
     return docs
 
 
+def _couverture(index: Index, sortie_md: str, signaux: list | None = None) -> None:
+    """Évalue chaque besoin d'information (connu / partiel / inconnu) et écrit le rapport Markdown."""
+    debut = time.time()
+    reponses = couverture.evaluer_tous(index)
+    compte = {s: sum(1 for r in reponses if r.statut == s) for s in (couverture.CONNU, couverture.PARTIEL, couverture.INCONNU)}
+    _res(f"couverture besoins={len(reponses)} duree={time.time()-debut:.0f}s " + json.dumps(compte, ensure_ascii=False)
+         + f" a_valider={sum(1 for r in reponses if r.a_valider)}")
+    for r in reponses:
+        preuve = (r.preuves[0]["doc"][:26] + " : " + r.preuves[0]["extrait"][:90]) if r.preuves else "-"
+        _res(f"BESOIN {r.besoin.id:15} {r.statut:8} verif={r.verification:11} valider={'oui' if r.a_valider else 'non'} "
+             f"contesté={'oui' if r.contestations else 'non'} | {r.reponse[:110]} | {preuve}")
+    open(sortie_md, "w", encoding="utf-8").write(couverture.rapport_markdown(reponses, signaux))
+    _res(f"rapport ecrit dans {sortie_md}")
+
+
+def main_couverture(chemin_base: str, sortie_md: str) -> int:
+    """Mesure « connu / partiel / inconnu » sur un index déjà construit."""
+    index = Index(chemin_base)
+    _couverture(index, sortie_md)
+    index.fermer()
+    return 0
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__)
         return 2
+    if "--couverture" in argv:
+        base = argv[argv.index("--base") + 1]
+        return main_couverture(base, argv[argv.index("--rapport") + 1] if "--rapport" in argv else "rapport-connaissance.md")
     dossier = argv[0]
     chemin_base = argv[argv.index("--base") + 1] if "--base" in argv else ":memory:"
     random.seed(5)
@@ -74,8 +100,11 @@ def main(argv: list[str]) -> int:
     _res(f"documents_sans_aucune_relation_verifiee={sorted(set(docs) - {r.doc for r in rel_ok})}")
 
     # 2-3. vecteurs + index ----------------------------------------------------------------------
+    tous_passages = [p for nom, contenu in docs.items() for p in passages.decouper(nom, contenu)]
+    _res(f"passages={len(tous_passages)} (texte d'origine, vérifiés par construction)")
     elements = [("fait", f.doc, f.texte, f.extrait) for f in verifies] + \
-               [("relation", r.doc, f"{r.sujet} {r.relation} {r.objet}", r.extrait) for r in rel_ok]
+               [("relation", r.doc, f"{r.sujet} {r.relation} {r.objet}", r.extrait) for r in rel_ok] + \
+               [("passage", p.doc, p.contexte, p.texte) for p in tous_passages]
     vecs = ollama.vecteurs([f"{lib}. {ext}" for _g, _d, lib, ext in elements])
     index = Index(chemin_base)
     for (genre, doc, libelle, extrait), vec in zip(elements, vecs):
@@ -83,7 +112,8 @@ def main(argv: list[str]) -> int:
 
     # 4. alias ---------------------------------------------------------------------------------
     noms = sorted({(e.nom, e.type) for e in toutes_entites} | {(r.sujet, "autre") for r in rel_ok} | {(r.objet, "autre") for r in rel_ok})
-    vec_noms = ollama.vecteurs([n for n, _t in noms])
+    distincts = alias.noms_distincts(noms)  # même ordre que les vecteurs attendus par `fusionner`
+    vec_noms = ollama.vecteurs([nom for _norm, nom, _type in distincts])
     canonique, groupes = alias.fusionner(noms, vec_noms)
     _res(f"alias noms_distincts={len(noms)} entites_canoniques={len(set(canonique.values()))} groupes_fusionnes={len(groupes)}")
     for groupe in groupes[:25]:
@@ -102,7 +132,7 @@ def main(argv: list[str]) -> int:
     # 6. recherche : rappel@k sur des questions dont on connaît la preuve ----------------------------
     echantillon = random.sample(range(len(elements)), min(QUESTIONS_TEST, len(elements)))
     modes = {"vecteurs seuls": (True, False), "mots-cles seuls": (False, True), "hybride": (True, True)}
-    scores = {m: {1: 0, 3: 0, 5: 0} for m in modes}
+    scores = {m: {1: 0, 3: 0, 5: 0, 8: 0} for m in modes}
     for i in echantillon:
         _g, _d, libelle, extrait = elements[i]
         question = ollama.discuter(
@@ -110,15 +140,17 @@ def main(argv: list[str]) -> int:
             f"(reformule). Réponds uniquement par la question.\n\nPHRASE : {extrait}", contexte=2048, max_sortie=80)
         vec_q = ollama.vecteurs([question], prefixe="search_query: ")[0]
         for mode, (avec_vec, avec_mots) in modes.items():
-            trouves = index.rechercher(question, vec_q if avec_vec else None, k=5, mots_cles=avec_mots)
+            trouves = index.rechercher(question, vec_q if avec_vec else None, k=8, mots_cles=avec_mots)
             rangs = [t["extrait"] for t in trouves]
-            for k in (1, 3, 5):
+            for k in (1, 3, 5, 8):
                 if extrait in rangs[:k]:
                     scores[mode][k] += 1
     for mode, par_k in scores.items():
         n = len(echantillon)
-        _res(f"rappel[{mode}] @1={100*par_k[1]//n} % @3={100*par_k[3]//n} % @5={100*par_k[5]//n} % (n={n})")
+        _res(f"rappel[{mode}] @1={100*par_k[1]//n} % @3={100*par_k[3]//n} % @5={100*par_k[5]//n} % @8={100*par_k[8]//n} % (n={n})")
     _res("index " + json.dumps(index.compter()))
+    sortie_md = argv[argv.index("--rapport") + 1] if "--rapport" in argv else "rapport-connaissance.md"
+    _couverture(index, sortie_md, signaux)
     index.fermer()
     _res("FIN")
     return 0

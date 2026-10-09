@@ -103,6 +103,26 @@ RE_NEGATION = re.compile(r"ne contredit pas|pas de contradiction|aucune contradi
 RE_CONFLIT = re.compile(r"incompatib|incohér|contradict|contredit")
 
 
+# Second avis (mesuré sur 101 signalements de Nordval) : avec une consigne stricte, les deux modèles ne confirment
+# JAMAIS à l'unanimité — ce n'est donc pas un filtre dur. Mais les 41 signalements confirmés par au moins un modèle
+# contiennent presque toutes les vraies incohérences, et les 60 autres presque tous les faux : on s'en sert pour
+# TRIER (priorité haute / basse), sans rien supprimer (le faux « compatible » de Sage X3 reste visible en priorité basse).
+MODELES_CONFIRMATION = ("qwen3.5:9b", "gemma4:12b")
+
+SCHEMA_CONFIRMATION = {
+    "type": "object",
+    "properties": {"incompatibles": {"type": "boolean"}, "raison": {"type": "string"}},
+    "required": ["incompatibles", "raison"],
+}
+
+CONSIGNE_CONFIRMATION = (
+    "EXTRAIT A (document {doc_a}) : {extrait_a}\nEXTRAIT B (document {doc_b}) : {extrait_b}\n\n"
+    "A et B sont-ils INCOMPATIBLES, c'est-à-dire impossibles à vrais en même temps pour le MÊME sujet (valeurs, dates, "
+    "statuts ou responsables différents) ? Réponds incompatibles=false si ce sont deux informations différentes mais "
+    "compatibles, si les sujets diffèrent, ou si un extrait n'est qu'un en-tête technique. Explique en une phrase."
+)
+
+
 @dataclass(frozen=True)
 class Signal:
     """Contradiction présumée entre deux extraits de documents différents (à valider par un humain)."""
@@ -112,6 +132,27 @@ class Signal:
     doc_b: str
     extrait_b: str
     explication: str
+    confirmations: int = 0  # nombre de modèles de second avis qui jugent aussi les extraits incompatibles
+
+    @property
+    def priorite(self) -> str:
+        """« haute » si au moins un second avis confirme, « basse » sinon (à relire si le temps le permet)."""
+        return "haute" if self.confirmations >= 1 else "basse"
+
+
+def _confirmer_modele(signal: Signal, modele: str) -> bool:
+    reponse = ollama.discuter_json(
+        modele, CONSIGNE_CONFIRMATION.format(doc_a=signal.doc_a[:30], extrait_a=signal.extrait_a[:500],
+                                             doc_b=signal.doc_b[:30], extrait_b=signal.extrait_b[:500]),
+        SCHEMA_CONFIRMATION, contexte=4096, max_sortie=120)
+    return bool(reponse.get("incompatibles"))
+
+
+def confirmer(signal: Signal, *, modeles: tuple[str, ...] = MODELES_CONFIRMATION, confirmation=None) -> Signal:
+    """Renvoie le signalement avec le nombre de modèles de second avis qui le confirment."""
+    confirmation = confirmation or _confirmer_modele
+    return Signal(signal.doc_a, signal.extrait_a, signal.doc_b, signal.extrait_b, signal.explication,
+                  sum(1 for m in modeles if confirmation(signal, m)))
 
 
 def est_faux_positif(explication: str) -> bool:
@@ -135,31 +176,61 @@ def _juger_croise(fait: dict, autres: list[dict], modele: str) -> dict:
         SCHEMA_CROISE, contexte=4096, max_sortie=160)
 
 
-def croiser(index, *, modele: str = MODELE_JUGE, passages: int = 4, limite: int | None = None, juge=None) -> list[Signal]:
+def _signaler(index, doc: str, libelle: str, extrait: str, vecteur, juge, modele: str, passages: int) -> Signal | None:
+    """Confronte UN fait aux passages proches des AUTRES documents ; renvoie le signalement ou None."""
+    candidats = index.rechercher(f"{libelle} {extrait}", vecteur, k=passages * 3)
+    autres = [c for c in candidats if c["doc"] != doc and c["extrait"] != extrait][:passages]
+    if not autres:
+        return None
+    verdict = juge({"doc": doc, "extrait": extrait}, autres, modele)
+    position = verdict.get("passage", 0)
+    if not verdict.get("contradiction") or not 1 <= position <= len(autres):
+        return None
+    explication = str(verdict.get("explication", ""))
+    if est_faux_positif(explication):
+        return None
+    cible = autres[position - 1]
+    return Signal(doc, extrait, cible["doc"], cible["extrait"], explication)
+
+
+def croiser(index, *, modele: str = MODELE_JUGE, passages: int = 4, limite: int | None = None, juge=None,
+            second_avis: bool = True, confirmation=None) -> list[Signal]:
     """Signalements de contradictions entre documents, dédoublonnés, faux positifs évidents écartés.
 
     `index` : un `Index` rempli (éléments vérifiés avec vecteurs). `juge(fait, autres, modele)` est
-    injectable pour tester sans modèle ; par défaut, le modèle `modele` juge chaque fait.
+    injectable pour tester sans modèle ; par défaut, le modèle `modele` juge chaque fait. Avec `second_avis`, chaque
+    signalement reçoit une priorité (voir `Signal.priorite`) et la liste est triée priorité haute d'abord.
     """
     juge = juge or _juger_croise
     lignes = index.base.execute("SELECT id, doc, libelle, extrait, vecteur FROM elements WHERE verifie = 1").fetchall()
     signaux: list[Signal] = []
     vus: set[frozenset] = set()
-    for ident, doc, libelle, extrait, vecteur in lignes[:limite] if limite else lignes:
-        candidats = index.rechercher(f"{libelle} {extrait}", json.loads(vecteur) if vecteur else None, k=passages * 3)
-        autres = [c for c in candidats if c["doc"] != doc and c["extrait"] != extrait][:passages]
-        if not autres:
-            continue
-        verdict = juge({"doc": doc, "extrait": extrait}, autres, modele)
-        position = verdict.get("passage", 0)
-        if not verdict.get("contradiction") or not 1 <= position <= len(autres):
-            continue
-        explication = str(verdict.get("explication", ""))
-        if est_faux_positif(explication):
-            continue
-        cible = autres[position - 1]
-        cle = frozenset((extrait, cible["extrait"]))
-        if cle not in vus:
-            vus.add(cle)
-            signaux.append(Signal(doc, extrait, cible["doc"], cible["extrait"], explication))
+    for _ident, doc, libelle, extrait, vecteur in lignes[:limite] if limite else lignes:
+        signal = _signaler(index, doc, libelle, extrait, json.loads(vecteur) if vecteur else None, juge, modele, passages)
+        if signal and frozenset((signal.extrait_a, signal.extrait_b)) not in vus:
+            vus.add(frozenset((signal.extrait_a, signal.extrait_b)))
+            signaux.append(confirmer(signal, confirmation=confirmation) if second_avis else signal)
+    return sorted(signaux, key=lambda s: -s.confirmations)
+
+
+def contredit(index, preuves, *, modele: str = MODELE_JUGE, passages: int = 4, juge=None,
+              second_avis: bool = True, confirmation=None) -> list[Signal]:
+    """Les preuves citées (dicts `id`, `doc`, `extrait`) sont-elles CONTREDITES par un autre document ?
+
+    Avec `second_avis`, seuls les signalements confirmés par au moins un second modèle sont retenus : une réponse
+    n'est marquée « contestée » que sur un conflit crédible (sinon presque toutes le seraient).
+
+    Sert à ne pas présenter comme acquise une réponse que le dossier lui-même conteste (ex. la règle de la PSSI
+    « comptes désactivés sous 24 h » face au constat de l'audit).
+    """
+    juge = juge or _juger_croise
+    signaux: list[Signal] = []
+    for preuve in preuves:
+        ligne = index.base.execute("SELECT libelle, vecteur FROM elements WHERE id = ?", (preuve["id"],)).fetchone()
+        libelle, vecteur = (ligne[0], json.loads(ligne[1]) if ligne[1] else None) if ligne else ("", None)
+        signal = _signaler(index, preuve["doc"], libelle, preuve["extrait"], vecteur, juge, modele, passages)
+        if signal:
+            signal = confirmer(signal, confirmation=confirmation) if second_avis else signal
+            if not second_avis or signal.priorite == "haute":
+                signaux.append(signal)
     return signaux

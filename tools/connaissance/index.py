@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS elements (
     libelle TEXT NOT NULL,          -- phrase du fait, ou « sujet relation objet »
     extrait TEXT NOT NULL,          -- preuve, mot pour mot
     verifie INTEGER NOT NULL,       -- 1 si l'extrait a été retrouvé dans le document par le code
-    vecteur TEXT                    -- JSON
+    vecteur TEXT,                   -- JSON
+    origine TEXT NOT NULL DEFAULT 'document',  -- 'document' (fourni) ; plus tard 'externe' (recherche web, avec url)
+    url TEXT
 );
 CREATE TABLE IF NOT EXISTS entites (nom TEXT PRIMARY KEY, canonique TEXT NOT NULL, type TEXT, docs TEXT);
 CREATE TABLE IF NOT EXISTS contradictions (
@@ -39,21 +41,30 @@ class Index:
     def __init__(self, chemin: str | Path = ":memory:"):
         self.base = sqlite3.connect(str(chemin))
         self.base.executescript(SCHEMA)
+        self._migrer()
         try:
             self.base.execute("CREATE VIRTUAL TABLE IF NOT EXISTS elements_fts USING fts5(libelle, extrait, content='')")
             self.fts = True
         except sqlite3.OperationalError:
             self.fts = False
 
+    def _migrer(self) -> None:
+        """Met à niveau un fichier d'index créé par une version antérieure (colonnes ajoutées depuis)."""
+        colonnes = {ligne[1] for ligne in self.base.execute("PRAGMA table_info(elements)")}
+        if "origine" not in colonnes:
+            self.base.execute("ALTER TABLE elements ADD COLUMN origine TEXT NOT NULL DEFAULT 'document'")
+        if "url" not in colonnes:
+            self.base.execute("ALTER TABLE elements ADD COLUMN url TEXT")
+
     def fermer(self) -> None:
         self.base.commit()
         self.base.close()
 
     def ajouter_element(self, genre: str, doc: str, libelle: str, extrait: str, verifie: bool,
-                        vecteur: list[float] | None = None) -> int:
+                        vecteur: list[float] | None = None, origine: str = "document", url: str | None = None) -> int:
         curseur = self.base.execute(
-            "INSERT INTO elements (genre, doc, libelle, extrait, verifie, vecteur) VALUES (?,?,?,?,?,?)",
-            (genre, doc, libelle, extrait, int(verifie), json.dumps(vecteur) if vecteur else None))
+            "INSERT INTO elements (genre, doc, libelle, extrait, verifie, vecteur, origine, url) VALUES (?,?,?,?,?,?,?,?)",
+            (genre, doc, libelle, extrait, int(verifie), json.dumps(vecteur) if vecteur else None, origine, url))
         if self.fts:
             self.base.execute("INSERT INTO elements_fts (rowid, libelle, extrait) VALUES (?,?,?)",
                               (curseur.lastrowid, libelle, extrait))
@@ -78,10 +89,10 @@ class Index:
         `vecteur_question=None` = mots-clés seuls ; `mots_cles=False` = vecteurs seuls (pour comparer).
         """
         filtre = "WHERE verifie = 1" if verifies_seulement else ""
-        lignes = self.base.execute(f"SELECT id, genre, doc, libelle, extrait, vecteur FROM elements {filtre}").fetchall()
+        lignes = self.base.execute(f"SELECT id, genre, doc, libelle, extrait, vecteur, origine FROM elements {filtre}").fetchall()
         rangs: dict[int, float] = {}
         if vecteur_question:
-            notes = sorted(((ollama.cosinus(vecteur_question, json.loads(v)), i) for i, _g, _d, _l, _e, v in lignes if v), reverse=True)
+            notes = sorted(((ollama.cosinus(vecteur_question, json.loads(v)), i) for i, _g, _d, _l, _e, v, _o in lignes if v), reverse=True)
             for rang, (_note, ident) in enumerate(notes[:50]):
                 rangs[ident] = rangs.get(ident, 0.0) + 1.0 / (60 + rang)
         if self.fts and mots_cles:
@@ -102,4 +113,7 @@ class Index:
         par_id = {ligne[0]: ligne for ligne in lignes}
         classes = sorted(rangs.items(), key=lambda item: -item[1])[:k]
         return [{"id": i, "genre": par_id[i][1], "doc": par_id[i][2], "libelle": par_id[i][3],
-                 "extrait": par_id[i][4], "score": round(score, 4)} for i, score in classes]
+                 "extrait": par_id[i][4], "origine": par_id[i][6], "score": round(score, 4),
+                 # proximité de sens brute (0 à 1), utile pour calibrer « aucune preuve pertinente »
+                 "cos": round(ollama.cosinus(vecteur_question, json.loads(par_id[i][5])), 3) if vecteur_question and par_id[i][5] else None}
+                for i, score in classes]

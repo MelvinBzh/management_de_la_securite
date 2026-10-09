@@ -32,6 +32,31 @@ def contient(extrait: str, texte_normalise: str) -> bool:
     return bool(cible) and cible in texte_normalise
 
 
+DEBUT_DONNEES = "<<<DONNÉES>>>"
+FIN_DONNEES = "<<<FIN DONNÉES>>>"
+
+
+def corps(contenu: str) -> str:
+    r"""Partie utile d'un document ingéré : ce qui est entre `<<<DONNÉES>>>` et `<<<FIN DONNÉES>>>`.
+
+    L'ingestion ajoute un en-tête technique (nom du fichier, type, taille, avertissement). Ce n'est pas de
+    l'information : mesuré, il produisait de faux signalements de contradiction (« # Extrait — A » contre
+    « # Extrait — B »). Le résultat est une TRANCHE CONTIGUË du texte d'origine — rien n'est reformulé.
+    Un texte sans marqueurs est rendu tel quel.
+
+    >>> corps("# Extrait — x\n\n<<<DONNÉES>>>\n\nContenu utile\n\n<<<FIN DONNÉES>>>")
+    'Contenu utile'
+    >>> corps("Texte brut")
+    'Texte brut'
+    """
+    debut = contenu.find(DEBUT_DONNEES)
+    if debut < 0:
+        return contenu
+    debut += len(DEBUT_DONNEES)
+    fin = contenu.find(FIN_DONNEES, debut)
+    return contenu[debut:fin if fin >= 0 else len(contenu)].strip()
+
+
 def jetons(texte: str, minimum: int = 3) -> set[str]:
     """Mots normalisés d'au moins `minimum` caractères."""
     return {m for m in normaliser(texte).split() if len(m) >= minimum}

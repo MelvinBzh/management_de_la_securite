@@ -36,7 +36,7 @@ CONSIGNE = (
     "Voici un document d'une entreprise. Relève (1) ses ENTITÉS importantes (systèmes, prestataires, "
     "personnes, rôles, sites, contrats, matériels, données, normes, processus) avec leur type, puis (2) "
     "jusqu'à {maximum} RELATIONS entre ces entités (types autorisés : {types}). Pour chaque relation, "
-    "donne l'EXTRAIT EXACT du document qui la prouve, copié MOT POUR MOT (25 mots maximum). N'invente "
+    "donne l'EXTRAIT EXACT du document qui la prouve, copié MOT POUR MOT (40 mots maximum) : la PHRASE ou la LIGNE DE TABLEAU COMPLÈTE, jamais une cellule isolée. N'invente "
     "aucune entité ni relation absente du document.\n\nDOCUMENT :\n{document}"
 )
 
@@ -65,7 +65,7 @@ def verifier(relation: Relation, contenu_normalise: str) -> bool:
             and texte.nom_present(relation.objet, contenu_normalise))
 
 
-def extraire(doc: str, contenu: str, *, modele: str = MODELE_EXTRACTION, maximum: int = 15) -> tuple[list[Entite], list[Relation]]:
+def extraire(doc: str, contenu: str, *, modele: str = MODELE_EXTRACTION, maximum: int = 25) -> tuple[list[Entite], list[Relation]]:
     """Entités et relations d'un document ; `Relation.verifiee` dit si le code a retrouvé la preuve."""
     reponse = ollama.discuter_json(
         modele, CONSIGNE.format(maximum=maximum, types=", ".join(TYPES_RELATION), document=contenu),
