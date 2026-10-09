@@ -96,5 +96,11 @@ verifier("faits inventés remontés pour un fichier de faits", "nginx" in chaine
 verifier("les recommandations (étape 5) ne sont pas contrôlées", chaine.faits_non_fondes(d, ["05-traitement.md"]) == "")
 verifier("relecture : consigne en lecture seule et sans exécution", "AUCUN outil" in chaine.consigne_relecture("d"))
 
+d = dossier_avec({"00-description.md": "x", "SYNTHESE.md": "y", "RAPPORT-CONTROLE.md": "z", "questions-auto.md": "q"})
+archive = chaine.archiver_precedent(d)
+verifier("run précédent archivé (non détruit)", archive is not None and (archive / "SYNTHESE.md").read_text() == "y")
+verifier("les livrables ne sont plus à la racine (pas de faux succès)", not (d / "00-description.md").exists() and (d / "questions-auto.md").exists())
+verifier("rien à archiver : pas de dossier vide créé", chaine.archiver_precedent(dossier_avec({"questions-auto.md": "q"})) is None)
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

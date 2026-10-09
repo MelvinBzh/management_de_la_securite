@@ -593,6 +593,23 @@ def relecture_finale(cli: str, dossier: Path, dossier_nom: str, modele: str) -> 
     return analyser_verdict(sortie)
 
 
+def archiver_precedent(dossier: Path) -> Path | None:
+    """Range les livrables d'un run précédent dans `precedent-<date>/` (non destructif).
+
+    Sans cela, un relancement affichait « ✓ » pour des étapes pas encore refaites (l'interface
+    déduit l'avancement des fichiers présents) et écrasait le travail précédent sans trace.
+    """
+    noms = [n for _a, _l, fs in ETAPES for n in fs] + ["RAPPORT-CONTROLE.md", lib.NOM_JSON_REGISTRE]
+    presents = [Path(dossier) / n for n in noms if (Path(dossier) / n).is_file()]
+    if not presents:
+        return None
+    cible = Path(dossier) / ("precedent-" + time.strftime("%Y%m%d-%H%M%S"))
+    cible.mkdir()
+    for chemin in presents:
+        chemin.replace(cible / chemin.name)
+    return cible
+
+
 def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
     """Déroule les 7 étapes. 0 = tout conforme · 2 = terminé avec réserves · 1 = échec.
 
@@ -612,7 +629,9 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
             installes = {m for m in installes if m in declares} or installes
         _journal(f"[chaine] routage automatique — modèles installés : {', '.join(sorted(installes)) or 'inconnus'}")
     defaut = MODELE_DEFAUT if auto else modele
-    (dossier / "RAPPORT-CONTROLE.md").unlink(missing_ok=True)
+    archive = archiver_precedent(dossier)
+    if archive:
+        _journal(f"[chaine] livrables précédents archivés dans {archive.name}/ (rien n'est écrasé)")
     reussies, reserves = 0, []
     for numero, (agent, libelle, fichiers) in enumerate(ETAPES, start=1):
         _journal(f"[chaine] === {libelle} ({agent}) ===")

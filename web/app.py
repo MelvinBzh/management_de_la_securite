@@ -923,7 +923,7 @@ elif page == PAGES[3]:
                 )
             else:
                 st.caption(
-                    f"Modèle de la chaîne : **{decision['modele'] or 'modèle de chaque agent'}** "
+                    f"Modèle de la chaîne : **{'routage automatique par agent' if str(decision['modele']).startswith('ollama/') else (decision['modele'] or 'modèle de chaque agent')}** "
                     f"(profil « {decision['profil']} »)"
                     + (f" — {decision['raison']}" if decision.get("raison") else "")
                     + (f" · {decision['alignes']} agent(s) aligné(s)"

@@ -296,7 +296,9 @@ def construire_commande(nom_cas: str) -> str:
 #      analyses/{dossier}/00-description.brouillon.md
 #      analyses/{dossier}/questions-auto.md
 #
-# 2) Depuis la racine du dépôt, lancer la chaîne E21 dans opencode :
+# 2) Depuis le site, le bouton « Lancer la chaîne » exécute le PILOTE (web/chaine.py) : étapes dans
+#    l'ordre, un modèle par agent, contrôle qui relance l'agent. Alternative manuelle ci-dessous
+#    (orchestrateur LLM, à réserver aux gros modèles) — depuis la racine du dépôt, dans opencode :
 opencode run --agent orchestrator "{prompt_orchestrateur(cas, dossier)}"
 #
 # 3) Après la chaîne : vérifier les livrables attendus dans analyses/{dossier}/
