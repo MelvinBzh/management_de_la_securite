@@ -1,6 +1,6 @@
 ---
 description: Étape 3 E21 — identifie les menaces en appliquant la grille choisie (STRIDE, LINDDUN…) à chaque actif et frontière de confiance, avec CVE quand applicable. Produit 03-menaces.md.
-mode: subagent
+mode: all
 model: opencode/big-pickle
 permission:
   read: allow

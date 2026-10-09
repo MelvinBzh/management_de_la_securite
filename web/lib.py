@@ -29,7 +29,7 @@ import shutil
 import sys
 import tempfile
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parents[1]
@@ -333,6 +333,65 @@ def avancement_chaine(dossier: Path) -> list[dict]:
             entree["json_present"] = (dossier / NOM_JSON_REGISTRE).is_file()
         etapes.append(entree)
     return etapes
+
+
+RE_ID_RISQUE = re.compile(r"\bR-?\d{1,3}\b")
+
+
+def risques_du_registre(dossier: Path) -> list[str]:
+    """Identifiants `R-nn` cités par `registre-risques.md`, dans l'ordre, sans doublon."""
+    chemin = Path(dossier) / "registre-risques.md"
+    try:
+        texte = chemin.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    vus: dict[str, None] = {}
+    for trouve in RE_ID_RISQUE.findall(texte):
+        vus.setdefault(trouve, None)
+    return list(vus)
+
+
+def valider_registre(dossier: Path, analyste: str, valides: list[str], refuses: list[str] | None = None) -> Path:
+    """Consigne la décision HUMAINE de l'analyste (`valide_par`) après la chaîne.
+
+    La chaîne produit le registre avec `valide_par` vide : seule cette fonction, appelée
+    depuis l'interface par l'analyste, le renseigne. Écrit une section datée dans
+    `06-validation.md` et, si `registre_risques.json` existe, met à jour `valide_par`
+    des risques validés. Refuse un nom vide ou un identifiant absent du registre.
+    """
+    nom = " ".join(str(analyste).split())
+    if not nom or len(nom) > 80:
+        raise ValueError("Nom de l'analyste requis (80 caractères maximum).")
+    connus = set(risques_du_registre(dossier))
+    refuses = list(refuses or [])
+    inconnus = [r for r in list(valides) + refuses if r not in connus]
+    if inconnus:
+        raise ValueError(f"Risque(s) absent(s) du registre : {', '.join(inconnus)}")
+    if set(valides) & set(refuses):
+        raise ValueError("Un risque ne peut pas être à la fois validé et refusé.")
+    dossier = Path(dossier)
+    horodatage = datetime.now().strftime("%Y-%m-%d %H:%M")
+    section = (
+        f"\n\n## Validation humaine — {horodatage}\n\n"
+        f"- **valide_par** : {nom}\n"
+        f"- Risques validés : {', '.join(valides) or 'aucun'}\n"
+        f"- Risques refusés : {', '.join(refuses) or 'aucun'}\n"
+    )
+    journal = dossier / "06-validation.md"
+    with open(journal, "a", encoding="utf-8") as sortie:
+        sortie.write(section)
+    registre_json = dossier / NOM_JSON_REGISTRE
+    if registre_json.is_file():
+        try:
+            donnees = json.loads(registre_json.read_text(encoding="utf-8"))
+            liste = donnees.get("risques", donnees) if isinstance(donnees, dict) else donnees
+            for risque in liste if isinstance(liste, list) else []:
+                if isinstance(risque, dict) and risque.get("id") in valides:
+                    risque["valide_par"] = nom
+            registre_json.write_text(json.dumps(donnees, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        except (OSError, ValueError):
+            pass  # le JSON reste tel quel ; la trace écrite dans 06-validation.md fait foi
+    return journal
 
 
 def intrants_prepars(dossier_cas_: Path) -> list[Path]:
@@ -669,6 +728,8 @@ __all__ = [
     "FICHiers_CAS",
     "TYPES_UPLOAD",
     "ETAPES_CHAINE",
+    "risques_du_registre",
+    "valider_registre",
     "nom_cas_sur",
     "dossier_cas",
     "intrants_du_cas",

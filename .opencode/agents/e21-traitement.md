@@ -1,6 +1,6 @@
 ---
 description: Étape 5 E21 — traite chaque risque : réponse (réduire/transférer/éviter/accepter) + contre-mesures concrètes sourcées + risque résiduel estimé. Produit 05-traitement.md.
-mode: subagent
+mode: all
 model: opencode/big-pickle
 permission:
   read: allow

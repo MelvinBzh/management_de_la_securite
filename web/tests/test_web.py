@@ -1833,8 +1833,12 @@ def test_web_26():
         if chemin.stem == "orchestrator":
             continue
         mode = entetes.verifier_mode(chemin.read_text(encoding="utf-8"))
-        assert mode == "subagent", \
-            f"{chemin.stem} doit rester « subagent », trouvé « {mode or 'rien'} »"
+        # Les 8 agents d'étape `e21-*` sont en `all` : le pilote web/chaine.py les lance
+        # directement (`opencode run --agent e21-…`) ; en `subagent`, opencode se rabat
+        # sur un agent par défaut sans consignes. Les autres restent `subagent`.
+        attendu = "all" if chemin.stem.startswith("e21-") else "subagent"
+        assert mode == attendu, \
+            f"{chemin.stem} doit être « {attendu} », trouvé « {mode or 'rien'} »"
 
     # le validateur doit réellement mordre (sinon le test ne prouve rien)
     for faux, attendu in (

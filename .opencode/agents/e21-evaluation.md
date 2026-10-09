@@ -1,6 +1,6 @@
 ---
 description: Étape 4 E21 — évalue chaque menace : probabilité et impact, niveau déduit de la matrice, note de priorisation (DREAD/CVSS) si retenue. Produit 04-evaluation.md.
-mode: subagent
+mode: all
 model: opencode/big-pickle
 permission:
   read: allow

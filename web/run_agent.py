@@ -164,6 +164,7 @@ def lancer(
     dossier: Path | None = None,
     modele: str | None = None,
     env: dict | None = None,
+    pilote: bool = False,
 ) -> dict:
     """Lance la chaîne d'agents sur un cas et renvoie les infos de pilotage.
 
@@ -198,13 +199,20 @@ def lancer(
         raise ChaineError(
             "opencode introuvable : installez opencode (voir .opencode/) puis relancez."
         )
-    prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)
-    argv = [cli, "run", "--agent", "orchestrator"]
     modele_reel = ""
     if modele and str(modele).strip():
         modele_reel = _modele_valide(modele)
-        argv += ["--model", modele_reel]
-    argv.append(prompt)
+    if pilote:
+        # Pilote déterministe (web/chaine.py) : l'ordre des 7 étapes, les relances et
+        # la vérification des livrables sont du code, pas une décision du modèle.
+        modele_reel = modele_reel or reglages.MODELE_SECOURS
+        argv = [sys.executable, "-m", "web.chaine", nom, dossier_reel.name, modele_reel]
+    else:
+        prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)
+        argv = [cli, "run", "--agent", "orchestrator"]
+        if modele_reel:
+            argv += ["--model", modele_reel]
+        argv.append(prompt)
     fichier_log = _fichier_journal(dossier_reel, datetime.now())
     fichier_log.parent.mkdir(parents=True, exist_ok=True)
     fichier_log.touch()
@@ -278,6 +286,7 @@ def etape_terminees(dossier: Path) -> int:
 # dans `analyses/<cas>/intrants/` (gitignoré, comme le journal).
 NOM_ETAT = "chaine-etat.json"
 PROC_OUTIL = "opencode"
+PROC_PILOTE = "web.chaine"
 
 
 def _fichier_etat(dossier: Path) -> Path:
@@ -352,7 +361,8 @@ def est_vivant_pid(pid: int) -> bool:
     doit jamais faire croire à une chaîne en cours, ni pire, être arrêté à sa
     place par le bouton « Arrêter ».
     """
-    return PROC_OUTIL in _ligne_commande(pid)
+    ligne = _ligne_commande(pid)
+    return PROC_OUTIL in ligne or PROC_PILOTE in ligne
 
 
 def est_vivant_lancer(infos: dict) -> bool:

@@ -1,6 +1,6 @@
 ---
 description: Étape 6 E21 — validation humaine et suivi : fait relire chaque risque à l'analyste, remplit valide_par, consigne décisions (risque résiduel accepté, revue régulière). Produit 06-validation.md et registre-risques.md final.
-mode: subagent
+mode: all
 model: opencode/big-pickle
 permission:
   read: allow

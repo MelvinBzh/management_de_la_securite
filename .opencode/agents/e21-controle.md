@@ -1,6 +1,6 @@
 ---
 description: Garde-fous & contrôle qualité — relit chaque sortie d'étape avant qu'elle soit poussée : sources vérifiables, pas d'injection/hallucination, format du skill registre respecté, données sensibles absentes. Produit RAPPORT-CONTROLE.md.
-mode: subagent
+mode: all
 model: opencode/big-pickle
 permission:
   read: allow

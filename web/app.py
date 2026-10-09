@@ -886,6 +886,7 @@ elif page == PAGES[3]:
                     dossier=lib.DOSSIER_ANALYSES / cible,
                     modele=decision["modele"] or None,
                     env=env,
+                    pilote=True,
                 )
                 # L'état part sur disque : la chaîne reste pilotable même si l'onglet
                 # est rechargé ou refermé (le processus, lui, est détaché).
@@ -979,6 +980,21 @@ elif page == PAGES[3]:
                 st.success(
                     "Chaîne terminée — ouvrez les livrables dans « Bibliothèque des analyses »."
                 )
+            risques_a_valider = lib.risques_du_registre(Path(run["dossier"]))
+            if risques_a_valider:
+                # La chaîne livre le registre avec `valide_par` VIDE : la validation est un
+                # acte humain, jamais celui d'un agent (étape 6 non interactive).
+                with st.expander("✍️ Validation humaine du registre (obligatoire)", expanded=True):
+                    analyste = st.text_input("Nom de l'analyste", key="valid_analyste")
+                    ok_ids = st.multiselect("Risques validés", risques_a_valider, key="valid_ok")
+                    ko_ids = st.multiselect(
+                        "Risques refusés", [r for r in risques_a_valider if r not in ok_ids], key="valid_ko")
+                    if st.button("Enregistrer ma décision", key="valid_btn"):
+                        try:
+                            trace = lib.valider_registre(Path(run["dossier"]), analyste, ok_ids, ko_ids)
+                            st.success(f"Décision consignée dans {trace.name}.")
+                        except ValueError as exc:
+                            st.error(str(exc))
             fin = run_agent.lire_log(run["fichier_log"], n=5)
             if fin:
                 st.caption("Toute fin du journal :")
