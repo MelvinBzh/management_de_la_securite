@@ -78,6 +78,7 @@ test-connaissance:
 ## Tests autonomes de l'interface web (chantier #26).
 test-web:
 	$(PYTHON) web/tests/test_web.py
+	$(PYTHON) web/tests/test_pages_connaissance.py
 
 ## Tests autonomes de la méthode EBIOS RM (ateliers générés).
 test-methodes-ebios:

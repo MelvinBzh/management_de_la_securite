@@ -189,7 +189,7 @@ def test_web_01():
         "aucun en-tête affiché"
     assert app.radio, "navigation absente de la barre latérale"
     assert app.file_uploader, "téléverseur de documents absent"
-    assert len(app.radio[0].options) == 7, f"7 entrées attendues : {app.radio[0].options}"
+    assert len(app.radio[0].options) == 9, f"9 entrées attendues : {app.radio[0].options}"
     # Chaque page de la navigation doit s'afficher sans exception.
     for nom in app.radio[0].options:
         app.radio[0].set_value(nom).run()
@@ -1269,7 +1269,7 @@ def test_web_21():
             app = AppTest.from_file(str(APP), default_timeout=90)
             app.run()
             assert not app.exception, f"exception au lancement : {app.exception[0].message}"
-            app.radio[0].set_value("Réglages modèles").run()
+            app.radio[0].set_value("Avancé · Réglages modèles").run()
             assert not app.exception, f"page Réglages : {app.exception[0].message}"
 
             sous_titres = [element.value for element in app.subheader]
