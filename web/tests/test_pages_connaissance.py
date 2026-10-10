@@ -112,8 +112,8 @@ verifier("④ : jamais le mot « indéterminé »", "indéterminé" not in tout.
 # une décision depuis l'interface : le risque est enregistré, le commentaire obligatoire est exigé
 app.text_input(key="valid_analyste").set_value("Marie")
 for r in app.radio:
-    if str(r.key).startswith("vdec_") and "accepte" in [str(o) for o in r.options]:
-        r.set_value("accepte")
+    if str(r.key).startswith("vdec_") and "Accepté tel quel" in [str(o) for o in r.options]:
+        r.set_value("Accepté tel quel")  # AppTest expose les LIBELLÉS affichés
         break
 bouton = next(b for b in app.button if b.label == "Enregistrer mes décisions")
 with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
