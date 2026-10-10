@@ -24,9 +24,10 @@ from pathlib import Path
 from . import ollama
 
 BUDGET_OCTETS = 26000       # dossier complet ; le reste du budget de pièces jointes va aux livrables précédents
-MAX_ECARTS = 10
+MAX_ECARTS = 20
 MAX_QUESTIONS = 12
-LARGEUR_ECART = 220
+LARGEUR_ECART = 160
+BUDGET_ETAPE_1 = 38000   # étape 1 : presque tout le texte des documents (aucun livrable précédent à joindre)
 LARGEUR_PASSAGE = 1500
 
 REQUETES: dict[int, list[str]] = {
@@ -86,15 +87,21 @@ def _section_decisions(decisions: list[dict]) -> str:
 
 
 def _section_ecarts(index, budget: int) -> str:
-    ecarts = [c for c in index.contradictions() if c["confirmations"] >= 1][:MAX_ECARTS]
+    """Écarts confirmés par un second modèle. Les écarts CHIFFRÉS (les deux extraits contiennent un nombre : chiffre
+    d'affaires, effectif, quantité…) passent d'abord : ce sont ceux qu'un agent recopie sans le savoir."""
+    def chiffre(t: str) -> bool:
+        return any(ch.isdigit() for ch in t)
+    confirmes = [c for c in index.contradictions() if c["confirmations"] >= 1]
+    confirmes.sort(key=lambda c: (not (chiffre(c["extrait_a"]) and chiffre(c["extrait_b"])), -c["confirmations"]))
+    ecarts = confirmes[:MAX_ECARTS]
     if not ecarts:
         return ""
     lignes = ["## Écarts entre documents (à signaler, pas à trancher seul)", ""]
     for c in ecarts:
         lignes.append(f"- {c['doc_a'][:34]} : « {_court(c['extrait_a'], LARGEUR_ECART)} » **≠** "
                       f"{c['doc_b'][:34]} : « {_court(c['extrait_b'], LARGEUR_ECART)} »")
-    texte = "\n".join(lignes) + "\n"
-    return texte if len(texte) <= budget else texte[:budget].rsplit("\n", 1)[0] + "\n"
+    texte = chr(10).join(lignes) + chr(10)
+    return texte if len(texte) <= budget else texte[:budget].rsplit(chr(10), 1)[0] + chr(10)
 
 
 def _section_questions(index) -> str:
@@ -127,7 +134,7 @@ def dossier_de_preuves(index, numero: int, *, vecteurs=None, budget: int = BUDGE
     requetes = REQUETES.get(numero, REQUETES[7])
     vecs = vecteurs(requetes, prefixe="search_query: ")
     debut = ENTETE.format(numero=numero) + "\n" + _section_decisions(decisions_ecarts(dossier))
-    fin = _section_ecarts(index, max(budget // 5, 1500)) + "\n" + _section_questions(index)
+    fin = _section_ecarts(index, max(budget // 4, 4000)) + "\n" + _section_questions(index)
     reste = max(budget - len(debut) - len(fin), 2000)
     retenus, total = [], 0
     classes = passages_classes(index, requetes, vecs)

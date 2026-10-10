@@ -791,7 +791,8 @@ def fichier_de_preuves(dossier: Path, numero: int) -> Path | None:
     try:
         index = Index(travail.chemins(dossier)[1])
         try:
-            texte = preuves.dossier_de_preuves(index, numero, dossier=dossier)
+            texte = preuves.dossier_de_preuves(index, numero, dossier=dossier,
+                                               budget=preuves.BUDGET_ETAPE_1 if numero == 1 else preuves.BUDGET_OCTETS)
         finally:
             index.fermer()
         chemin = travail.chemins(dossier)[0] / f"preuves-etape-{numero}.md"

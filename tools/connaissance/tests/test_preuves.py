@@ -67,9 +67,20 @@ verifier("les étapes ont des questions différentes", preuves.REQUETES[1] != pr
 for i in range(80):
     index.ajouter_element("passage", f"gros-{i % 4}.md", f"Section {i}", ("Texte de passage " + str(i) + ". ") * 45, True, [float(i % 7), float(i % 5), 1.0])
 petit = preuves.dossier_de_preuves(index, 1, vecteurs=faux_vecteurs, budget=9000)
-verifier("le budget borne la taille", len(petit) <= 9000 + 1500 and "REMPLACE la lecture" in petit)
+verifier("le budget borne la taille", len(petit) <= 9000 + 3000 and "REMPLACE la lecture" in petit)
 verifier("les passages non reproduits sont signalés (rien n'est perdu)", "ne sont pas reproduits" in petit)
 verifier("étape inconnue : questions de la synthèse", "Dossier de preuves" in preuves.dossier_de_preuves(index, 99, vecteurs=faux_vecteurs))
+
+# écarts chiffrés d'abord, jusqu'à MAX_ECARTS
+idx3 = Index(":memory:")
+idx3.ajouter_contradiction("", "a.md", "Texte sans chiffre", "b.md", "Autre texte sans chiffre", "c", "x", 2)
+idx3.ajouter_contradiction("", "comex.md", "CA 2025 : 46,8 M€", "readme.md", "CA 2025 : 47,2 M€", "c", "x", 1)
+for i in range(30):
+    idx3.ajouter_contradiction("", f"d{i}.md", f"valeur {i}", f"e{i}.md", f"valeur {i + 1}", "c", "x", 1)
+t3 = preuves.dossier_de_preuves(idx3, 1, vecteurs=faux_vecteurs)
+verifier("écarts : le chiffré (CA 46,8 / 47,2) passe avant le textuel même plus confirmé", t3.index("46,8") < t3.index("Texte sans chiffre") if "Texte sans chiffre" in t3 else "46,8" in t3)
+verifier("écarts : au plus 20 rappelés", t3.count("**≠**") <= preuves.MAX_ECARTS)
+verifier("étape 1 : budget plus large que les autres, sous la limite des pièces jointes", preuves.BUDGET_ETAPE_1 > preuves.BUDGET_OCTETS and preuves.BUDGET_ETAPE_1 < 40000)
 
 # --- citations ----------------------------------------------------------------------------------------------
 doc = ("# Actifs\n\n| Actif | Description |\n|---|---|\n"
