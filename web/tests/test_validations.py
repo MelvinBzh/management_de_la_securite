@@ -86,6 +86,9 @@ verifier("contradiction faible (non confirmée) exclue", all("faible" not in i["
 verifier("question : « non documenté » expliqué, jamais « n'existe pas »", "non documenté" in par_type["question"][0]["titre"] and "pas une preuve" in par_type["question"][0]["pourquoi"])
 verifier("le connu sans doute n'est pas proposé", all("RSSI" not in i["titre"] for i in items))
 verifier("chaque point propose des choix", all(i["choix"] for i in items))
+contra = par_type["contradiction"][0]
+verifier("contradiction : les choix nomment les documents et permettent de changer la valeur",
+         any("pssi.md" in l for _c, l in contra["choix"]) and any("audit.md" in l for _c, l in contra["choix"]) and any(c == "autre" for c, _l in contra["choix"]))
 verifier("avancement : 0 décidé sur 7", validations.resume(items)["decides"] == 0 and validations.resume(items)["total"] == 7)
 
 # --- enregistrement ------------------------------------------------------------------------------------------------

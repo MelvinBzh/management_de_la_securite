@@ -52,7 +52,7 @@ CHOIX = {
     "aval": [("ok", "L'impact est correct"), ("corrige", "À corriger (voir mon commentaire)")],
 }
 COMMENTAIRE_OBLIGATOIRE = {("risque", "modifie"), ("risque", "refuse"), ("etape", "corrige"), ("ligne", "corrige"),
-                           ("question", "repondu"), ("aval", "corrige"), ("contradiction", "clarifier")}
+                           ("question", "repondu"), ("aval", "corrige"), ("contradiction", "autre")}
 RE_CITATION = re.compile(r"`?\[E(\d+)\]`?")
 
 
@@ -220,10 +220,15 @@ def _items_contradictions_questions(dossier: Path) -> list[dict]:
     items = []
     for c in contradictions:
         contexte = (f"**{c['doc_a']}** : « {c['extrait_a']} »\n\n**{c['doc_b']}** : « {c['extrait_b']} »")
-        items.append(_item("contradiction", c["extrait_a"] + c["extrait_b"], "-", f"{c['doc_a'][:34]} ≠ {c['doc_b'][:34]}",
-                           c["explication"] or "Deux documents semblent dire des choses incompatibles (confirmé par un second modèle).",
-                           "Une règle écrite (politique) peut différer de la pratique constatée (audit) : décidez laquelle fait foi pour l'analyse.",
-                           contexte, [], "", ""))
+        item = _item("contradiction", c["extrait_a"] + c["extrait_b"], "-", f"{c['doc_a'][:34]} ≠ {c['doc_b'][:34]}",
+                     c["explication"] or "Deux documents semblent dire des choses incompatibles (confirmé par un second modèle).",
+                     "Lequel garder ? Le plus récent, ou celui qui fait foi (une règle écrite peut différer de la pratique constatée) ; "
+                     "les deux peuvent aussi convenir, ou la valeur peut être à changer.", contexte, [], "", "")
+        # les choix NOMMENT les documents : « garder celui-ci », pas « la première source »
+        item["choix"] = [("source_a", f"Garder la valeur de : {c['doc_a'][:48]}"), ("source_b", f"Garder la valeur de : {c['doc_b'][:48]}"),
+                         ("deux", "Les deux conviennent (cas ou périmètres différents)"),
+                         ("autre", "Je change la valeur (indiquer la bonne valeur en commentaire)")]
+        items.append(item)
     ouvertes = [d for d in couvertures if d["statut"] == "inconnu" or d.get("contestations") or d.get("a_valider")]
     ouvertes.sort(key=lambda d: -d.get("priorite", 0))
     for d in ouvertes[:MAX_QUESTIONS]:
@@ -294,7 +299,7 @@ def enregistrer(dossier: Path, analyste: str, saisies: dict[str, dict], items: l
         decision = (saisie or {}).get("decision", "")
         if not item or not decision:
             continue
-        if decision not in {c for c, _ in CHOIX[item["type"]]}:
+        if decision not in {c for c, _ in item["choix"]}:
             raise ValueError(f"Décision inconnue pour « {item['titre']} » : {decision}")
         commentaire = " ".join(str((saisie or {}).get("commentaire", "")).split())
         if (item["type"], decision) in COMMENTAIRE_OBLIGATOIRE and not commentaire:
@@ -310,7 +315,9 @@ def enregistrer(dossier: Path, analyste: str, saisies: dict[str, dict], items: l
     risques = {}
     for ident, d in retenues.items():
         item = par_id[ident]
-        donnees["decisions"][ident] = {**d, "analyste": nom, "date": date, "type": item["type"], "titre": item["titre"]}
+        donnees["decisions"][ident] = {**d, "analyste": nom, "date": date, "type": item["type"], "titre": item["titre"],
+                                       "libelle_decision": dict(item["choix"]).get(d["decision"], d["decision"]),
+                                       "contexte": item["contexte"][:700]}
         if item["type"] == "risque":
             rid = item["titre"].split(" — ")[0]
             risques[rid] = d

@@ -39,16 +39,36 @@ index.enregistrer_couverture("cont-restau", {"besoin": "cont-restau", "theme": "
                                              "a_valider": True, "pourquoi": "Aucune preuve.", "verification": "sans_objet", "priorite": 3})
 index.ajouter_contradiction("", "pssi.md", "Comptes désactivés sous 24 h", "audit.md", "Des comptes de départs sont restés actifs", "contradiction", "incompatibles", 1)
 
-# --- dossier de preuves -----------------------------------------------------------------------------------
-texte = preuves.dossier_de_preuves(index, 3, vecteurs=faux_vecteurs)
-verifier("le dossier rappelle de ne pas relire les documents et de citer", "REMPLACE la lecture" in texte and "cite-le" in texte)
-verifier("chaque preuve a un identifiant citable", f"`[E{e1}]`" in texte or f"`[E{e2}]`" in texte)
-verifier("ce que le dossier ignore est dit « non documenté », jamais « n'existe pas »", "NON DOCUMENTÉ" in texte and "à demander" in texte)
-verifier("un connu cite ses preuves", f"`[E{e2}]`" in texte.split("Preuves par question")[0])
-verifier("les contradictions confirmées sont rappelées", "Contradictions entre documents" in texte and "24 h" in texte)
+# --- dossier de preuves (v2 : passages d'origine avec leur en-tête, écarts, décisions, questions) --------------------------------
+import json as _json, tempfile as _tf  # noqa: E402
+pb = index.ajouter_element("passage", "budget.md", "Budget_SI_2026 · | Poste | Budget (k€) | Réalisé (k€) |",
+                           "| Postes de travail / terminaux radio | 95 | 40 | Renouvellement reporté |", True, faux_vecteurs(["z"])[0])
+pi = index.ajouter_element("passage", "inventaire.md", "Matériel · | Type | Quantité |", "| Postes fixes | 172 |" + chr(10) + "| Ordinateurs portables | 126 |",
+                           True, faux_vecteurs(["y"])[0])
+dossier_projet = Path(_tf.mkdtemp(prefix="e21-prev-"))
+(dossier_projet / "validations.json").write_text(_json.dumps({"decisions": {"x": {
+    "type": "contradiction", "decision": "source_b", "titre": "COMEX ≠ rapport financier", "libelle_decision": "Garder la valeur de : rapport financier",
+    "commentaire": "Le rapport financier est audité"}}}), encoding="utf-8")
+texte = preuves.dossier_de_preuves(index, 3, vecteurs=faux_vecteurs, dossier=dossier_projet)
+verifier("règles de lecture en tête : remplace les documents, en-tête de colonne, deux valeurs en cas d'écart",
+         "REMPLACE la lecture" in texte and "en-tête de sa colonne" in texte and "LES DEUX valeurs" in texte and "ne tranche pas seul" in texte)
+verifier("un passage porte son identifiant citable", f"`[E{pi}]`" in texte and f"`[E{pb}]`" in texte)
+verifier("la ligne de tableau arrive AVEC son en-tête de colonnes (95 = budget en k€)", "Budget (k€)" in texte and "| Postes de travail / terminaux radio | 95 |" in texte)
+verifier("les lignes d'inventaire (172, 126) sont reproduites", "172" in texte and "126" in texte)
+verifier("aucune « réponse » de couverture n'est présentée comme un fait", "Sauvegardes nocturnes non testées." not in texte)
+verifier("les questions sans réponse sont des QUESTIONS (jamais comblées)", "sans réponse dans les documents" in texte and "dernière restauration" in texte)
+verifier("les écarts confirmés sont rappelés avec les deux extraits", "Écarts entre documents" in texte and "24 h" in texte and "Des comptes de départs sont restés actifs" in texte)
+verifier("les contradictions non confirmées ne sont pas rappelées", "faible aussi" not in texte)
+verifier("la décision de l'analyste sur un écart passe en tête, à appliquer", "À APPLIQUER" in texte and "Garder la valeur de : rapport financier" in texte
+         and texte.index("À APPLIQUER") < texte.index("## Document"))
+verifier("documents présentés par nom, dans l'ordre", texte.index("budget.md") < texte.index("inventaire.md") < texte.index("pssi.md"))
 verifier("les étapes ont des questions différentes", preuves.REQUETES[1] != preuves.REQUETES[3] and set(preuves.REQUETES) == set(range(1, 8)))
-petit = preuves.dossier_de_preuves(index, 1, vecteurs=faux_vecteurs, budget=1500)
-verifier("le budget borne la taille (jamais l'en-tête)", len(petit) <= 2500 and "REMPLACE la lecture" in petit)
+# budget : beaucoup de passages, seuls les plus pertinents entrent, et on le dit
+for i in range(80):
+    index.ajouter_element("passage", f"gros-{i % 4}.md", f"Section {i}", ("Texte de passage " + str(i) + ". ") * 45, True, [float(i % 7), float(i % 5), 1.0])
+petit = preuves.dossier_de_preuves(index, 1, vecteurs=faux_vecteurs, budget=9000)
+verifier("le budget borne la taille", len(petit) <= 9000 + 1500 and "REMPLACE la lecture" in petit)
+verifier("les passages non reproduits sont signalés (rien n'est perdu)", "ne sont pas reproduits" in petit)
 verifier("étape inconnue : questions de la synthèse", "Dossier de preuves" in preuves.dossier_de_preuves(index, 99, vecteurs=faux_vecteurs))
 
 # --- citations ----------------------------------------------------------------------------------------------
