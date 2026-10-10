@@ -50,6 +50,36 @@ Quatre garanties, par ordre de solidité :
 | **F. Propagation après validation** | Une modification demandée retrouve par l'index les lignes liées (risque ↔ actif ↔ menace ↔ mesure) et ne réécrit que celles-là, avec trace | une décision « valide » ne change rien ; une modification ne touche que ce qui en dépend |
 | **G. Recherche hors documents** | Source « externe » (web) avec provenance distincte (`origine = externe`, `url`) ; même règle : sans preuve → inconnu | une information externe n'est jamais confondue avec une information fournie |
 
+### 4 bis. Revue du plan (2026-10-10) : ce qui manquait
+
+La revue a comparé, point par point, ce que Melvin a demandé à ce qui est écrit **et à ce qui est réellement déployé**.
+
+**Étape 0 — Stabiliser la chaîne actuelle (avant l'étape A).** Décidé mais pas encore dans le code déployé :
+
+| Point | Décision | État réel constaté |
+|---|---|---|
+| Retirer Granite du routage | Granite a décrit un seul document ; Qwen3.5 reprend à chaque fois | **toujours premier choix** des étapes 1 et 6 dans `web/chaine.py` |
+| Ne plus relire les fichiers joints | La consigne dit déjà de ne pas relire ; à rendre effectif | non mesuré sur Nordval |
+| Régler `compaction.reserved` d'opencode | Éviter le résumé automatique (cause des hallucinations) | **jamais testé** |
+| Rapports de contrôle numérotés par version | « Contrôle n°3, version 2 : ce qui n'allait pas, ce qui a changé » | **absent** (l'ancien format ajoute des sections sans numéro) |
+| « Indéterminé / non vérifié » → « nécessite une validation humaine » + pourquoi + quoi vérifier | Jamais un verdict muet | **absent** : le pilote classe encore « indéterminé » |
+| Le contrôle continue jusqu'à un verdict « conforme » lisible | 3 tentatives de verdict, sinon validation humaine | **absent** |
+| Figer la version d'opencode | La mise à jour silencieuse peut casser les permissions (1.18.34 → 1.18.35 constaté) | **non figée** |
+
+**Transversal (oubliés dans la première version du plan).**
+
+| Sujet | Pourquoi | Proposition |
+|---|---|---|
+| Charge de validation humaine | 24 besoins sur 31 sont « à valider » sur Nordval | trier par priorité (déjà dans `couverture.priorite`), valider par lots et par thème ; mesurer ce qu'un analyste accepte de relire |
+| Tâches longues dans le site | extraction 14 min, contradictions 37 min | job en arrière-plan avec avancement, reprise sur erreur, un seul job par projet |
+| Cycle de vie des documents | un document ajouté, modifié ou retiré | empreinte (hash) par document ; seuls les changés sont retraités ; retrait = suppression de ses preuves et signalement des livrables qui les citaient |
+| Isolation par projet | plusieurs projets, plusieurs analystes | un fichier d'index par projet, jamais partagé |
+| Jeu de contrôle de l'analyste | mesurer le vrai rappel des contradictions | l'analyste compare lui-même le rapport à son corrigé ; le chiffre revient en mesure officielle |
+| Sécurité du site | pas d'authentification, port exposé, SSH root par mot de passe (constatés) | traiter avant toute ouverture à d'autres analystes (reporté à la demande de Melvin) |
+| Injection de prompt dans les documents | le nouveau paquet lit des documents non fiables | consignes d'extraction et de jugement = données uniquement ; test avec le document piégé existant |
+| CI du nouveau paquet | 88 tests non lancés par la CI | cible `make test-connaissance` + étape dans `.github/workflows/suite.yml` |
+| Fusion et publication | la branche contient chaîne + site + paquet | ouvrir la PR (décision de l'analyste), relire par morceaux |
+
 ## 5. Règles de conception à ne pas casser
 
 - **Absence d'information ≠ absence de mesure.** Le dossier dit « non documenté », jamais « n'existe pas ».
