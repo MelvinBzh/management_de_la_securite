@@ -194,7 +194,8 @@ def _signaler(index, doc: str, libelle: str, extrait: str, vecteur, juge, modele
 
 
 def croiser(index, *, modele: str = MODELE_JUGE, passages: int = 4, limite: int | None = None, juge=None,
-            second_avis: bool = True, confirmation=None) -> list[Signal]:
+            second_avis: bool = True, confirmation=None, seulement_docs: set[str] | None = None,
+            progression=None) -> list[Signal]:
     """Signalements de contradictions entre documents, dédoublonnés, faux positifs évidents écartés.
 
     `index` : un `Index` rempli (éléments vérifiés avec vecteurs). `juge(fait, autres, modele)` est
@@ -203,9 +204,14 @@ def croiser(index, *, modele: str = MODELE_JUGE, passages: int = 4, limite: int 
     """
     juge = juge or _juger_croise
     lignes = index.base.execute("SELECT id, doc, libelle, extrait, vecteur FROM elements WHERE verifie = 1").fetchall()
+    if seulement_docs is not None:  # mise à jour incrémentale : seuls les faits des documents nouveaux ou modifiés
+        lignes = [l for l in lignes if l[1] in seulement_docs]
     signaux: list[Signal] = []
     vus: set[frozenset] = set()
-    for _ident, doc, libelle, extrait, vecteur in lignes[:limite] if limite else lignes:
+    lignes = lignes[:limite] if limite else lignes
+    for numero, (_ident, doc, libelle, extrait, vecteur) in enumerate(lignes, start=1):
+        if progression:
+            progression(numero, len(lignes))
         signal = _signaler(index, doc, libelle, extrait, json.loads(vecteur) if vecteur else None, juge, modele, passages)
         if signal and frozenset((signal.extrait_a, signal.extrait_b)) not in vus:
             vus.add(frozenset((signal.extrait_a, signal.extrait_b)))

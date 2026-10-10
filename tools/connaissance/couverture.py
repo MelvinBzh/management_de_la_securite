@@ -143,6 +143,24 @@ def evaluer(index, besoin: Besoin, vecteur_question: list[float] | None = None, 
     return Reponse(besoin, statut, reponse, preuves, manque, controle, a_valider, pourquoi.strip(), contestations)
 
 
+def en_dict(r: Reponse) -> dict:
+    """Forme JSON d'une réponse (stockée dans l'index, relue par la page « Connaissances »)."""
+    return {"besoin": r.besoin.id, "theme": r.besoin.theme, "question": r.besoin.question, "statut": r.statut,
+            "reponse": r.reponse, "preuves": list(r.preuves), "manque": r.manque, "verification": r.verification,
+            "a_valider": r.a_valider, "pourquoi": r.pourquoi, "priorite": priorite(r),
+            "contestations": [{"doc_a": s.doc_a, "extrait_a": s.extrait_a, "doc_b": s.doc_b, "extrait_b": s.extrait_b,
+                               "explication": s.explication, "confirmations": s.confirmations} for s in r.contestations]}
+
+
+def depuis_dict(d: dict) -> Reponse:
+    """Inverse de `en_dict` (le besoin est retrouvé par son identifiant, sinon reconstitué)."""
+    besoin = next((b for b in BESOINS if b.id == d["besoin"]), Besoin(d["besoin"], d.get("theme", ""), d.get("question", "")))
+    contestations = tuple(contradictions.Signal(c["doc_a"], c["extrait_a"], c["doc_b"], c["extrait_b"], c["explication"],
+                                                c.get("confirmations", 0)) for c in d.get("contestations", []))
+    return Reponse(besoin, d["statut"], d["reponse"], tuple(d.get("preuves", ())), d["manque"], d["verification"],
+                   d["a_valider"], d["pourquoi"], contestations)
+
+
 def evaluer_tous(index, besoins: tuple[Besoin, ...] = BESOINS, vecteurs_questions: list[list[float]] | None = None,
                  **options) -> list[Reponse]:
     """Statut de chaque besoin. Les vecteurs des questions sont calculés ici sauf s'ils sont fournis."""

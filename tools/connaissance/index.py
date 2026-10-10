@@ -30,8 +30,20 @@ CREATE TABLE IF NOT EXISTS elements (
 CREATE TABLE IF NOT EXISTS entites (nom TEXT PRIMARY KEY, canonique TEXT NOT NULL, type TEXT, docs TEXT);
 CREATE TABLE IF NOT EXISTS contradictions (
     id INTEGER PRIMARY KEY, entite TEXT, doc_a TEXT, extrait_a TEXT, doc_b TEXT, extrait_b TEXT,
-    verdict TEXT, explication TEXT
+    verdict TEXT, explication TEXT, confirmations INTEGER NOT NULL DEFAULT 0
 );
+-- un document par ligne : son empreinte dit s'il faut le retraiter (nouveau, modifié, inchangé)
+CREATE TABLE IF NOT EXISTS documents (
+    nom TEXT PRIMARY KEY, empreinte TEXT NOT NULL, statut TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '',
+    faits INTEGER NOT NULL DEFAULT 0, faits_verifies INTEGER NOT NULL DEFAULT 0,
+    relations INTEGER NOT NULL DEFAULT 0, relations_verifiees INTEGER NOT NULL DEFAULT 0,
+    passages INTEGER NOT NULL DEFAULT 0, date TEXT NOT NULL DEFAULT ''
+);
+-- chaque apparition d'un nom d'entité dans un document (la fusion des alias se refait sur l'ensemble)
+CREATE TABLE IF NOT EXISTS mentions (doc TEXT NOT NULL, nom TEXT NOT NULL, type TEXT NOT NULL);
+-- résultat « connu / partiel / inconnu » de chaque besoin d'information (JSON)
+CREATE TABLE IF NOT EXISTS couverture (besoin TEXT PRIMARY KEY, donnees TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS meta (cle TEXT PRIMARY KEY, valeur TEXT NOT NULL);
 """
 
 
@@ -55,6 +67,9 @@ class Index:
             self.base.execute("ALTER TABLE elements ADD COLUMN origine TEXT NOT NULL DEFAULT 'document'")
         if "url" not in colonnes:
             self.base.execute("ALTER TABLE elements ADD COLUMN url TEXT")
+        colonnes = {ligne[1] for ligne in self.base.execute("PRAGMA table_info(contradictions)")}
+        if "confirmations" not in colonnes:
+            self.base.execute("ALTER TABLE contradictions ADD COLUMN confirmations INTEGER NOT NULL DEFAULT 0")
 
     def fermer(self) -> None:
         self.base.commit()
@@ -74,9 +89,78 @@ class Index:
         self.base.execute("INSERT OR REPLACE INTO entites VALUES (?,?,?,?)", (nom, canonique, type_, json.dumps(sorted(set(docs)))))
 
     def ajouter_contradiction(self, entite: str, doc_a: str, extrait_a: str, doc_b: str, extrait_b: str,
-                              verdict: str, explication: str) -> None:
-        self.base.execute("INSERT INTO contradictions (entite, doc_a, extrait_a, doc_b, extrait_b, verdict, explication) "
-                          "VALUES (?,?,?,?,?,?,?)", (entite, doc_a, extrait_a, doc_b, extrait_b, verdict, explication))
+                              verdict: str, explication: str, confirmations: int = 0) -> None:
+        self.base.execute("INSERT INTO contradictions (entite, doc_a, extrait_a, doc_b, extrait_b, verdict, explication, "
+                          "confirmations) VALUES (?,?,?,?,?,?,?,?)",
+                          (entite, doc_a, extrait_a, doc_b, extrait_b, verdict, explication, confirmations))
+
+    # -- cycle de vie des documents ------------------------------------------------------------
+    def documents(self) -> dict[str, dict]:
+        """Documents connus de l'index, par nom : empreinte, statut (`ok` ou `erreur`) et comptes."""
+        cles = ("nom", "empreinte", "statut", "detail", "faits", "faits_verifies", "relations",
+                "relations_verifiees", "passages", "date")
+        lignes = self.base.execute("SELECT " + ", ".join(cles) + " FROM documents").fetchall()
+        return {ligne[0]: dict(zip(cles, ligne)) for ligne in lignes}
+
+    def enregistrer_document(self, nom: str, empreinte: str, statut: str = "ok", detail: str = "", **comptes: int) -> None:
+        v = {c: int(comptes.get(c, 0)) for c in ("faits", "faits_verifies", "relations", "relations_verifiees", "passages")}
+        self.base.execute(
+            "INSERT OR REPLACE INTO documents VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'))",
+            (nom, empreinte, statut, detail, v["faits"], v["faits_verifies"], v["relations"],
+             v["relations_verifiees"], v["passages"]))
+
+    def supprimer_document(self, nom: str) -> None:
+        """Retire TOUT ce qui vient d'un document (preuves, mentions, contradictions qui le citent)."""
+        if self.fts:
+            for ident, libelle, extrait in self.base.execute(
+                    "SELECT id, libelle, extrait FROM elements WHERE doc = ?", (nom,)).fetchall():
+                self.base.execute("INSERT INTO elements_fts (elements_fts, rowid, libelle, extrait) VALUES ('delete', ?, ?, ?)",
+                                  (ident, libelle, extrait))
+        self.base.execute("DELETE FROM elements WHERE doc = ?", (nom,))
+        self.base.execute("DELETE FROM mentions WHERE doc = ?", (nom,))
+        self.base.execute("DELETE FROM contradictions WHERE doc_a = ? OR doc_b = ?", (nom, nom))
+        self.base.execute("DELETE FROM documents WHERE nom = ?", (nom,))
+
+    def ajouter_mention(self, doc: str, nom: str, type_: str) -> None:
+        self.base.execute("INSERT INTO mentions VALUES (?,?,?)", (doc, nom, type_))
+
+    def mentions(self) -> list[tuple[str, str, str]]:
+        return [tuple(l) for l in self.base.execute("SELECT doc, nom, type FROM mentions ORDER BY rowid")]
+
+    def remplacer_entites(self, lignes: list[tuple[str, str, str, list[str]]]) -> None:
+        """Remplace la table des entités : `(nom, canonique, type, documents)`."""
+        self.base.execute("DELETE FROM entites")
+        for nom, canonique, type_, docs in lignes:
+            self.ajouter_entite(nom, canonique, type_, docs)
+
+    def vider_contradictions(self, docs: set[str] | None = None) -> None:
+        """Efface les contradictions (toutes, ou celles qui touchent l'un des `docs`)."""
+        if docs is None:
+            self.base.execute("DELETE FROM contradictions")
+            return
+        for nom in docs:
+            self.base.execute("DELETE FROM contradictions WHERE doc_a = ? OR doc_b = ?", (nom, nom))
+
+    def contradictions(self) -> list[dict]:
+        cles = ("doc_a", "extrait_a", "doc_b", "extrait_b", "explication", "confirmations")
+        lignes = self.base.execute("SELECT " + ", ".join(cles) + " FROM contradictions ORDER BY confirmations DESC, id")
+        return [dict(zip(cles, l)) for l in lignes]
+
+    def enregistrer_couverture(self, besoin: str, donnees: dict) -> None:
+        self.base.execute("INSERT OR REPLACE INTO couverture VALUES (?,?)", (besoin, json.dumps(donnees, ensure_ascii=False)))
+
+    def couvertures(self) -> list[dict]:
+        return [json.loads(l[0]) for l in self.base.execute("SELECT donnees FROM couverture ORDER BY rowid")]
+
+    def vider_couverture(self) -> None:
+        self.base.execute("DELETE FROM couverture")
+
+    def definir(self, cle: str, valeur: str) -> None:
+        self.base.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (cle, valeur))
+
+    def lire_meta(self, cle: str, defaut: str = "") -> str:
+        ligne = self.base.execute("SELECT valeur FROM meta WHERE cle = ?", (cle,)).fetchone()
+        return ligne[0] if ligne else defaut
 
     def compter(self) -> dict[str, int]:
         return {t: self.base.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
