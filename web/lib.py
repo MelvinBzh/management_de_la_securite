@@ -490,6 +490,9 @@ def enregistrer_decisions(dossier: Path, analyste: str, decisions: dict) -> dict
         raise ValueError("Aucune décision à enregistrer : choisissez au moins un risque.")
 
     horodatage = datetime.now().strftime("%Y-%m-%d %H:%M")
+    from web import propagation  # import tardif : le module de propagation n'a pas besoin de lib
+    for identifiant, d in retenues.items():
+        propagation.enregistrer_decision(dossier, identifiant, d["decision"], d["commentaire"], nom)
     section = [f"\n\n## Validation humaine — {horodatage}\n", f"- **valide_par** : {nom}\n",
                "| Risque | Décision | Commentaire de l'analyste |", "|---|---|---|"]
     for identifiant, d in retenues.items():
@@ -558,6 +561,7 @@ LIVRABLES_LISIBLES = [
     ("Validation et suivi", "06-validation.md"),
     ("Synthèse", "SYNTHESE.md"),
     ("Recherches, contradictions et questions ouvertes", "recherches-contradictions-questions.md"),
+    ("Propagation des décisions de l'analyste", "PROPAGATION.md"),
     ("Rapport de contrôle", "RAPPORT-CONTROLE.md"),
 ]
 

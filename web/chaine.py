@@ -47,7 +47,7 @@ if str(RACINE) not in sys.path:
 
 from tools.connaissance import citations, preuves, travail  # noqa: E402
 from tools.connaissance.index import Index  # noqa: E402
-from web import controles, lib  # noqa: E402
+from web import controles, lib, propagation  # noqa: E402
 
 # Relances par étape, durée maximale d'un appel opencode, taille minimale utile.
 ESSAIS = 3
@@ -859,7 +859,22 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
         declares = modeles_declares(cli)
         if declares:
             installes = {m for m in installes if m in declares} or installes
-    pieces = pieces_controle(dossier, ["06-validation.md", "registre-risques.md", "05-traitement.md"])
+    if propagation.en_attente(dossier):
+        if auto:
+            _journal("[chaine] === Propagation des décisions : seules les lignes liées sont réécrites, puis contrôlées ===")
+            index = None
+            try:
+                if travail.chemins(dossier)[1].is_file():
+                    index = Index(travail.chemins(dossier)[1])
+                propagation.propager(dossier, index=index, base=base_d_origine(dossier), journal=_journal)
+            except Exception as exc:  # noqa: BLE001 — la synthèse doit tout de même tenir compte des décisions
+                _journal(f"[chaine] propagation impossible ({type(exc).__name__}: {str(exc)[:160]}) — lignes laissées telles quelles")
+            finally:
+                if index is not None:
+                    index.fermer()
+        else:
+            _journal("[chaine] propagation : profil sans Ollama — les lignes liées ne sont pas réécrites (à ajuster à la main).")
+    pieces = pieces_controle(dossier, ["06-validation.md", "registre-risques.md", "05-traitement.md", propagation.NOM_TRACE])
     _journal("[chaine] === Synthèse mise à jour après validation humaine ===")
     manquants: list[str] | None = None
     diagnostic = ""

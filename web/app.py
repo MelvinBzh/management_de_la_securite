@@ -1283,12 +1283,14 @@ elif page == PAGE_VALIDATION:
     fichier_validation = dossier / "06-validation.md"
     if fichier_validation.is_file() and "Validation humaine" in fichier_validation.read_text(encoding="utf-8", errors="replace"):
         st.divider()
-        st.subheader("Mettre à jour la synthèse")
+        st.subheader("Appliquer mes décisions")
         st.caption(
-            "Relance uniquement l'étape 7 : la synthèse tient compte de vos décisions (risques refusés "
-            "écartés, modifications reprises). L'ancienne est conservée dans `SYNTHESE.avant-validation.md`."
+            "Une décision « tel quel » ne change rien. Pour une modification, seules les lignes liées au risque sont "
+            "réécrites (menaces, évaluation, traitement, registre) puis contrôlées par le programme ; tout est tracé dans "
+            "`PROPAGATION.md`. Ensuite la synthèse est mise à jour (risques refusés écartés). "
+            "L'ancienne est conservée dans `SYNTHESE.avant-validation.md`."
         )
-        if st.button("Mettre à jour la synthèse avec mes décisions", key="resynthese"):
+        if st.button("Appliquer mes décisions et mettre à jour la synthèse", key="resynthese"):
             try:
                 decision_lancement = reglages.decider_lancement(reglages.charger())
                 lancement = run_agent.lancer(

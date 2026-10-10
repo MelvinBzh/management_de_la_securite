@@ -65,6 +65,7 @@ test-export:
 ## Tests hermétiques du pilote de chaîne (routage, contrôle, rapports numérotés) : aucun modèle contacté.
 test-chaine:
 	$(PYTHON) web/tests/test_chaine.py
+	$(PYTHON) web/tests/test_propagation.py
 
 ## Tests hermétiques du dossier de connaissance (faits, relations, index, contradictions, couverture).
 test-connaissance:
