@@ -201,5 +201,13 @@ verifier("sans Ollama : pas de connaissance, lecture directe", chaine.preparer_c
 cc, dd = chaine.controle_citations(dp, ["01-actifs.md"])
 verifier("sans index : le contrôle de citations ne bloque jamais", cc == "" and dd == [])
 
+NL_ = chr(10)
+# --- une reprise n'est « prête » qu'une fois le livrable réécrit (sinon l'agent est coupé avant de corriger) ---------
+import os as _os
+dr = dossier_avec({"03-menaces.md": "# M" + NL_ + "| a | b |" + NL_ + "|---|---|" + NL_ + "".join(f"| ligne {i} | detail du composant {i} |" + NL_ for i in range(1, 9)) + "x" * 400})
+verifier("reprise : un livrable ancien est valide mais PAS prêt", chaine.livrables_manquants(dr, ["03-menaces.md"]) == [] and not chaine.pret_depuis(dr, ["03-menaces.md"], time.time() + 5))
+verifier("reprise : prêt une fois réécrit depuis le début de l'appel", chaine.pret_depuis(dr, ["03-menaces.md"], time.time() - 60))
+verifier("livrable absent : jamais prêt", not chaine.pret_depuis(dr, ["04-evaluation.md"], 0))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

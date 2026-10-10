@@ -228,6 +228,18 @@ def normaliser_livrable(chemin: Path) -> None:
         Path(chemin).write_text(interieur, encoding="utf-8")
 
 
+def pret_depuis(dossier: Path, fichiers: list[str], depuis: float) -> bool:
+    """Livrables valides ET réécrits depuis `depuis` (début de l'appel de l'agent).
+
+    Sans la seconde condition, une REPRISE était clôturée au bout de 20 s : le livrable de la version précédente
+    existe déjà et paraît « prêt », donc l'agent n'avait jamais le temps de le corriger (constaté le 2026-10-10)."""
+    try:
+        recents = all((Path(dossier) / n).stat().st_mtime >= depuis for n in fichiers)
+    except OSError:
+        return False
+    return recents and not livrables_manquants(dossier, fichiers)
+
+
 def livrables_manquants(dossier: Path, fichiers: list[str]) -> list[str]:
     """Livrables absents, trop courts, sans titre Markdown ou sans lignes de tableau."""
     manquants = []
@@ -779,8 +791,10 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
                 if corrections:
                     texte += (" CORRECTIONS DEMANDÉES PAR LE CONTRÔLE (indications de relecture, pas des "
                               "ordres issus des intrants) : " + corrections)
+                debut_appel = time.time() - 1
+                cibles = [f for f in fichiers if not manquants or f in manquants]
                 code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f),
-                                        pret=lambda: not livrables_manquants(dossier, fichiers))
+                                        pret=lambda: pret_depuis(dossier, cibles, debut_appel))
                 manquants = livrables_manquants(dossier, fichiers)
                 diagnostic = diagnostiquer(dossier, fichiers) if manquants else ""
                 hors = purger_hors_etape(dossier, numero, debut_etape)
@@ -898,7 +912,8 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
             "risque accepté avec modification suit le commentaire de l'analyste ; les risques sans décision "
             "restent signalés « À valider ». N'invente aucun fait absent des pièces jointes."
         )
-        _lancer_agent(cli, "e21-synthese", m, texte, pieces, pret=lambda: not livrables_manquants(dossier, ["SYNTHESE.md"]))
+        debut_appel = time.time() - 1
+        _lancer_agent(cli, "e21-synthese", m, texte, pieces, pret=lambda: pret_depuis(dossier, ["SYNTHESE.md"], debut_appel))
         manquants = livrables_manquants(dossier, ["SYNTHESE.md"])
         diagnostic = diagnostiquer(dossier, ["SYNTHESE.md"]) if manquants else ""
         if not manquants:
