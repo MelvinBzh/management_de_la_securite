@@ -197,7 +197,7 @@ def test_web_01():
         pages = [element.value for element in app.title]
         assert any(nom.split(" ")[0] in titre for titre in pages), \
             f"titre de la page « {nom} » absent : {pages}"
-    passer("WEB-01", f"7 pages affichées · titres {titres} · navigation · file_uploader")
+    passer("WEB-01", f"9 pages affichées · titres {titres} · navigation · file_uploader")
 
 
 # --------------------------------------------------------------------------- WEB-02

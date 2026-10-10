@@ -393,7 +393,7 @@ PAGE_CONNAISSANCES = "Connaissances du projet"
 # Parcours dans l'ordre où l'analyste travaille ; les pages techniques sont regroupées en « Avancé ».
 NAV = {
     "① Documents": PAGES[0],
-    "ⓘ Connaissances (lecture seule)": PAGE_CONNAISSANCES,
+    "Connaissances du projet (lecture seule)": PAGE_CONNAISSANCES,
     "② Lancer l'analyse": PAGES[3],
     "③ Résultats": PAGES[2],
     "④ Validation": PAGE_VALIDATION,

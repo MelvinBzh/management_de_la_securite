@@ -75,7 +75,7 @@ def textes(app: AppTest) -> str:
     return " ".join(str(e.value) for e in list(app.markdown) + list(app.caption) + list(app.info) + list(app.warning) + list(app.success))
 
 
-PAGE_CONN = "ⓘ Connaissances (lecture seule)"
+PAGE_CONN = "Connaissances du projet (lecture seule)"
 
 # --- 1. page « Connaissances » sans rien de construit ----------------------------------------------------------
 app = ouvrir(projet(False), PAGE_CONN)
