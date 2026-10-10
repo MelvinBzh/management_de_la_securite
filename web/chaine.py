@@ -735,7 +735,7 @@ def controle_citations(dossier: Path, fichiers: list[str]) -> tuple[str, list[st
             c = citations.corrections(nom, rapport, exiger)
             if c:
                 corrections.append(c)
-            doutes += rapport["doutes"]
+            doutes += citations.a_relire(rapport)
     finally:
         index.fermer()
     return " ".join(corrections), doutes

@@ -85,10 +85,13 @@ def analyser(texte: str, index, *, exiger: bool = False, verificateurs=None, lim
             "part_citee": (1 - len(non_cite) / len(donnees)) if (exiger and donnees) else 1.0}
 
 
-def corrections(nom: str, rapport: dict, exiger: bool = False) -> str:
+def corrections(nom: str, rapport: dict, exiger: bool = False, bloquer_non_soutenues: bool = False) -> str:
     """Corrections (texte) à redonner à l'agent ; vide si les citations sont irréprochables.
 
-    Les lignes en DOUTE ne sont pas corrigées d'autorité : elles vont à la validation humaine (`doutes`)."""
+    Reprise automatique seulement pour ce que le CODE établit : identifiant inexistant, part de lignes citées trop faible.
+    Les lignes que les vérificateurs jugent non soutenues ou en doute vont à la RELECTURE HUMAINE (`a_relire`) : sur des
+    lignes de synthèse (plusieurs faits en une cellule) leur précision ne justifie pas de relancer l'agent (mesuré le
+    2026-10-10 : trois reprises de 10 minutes sans amélioration). `bloquer_non_soutenues=True` rétablit la reprise."""
     morceaux = []
     if rapport["inexistantes"]:
         morceaux.append(f"{nom} : identifiants de preuve INEXISTANTS à retirer ou remplacer : "
@@ -96,10 +99,15 @@ def corrections(nom: str, rapport: dict, exiger: bool = False) -> str:
     if exiger and rapport["part_citee"] < PART_MIN:
         morceaux.append(f"{nom} : trop de lignes sans preuve citée ({len(rapport['non_cite'])} sur {rapport['lignes_tableau']}) : "
                         "cite [E…] après chaque fait, ou retire la ligne si le dossier de preuves ne la soutient pas.")
-    for ligne in rapport["non_soutenues"][:6]:
+    for ligne in (rapport["non_soutenues"][:6] if bloquer_non_soutenues else []):
         morceaux.append(f"{nom} : la preuve citée ne soutient PAS cette ligne : « {affirmation(ligne)[:160]} ». "
                         "Corrige-la d'après la preuve, ou retire-la.")
     return " ".join(morceaux)
+
+
+def a_relire(rapport: dict) -> list[str]:
+    """Lignes à faire relire par un humain : non soutenues (les deux vérificateurs) puis en doute (ils divergent)."""
+    return [("[non soutenue] " + l) for l in rapport["non_soutenues"]] + [("[doute] " + l) for l in rapport["doutes"]]
 
 
 def pour_affichage(texte: str, details: dict[int, tuple[str, str]]) -> str:
