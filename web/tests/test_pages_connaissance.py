@@ -116,7 +116,8 @@ app = ouvrir(racine, "③ Résultats")
 verifier("③ : aucune exception avec des citations", not app.exception)
 rendu = " ".join(str(e.value) for e in app.markdown)
 verifier("③ : la citation devient une note avec infobulle", "<sup title=" in rendu and "PHP 7.4" in rendu)
-verifier("③ : le HTML du livrable est neutralisé", "<script>" not in rendu)
+avec_html = [str(e.value) for e in app.markdown if "<sup title=" in str(e.value)]
+verifier("③ : le HTML du livrable est neutralisé dans le rendu qui autorise du HTML", avec_html and all("<script>" not in x for x in avec_html))
 
 print("PAGES-CONNAISSANCE:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)
