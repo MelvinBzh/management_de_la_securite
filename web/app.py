@@ -914,7 +914,22 @@ elif page == PAGES[3]:
                 "La chaîne avait continué de tourner : suivez-la ici."
             )
     if not run:
-        if st.button("▶ Lancer la chaîne maintenant", type="primary", key="lancer_chaine"):
+        _deja = any(e["terminee"] for e in lib.avancement_chaine(lib.DOSSIER_ANALYSES / cible))
+        if _deja:
+            st.info(
+                "Des livrables existent déjà pour ce projet. **Reprendre** garde les étapes déjà faites et contrôlées "
+                "et ne refait que ce qui manque. **Tout refaire** archive les livrables actuels dans un dossier "
+                "`precedent-…` (rien n'est écrasé) puis relance les 7 étapes. Pour tenir compte de vos décisions de "
+                "validation, ni l'un ni l'autre n'est nécessaire : utilisez « Appliquer mes décisions » en ④."
+            )
+            _c1, _c2 = st.columns(2)
+            _reprendre = _c1.button("▶ Reprendre l'analyse (garde ce qui est fait)", type="primary", key="reprendre_chaine")
+            _refaire = _c2.button("Tout refaire (archive l'existant)", key="lancer_chaine")
+            _declenche = _reprendre or _refaire
+        else:
+            _reprendre = False
+            _declenche = st.button("▶ Lancer la chaîne maintenant", type="primary", key="lancer_chaine")
+        if _declenche:
             # Réglages modèles : la décision de lancement est prise ici, pas par
             # l'analyste. `decider_lancement` sonde le serveur Ollama, réaligne les
             # en-têtes `model:` des agents (les deux magasins) et renvoie le modèle à
@@ -949,6 +964,7 @@ elif page == PAGES[3]:
                     modele=decision["modele"] or None,
                     env=env,
                     pilote=True,
+                    reprendre=_reprendre,
                 )
                 # L'état part sur disque : la chaîne reste pilotable même si l'onglet
                 # est rechargé ou refermé (le processus, lui, est détaché).

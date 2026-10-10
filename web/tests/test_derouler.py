@@ -117,5 +117,25 @@ code, d = derouler(s5)
 att = controles.a_valider(d)
 verifier("relecture finale non conforme : code 2 et validation humaine « finale »", code == 2 and any(str(a["etape"]) == "finale" for a in att))
 
+# --- 6. reprise : rien n'est refait de ce qui est fait et contrôlé ---------------------------------------------------------------
+s6 = Scenario()
+code6, d6 = derouler(s6)
+avant = len(s6.messages_etapes)
+chaine._lancer_agent = s6.lancer
+contenu_avant = {n: (d6 / n).read_text(encoding="utf-8") for n in ("00-description.md", "03-menaces.md", "SYNTHESE.md")}
+nb_controles = len(controles.lire(d6))
+code_r = chaine.derouler("test", "2026-01-01_test", "ollama/x", "opencode", reprendre=True)
+verifier("reprise après un run complet : aucun agent d'étape relancé", len(s6.messages_etapes) == avant)
+verifier("reprise : livrables inchangés, rien d'archivé", all((d6 / n).read_text(encoding="utf-8") == t for n, t in contenu_avant.items())
+         and not [p for p in d6.iterdir() if p.name.startswith("precedent-")])
+verifier("reprise : code de sortie inchangé (0) et pas de nouveau contrôle d'étape", code_r == 0)
+# une étape manquante : seule elle est refaite
+(d6 / "04-evaluation.md").unlink()
+s6.messages_etapes.clear()
+chaine.derouler("test", "2026-01-01_test", "ollama/x", "opencode", reprendre=True)
+agents = [a for a, _m in s6.messages_etapes]
+verifier("reprise : seule l'étape dont le livrable manque est refaite", agents.count("e21-evaluation") == 1 and "e21-menaces" not in agents and "e21-analyse-existant" not in agents)
+verifier("reprise : les livrables des étapes faites sont intacts", (d6 / "03-menaces.md").read_text(encoding="utf-8") == contenu_avant["03-menaces.md"])
+
 print("DEROULER:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

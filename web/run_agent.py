@@ -166,6 +166,7 @@ def lancer(
     env: dict | None = None,
     pilote: bool = False,
     synthese: bool = False,
+    reprendre: bool = False,
 ) -> dict:
     """Lance la chaîne d'agents sur un cas et renvoie les infos de pilotage.
 
@@ -213,6 +214,8 @@ def lancer(
         argv = [sys.executable, "-m", "web.chaine", nom, dossier_reel.name, modele_reel]
         if synthese:  # étape 7 seule, après la validation humaine
             argv.append("--synthese")
+        elif reprendre:  # garde les étapes déjà faites et contrôlées
+            argv.append("--reprendre")
     else:
         prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)
         argv = [cli, "run", "--agent", "orchestrator"]

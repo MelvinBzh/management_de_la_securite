@@ -807,8 +807,20 @@ def controle_citations(dossier: Path, fichiers: list[str]) -> tuple[str, list[st
     return " ".join(corrections), doutes
 
 
-def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
+def etape_deja_faite(dossier: Path, numero: int, fichiers: list[str]) -> bool:
+    """L'étape a déjà abouti : livrables valides ET un contrôle qui l'a close (conforme, ou confiée à un humain).
+
+    Utilisé par `--reprendre` : on ne refait pas ce qui est fait et contrôlé, on repart de la première étape à refaire."""
+    if livrables_manquants(dossier, fichiers):
+        return False
+    derniere = [e for e in controles.lire(dossier) if str(e.get("etape")) == str(numero)]
+    return bool(derniere) and (derniere[-1].get("verdict") == "conforme" or bool(derniere[-1].get("humaine")))
+
+
+def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool = False) -> int:
     """Déroule les 7 étapes. 0 = tout conforme · 2 = terminé avec réserves · 1 = échec.
+
+    `reprendre` : les étapes déjà faites et contrôlées sont conservées telles quelles (rien n'est archivé ni refait).
 
     `modele` = « auto » (routage par agent, Ollama) ou un identifiant imposé à tous les agents.
     """
@@ -827,12 +839,21 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
             installes = {m for m in installes if m in declares} or installes
         _journal(f"[chaine] routage automatique — modèles installés : {', '.join(sorted(installes)) or 'inconnus'}")
     defaut = MODELE_DEFAUT if auto else modele
-    archive = archiver_precedent(dossier)
+    archive = None if reprendre else archiver_precedent(dossier)
     if archive:
         _journal(f"[chaine] livrables précédents archivés dans {archive.name}/ (rien n'est écrasé)")
+    if reprendre:
+        _journal("[chaine] mode REPRISE : les étapes déjà faites et contrôlées sont conservées, seules les autres sont refaites")
     reussies, reserves = 0, []
     index_pret = preparer_connaissance(dossier, auto)
     for numero, (agent, libelle, fichiers) in enumerate(ETAPES, start=1):
+        if reprendre and etape_deja_faite(dossier, numero, fichiers):
+            dernier_c = [e for e in controles.lire(dossier) if str(e.get("etape")) == str(numero)][-1]
+            reussies += 1
+            if dernier_c.get("verdict") != "conforme":
+                reserves.append(numero)
+            _journal(f"[chaine] === {libelle} : déjà faite et contrôlée — conservée (non refaite) ===")
+            continue
         _journal(f"[chaine] === {libelle} ({agent}) ===")
         preuves_f = fichier_de_preuves(dossier, numero) if index_pret else None
         if preuves_f:
@@ -991,8 +1012,9 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
 
 def main(argv: list[str]) -> int:
     synthese_seule = len(argv) == 5 and argv[4] == "--synthese"
-    if len(argv) != 4 and not synthese_seule:
-        print("usage : python -m web.chaine <cas> <dossier-analyse> <modele|auto> [--synthese]", file=sys.stderr)
+    reprise = len(argv) == 5 and argv[4] == "--reprendre"
+    if len(argv) != 4 and not synthese_seule and not reprise:
+        print("usage : python -m web.chaine <cas> <dossier-analyse> <modele|auto> [--synthese|--reprendre]", file=sys.stderr)
         return 2
     signal.signal(signal.SIGTERM, _arret)
     cas, dossier_nom, modele = argv[1:]
@@ -1008,7 +1030,7 @@ def main(argv: list[str]) -> int:
     try:
         if synthese_seule:
             return resynthese(dossier_nom, modele if modele == "auto" else run_agent._modele_valide(modele), cli)
-        return derouler(cas, dossier_nom, modele if modele == "auto" else run_agent._modele_valide(modele), cli)
+        return derouler(cas, dossier_nom, modele if modele == "auto" else run_agent._modele_valide(modele), cli, reprendre=reprise)
     except Exception as exc:  # noqa: BLE001 — un bogue du pilote ne doit ni mentir (code 0) ni laisser d'orphelin
         _journal(f"[chaine] ERREUR INTERNE du pilote : {type(exc).__name__}: {exc}")
         return 1
