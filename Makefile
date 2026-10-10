@@ -66,6 +66,7 @@ test-export:
 test-chaine:
 	$(PYTHON) web/tests/test_chaine.py
 	$(PYTHON) web/tests/test_propagation.py
+	$(PYTHON) web/tests/test_derouler.py
 
 ## Tests hermétiques du dossier de connaissance (faits, relations, index, contradictions, couverture).
 test-connaissance:
