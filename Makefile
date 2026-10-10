@@ -70,6 +70,7 @@ test-chaine:
 test-connaissance:
 	$(PYTHON) tools/connaissance/tests/test_connaissance.py
 	$(PYTHON) tools/connaissance/tests/test_ingestion.py
+	$(PYTHON) tools/connaissance/tests/test_preuves.py
 
 ## Tests autonomes de l'interface web (chantier #26).
 test-web:

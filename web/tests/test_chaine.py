@@ -184,5 +184,22 @@ d2 = dossier_avec({"00-description.md": "x", "controles.json": "[]", "RAPPORT-CO
 arch = chaine.archiver_precedent(d2)
 verifier("un relancement archive aussi le journal des contrôles (numérotation repart de 1)", arch is not None and (arch / "controles.json").is_file() and not (d2 / "controles.json").exists())
 
+# --- mode « dossier de preuves » : les documents ne sont plus relus ---------------------------------
+dp = dossier_avec({"01-actifs.md": "# A" + "z" * 600})
+(dp / "intrants").mkdir()
+(dp / "intrants" / "gros.md.md").write_text("y" * 3000, encoding="utf-8")
+(dp / "connaissance").mkdir()
+(dp / "connaissance" / "preuves-etape-2.md").write_text("# Dossier de preuves", encoding="utf-8")
+pj = chaine.pieces_jointes(dp, dp / "connaissance" / "preuves-etape-2.md")
+verifier("preuves : le dossier de preuves remplace les intrants", any(p.endswith("preuves-etape-2.md") for p in pj) and not any("gros.md" in p for p in pj))
+verifier("preuves : les livrables précédents restent joints", any(p.endswith("01-actifs.md") for p in pj))
+verifier("sans preuves : comportement d'avant (intrants joints)", any("gros.md" in p for p in chaine.pieces_jointes(dp)))
+c_p = chaine.consigne("e21-menaces", "d", ["03-menaces.md"], avec_preuves=True)
+verifier("consigne preuves : ne pas relire les documents, citer [E…]", "DOSSIER DE PREUVES" in c_p and "[E12]" in c_p and "n'ouvre aucun autre fichier" in c_p and "intrants/ et" not in c_p)
+verifier("consigne sans preuves : inchangée", "Lis les intrants" in chaine.consigne("e21-menaces", "d", ["03-menaces.md"]))
+verifier("sans Ollama : pas de connaissance, lecture directe", chaine.preparer_connaissance(dp, False) is False)
+cc, dd = chaine.controle_citations(dp, ["01-actifs.md"])
+verifier("sans index : le contrôle de citations ne bloque jamais", cc == "" and dd == [])
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

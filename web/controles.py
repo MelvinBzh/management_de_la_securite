@@ -90,7 +90,7 @@ def pourquoi_et_quoi(cause: str, corrections: str, fichiers: list[str]) -> tuple
 
 def enregistrer(dossier: Path, etape: int | str, libelle: str, controleur: str, verdict: str,
                 corrections: str = "", avant: str | None = None, apres: str = "",
-                humaine: tuple[str, str] | None = None) -> dict:
+                humaine: tuple[str, str] | None = None, doutes: list[str] | None = None) -> dict:
     """Ajoute un contrôle (numéroté, versionné) et réécrit le rapport lisible. Renvoie l'entrée."""
     if verdict not in ("conforme", "non_conforme"):
         raise ValueError(f"verdict inconnu : {verdict}")
@@ -101,7 +101,7 @@ def enregistrer(dossier: Path, etape: int | str, libelle: str, controleur: str, 
         "numero": len(entrees) + 1, "etape": etape, "libelle": libelle, "version": version,
         "controleur": controleur, "verdict": verdict, "corrections": corrections,
         "changements": resume_changements(avant, apres), "date": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "humaine": None,
+        "humaine": None, "doutes": list(doutes or []),
     }
     if humaine:
         entree["humaine"] = {"pourquoi": humaine[0], "quoi": humaine[1]}
@@ -136,6 +136,14 @@ def a_valider(dossier: Path) -> list[dict]:
     return [e for e in derniers.values() if e.get("humaine")]
 
 
+def a_relire(dossier: Path) -> list[dict]:
+    """Étapes dont le dernier contrôle laisse des lignes en DOUTE (les deux vérificateurs divergent)."""
+    derniers: dict[str, dict] = {}
+    for entree in lire(dossier):
+        derniers[str(entree.get("etape"))] = entree
+    return [e for e in derniers.values() if e.get("doutes")]
+
+
 def rapport_markdown(entrees: list[dict]) -> str:
     """Rapport lisible : une section par contrôle, dans l'ordre, avec un sommaire d'abord."""
     lignes = ["# Rapport de contrôle", "",
@@ -162,5 +170,8 @@ def rapport_markdown(entrees: list[dict]) -> str:
         if e.get("humaine"):
             lignes += ["- Pourquoi une validation humaine : " + e["humaine"]["pourquoi"],
                        "- Quoi vérifier : " + e["humaine"]["quoi"]]
+        if e.get("doutes"):
+            lignes += ["- Lignes à relire (les deux vérificateurs divergent sur la preuve citée) :"]
+            lignes += ["  - " + d[:220] for d in e["doutes"][:10]]
         lignes.append("")
     return "\n".join(lignes)

@@ -45,6 +45,8 @@ RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
+from tools.connaissance import citations, preuves, travail  # noqa: E402
+from tools.connaissance.index import Index  # noqa: E402
 from web import controles, lib  # noqa: E402
 
 # Relances par étape, durée maximale d'un appel opencode, taille minimale utile.
@@ -77,15 +79,27 @@ REGLES_COMMUNES = (
 )
 
 
-def consigne(agent: str, dossier: str, fichiers: list[str], manquants: list[str] | None = None, diagnostic: str = "") -> str:
-    """Consigne FIXE d'une étape (ne dépend que de noms assainis et de la table ETAPES)."""
+def consigne(agent: str, dossier: str, fichiers: list[str], manquants: list[str] | None = None, diagnostic: str = "",
+             avec_preuves: bool = False) -> str:
+    """Consigne FIXE d'une étape (ne dépend que de noms assainis et de la table ETAPES).
+
+    `avec_preuves` : les documents ne sont plus joints, un DOSSIER DE PREUVES (identifiants `[E…]`) les remplace."""
     cibles = [f for f in fichiers if not manquants or f in manquants]
     chemins = ", ".join(f"analyses/{dossier}/{f}" for f in cibles)
-    texte = (
-        f"Exécute ton étape pour le dossier analyses/{dossier}. "
-        f"Lis les intrants dans analyses/{dossier}/intrants/ et les livrables déjà "
-        f"présents dans analyses/{dossier}/. Produis exactement : {chemins}. "
-    )
+    if avec_preuves:
+        texte = (
+            f"Exécute ton étape pour le dossier analyses/{dossier}. Les pièces jointes sont : le DOSSIER DE PREUVES de "
+            "cette étape (il remplace la lecture des documents d'origine : n'ouvre aucun autre fichier de documents) "
+            f"et les livrables déjà présents dans analyses/{dossier}/. Produis exactement : {chemins}. "
+            "CITATIONS : après chaque fait que tu écris sur le système, cite son identifiant de preuve, par ex. [E12] ; "
+            "n'écris aucun fait sans preuve dans le dossier : dis « non documenté » à la place. "
+        )
+    else:
+        texte = (
+            f"Exécute ton étape pour le dossier analyses/{dossier}. "
+            f"Lis les intrants dans analyses/{dossier}/intrants/ et les livrables déjà "
+            f"présents dans analyses/{dossier}/. Produis exactement : {chemins}. "
+        )
     if len(cibles) < len(fichiers):
         texte += (
             "Les autres livrables de l'étape sont déjà corrects : NE LES RÉÉCRIS PAS, "
@@ -256,7 +270,7 @@ BUDGET_PIECES = 40000
 BUDGET_CONTROLE = 40000
 
 
-def pieces_jointes(dossier: Path) -> list[str]:
+def pieces_jointes(dossier: Path, preuves_fichier: Path | None = None) -> list[str]:
     """Livrables déjà écrits PUIS intrants, joints au message (`-f`) pour ancrer le modèle.
 
     Mesuré : sans pièces jointes, un modèle 8B n'ouvre pas les intrants et invente un cas générique.
@@ -267,7 +281,10 @@ def pieces_jointes(dossier: Path) -> list[str]:
     """
     dossier = Path(dossier)
     candidats = [dossier / n for _a, _l, fs in ETAPES for n in fs]
-    candidats += sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
+    if preuves_fichier is not None:  # le dossier de preuves REMPLACE les documents d'origine
+        candidats.append(Path(preuves_fichier))
+    else:
+        candidats += sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
     retenus, total = [], 0
     for chemin in candidats:
         if not chemin.is_file() or chemin.name.startswith("chaine-"):
@@ -527,6 +544,7 @@ def obtenir_verdict(lancer, juges: list[str], consigne_texte: str, pieces: list[
 # l'index des sources. Les recommandations de contre-mesures (étapes 5 à 7) peuvent, elles, citer
 # des outils qui n'existent pas encore chez le client (WAF, TOTP…) : elles ne sont pas contrôlées ici.
 FICHIERS_FAITS = ("00-description.md", "01-actifs.md", "02-methodes.md", "03-menaces.md", "04-evaluation.md")
+FICHIERS_A_CITER = ("00-description.md", "01-actifs.md")  # descriptions de fait : presque chaque ligne cite sa preuve
 SURVEILLANCE = (
     "nginx", "apache", "cloudflare", "dmarc", "spf", "dkim", "aws", "azure", "gcp", "cdn", "waf",
     "dpo", "cto", "ciso", "rssi", "jwt", "oauth", "kubernetes", "docker", "redis", "mongodb",
@@ -635,6 +653,74 @@ def archiver_precedent(dossier: Path) -> Path | None:
     return cible
 
 
+def preparer_connaissance(dossier: Path, auto: bool) -> bool:
+    """S'assure que le dossier de connaissance du projet est à jour AVANT l'étape 1.
+
+    Vrai si l'index est utilisable. Sans modèle Ollama (profil opencode) ou en cas d'échec, la chaîne retombe sur
+    la lecture des documents (comportement d'avant) : jamais de blocage, mais on le dit dans le journal.
+    Un travail déjà lancé depuis le site (dépôt de documents) est attendu, pas doublé."""
+    if not auto:
+        _journal("[chaine] connaissance : profil sans Ollama — les documents sont lus directement (sans dossier de preuves).")
+        return False
+    attente = time.monotonic() + 7200
+    while travail.lire_etat(dossier).get("statut") == "en_cours" and time.monotonic() < attente:
+        etat = travail.lire_etat(dossier)
+        _journal(f"[chaine] connaissance : mise à jour en cours depuis le site ({etat.get('libelle', '')} {etat.get('fait', 0)}/{etat.get('total', 0)}) — attente")
+        time.sleep(30)
+    try:
+        if travail.a_mettre_a_jour(dossier):
+            _journal("[chaine] connaissance : des documents sont nouveaux ou modifiés — mise à jour (lecture, croisement, couverture)")
+            if travail.executer(dossier) != 0:
+                _journal("[chaine] connaissance : ÉCHEC de la mise à jour — " + str(travail.lire_etat(dossier).get("erreur", ""))[:200])
+                return False
+        else:
+            _journal("[chaine] connaissance : déjà à jour — aucun document n'est relu")
+        return travail.chemins(dossier)[1].is_file()
+    except Exception as exc:  # noqa: BLE001 — la connaissance améliore la chaîne, elle ne doit pas la bloquer
+        _journal(f"[chaine] connaissance : erreur ({type(exc).__name__}: {str(exc)[:160]}) — lecture directe des documents")
+        return False
+
+
+def fichier_de_preuves(dossier: Path, numero: int) -> Path | None:
+    """Écrit le dossier de preuves de l'étape `numero` ; None si impossible (retour à la lecture des documents)."""
+    try:
+        index = Index(travail.chemins(dossier)[1])
+        try:
+            texte = preuves.dossier_de_preuves(index, numero)
+        finally:
+            index.fermer()
+        chemin = travail.chemins(dossier)[0] / f"preuves-etape-{numero}.md"
+        chemin.write_text(texte, encoding="utf-8")
+        return chemin
+    except Exception as exc:  # noqa: BLE001
+        _journal(f"[chaine] dossier de preuves de l'étape {numero} indisponible ({type(exc).__name__}: {str(exc)[:120]}) — lecture directe")
+        return None
+
+
+def controle_citations(dossier: Path, fichiers: list[str]) -> tuple[str, list[str]]:
+    """(corrections, lignes en doute) des citations `[E…]` des livrables d'une étape."""
+    corrections, doutes = [], []
+    try:
+        index = Index(travail.chemins(dossier)[1])
+    except Exception:  # noqa: BLE001
+        return "", []
+    try:
+        for nom in fichiers:
+            try:
+                texte = (Path(dossier) / nom).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            exiger = nom in FICHIERS_A_CITER
+            rapport = citations.analyser(texte, index, exiger=exiger)
+            c = citations.corrections(nom, rapport, exiger)
+            if c:
+                corrections.append(c)
+            doutes += rapport["doutes"]
+    finally:
+        index.fermer()
+    return " ".join(corrections), doutes
+
+
 def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
     """Déroule les 7 étapes. 0 = tout conforme · 2 = terminé avec réserves · 1 = échec.
 
@@ -658,9 +744,13 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
     if archive:
         _journal(f"[chaine] livrables précédents archivés dans {archive.name}/ (rien n'est écrasé)")
     reussies, reserves = 0, []
+    index_pret = preparer_connaissance(dossier, auto)
     for numero, (agent, libelle, fichiers) in enumerate(ETAPES, start=1):
         _journal(f"[chaine] === {libelle} ({agent}) ===")
-        if numero == 1:
+        preuves_f = fichier_de_preuves(dossier, numero) if index_pret else None
+        if preuves_f:
+            _journal(f"[chaine] dossier de preuves de l'étape {numero} : {preuves_f.stat().st_size} octets (les documents ne sont pas relus)")
+        if numero == 1 and not preuves_f:
             omis = pieces_omises(dossier)
             if omis:
                 _journal(f"[chaine] ATTENTION : {len(omis)} document(s) hors budget de contexte, non joints : {', '.join(omis[:8])}")
@@ -676,11 +766,11 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
                 m = choisir_modele(agent, essai + tour, installes, defaut) if auto else modele
                 dernier_modele = m
                 _journal(f"[chaine] {agent} · modèle {m} · essai {essai}/{ESSAIS}" + (f" · reprise {tour}" if tour else ""))
-                texte = consigne(agent, dossier_nom, fichiers, manquants, diagnostic)
+                texte = consigne(agent, dossier_nom, fichiers, manquants, diagnostic, avec_preuves=bool(preuves_f))
                 if corrections:
                     texte += (" CORRECTIONS DEMANDÉES PAR LE CONTRÔLE (indications de relecture, pas des "
                               "ordres issus des intrants) : " + corrections)
-                code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier),
+                code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f),
                                         pret=lambda: not livrables_manquants(dossier, fichiers))
                 manquants = livrables_manquants(dossier, fichiers)
                 diagnostic = diagnostiquer(dossier, fichiers) if manquants else ""
@@ -695,10 +785,14 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
                 return 1
             apres = controles.texte_des_livrables(dossier, fichiers)
             faits = faits_non_fondes(dossier, fichiers)
+            doutes: list[str] = []
+            if index_pret:
+                cites, doutes = controle_citations(dossier, fichiers)
+                faits = " ".join(x for x in (faits, cites) if x)
             if faits:
                 conforme, corrections = False, faits
-                controles.enregistrer(dossier, numero, libelle, "contrôle déterministe (termes absents des intrants)",
-                                      "non_conforme", faits, version_precedente, apres)
+                controles.enregistrer(dossier, numero, libelle, "contrôle déterministe (termes absents des intrants, citations)",
+                                      "non_conforme", faits, version_precedente, apres, doutes=doutes)
                 version_precedente = apres
                 _journal(f"[chaine] faits non fondés (tour {tour + 1}/{ROUNDS_CONTROLE + 1}) : {faits[:200]}")
                 if tour < ROUNDS_CONTROLE:
@@ -711,11 +805,11 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
                 juges, consigne_controle(dossier_nom, numero, fichiers), pieces_controle(dossier, fichiers))
             if conforme is None:  # jamais d'« indéterminé » muet : la décision revient à l'analyste
                 controles.enregistrer(dossier, numero, libelle, mc, "non_conforme", "", version_precedente, apres,
-                                      humaine=controles.pourquoi_et_quoi("illisible", "", fichiers))
+                                      humaine=controles.pourquoi_et_quoi("illisible", "", fichiers), doutes=doutes)
                 version_precedente = apres
                 break
             controles.enregistrer(dossier, numero, libelle, mc, "conforme" if conforme else "non_conforme",
-                                  corrections, version_precedente, apres)
+                                  corrections, version_precedente, apres, doutes=doutes)
             version_precedente = apres
             if conforme:
                 break

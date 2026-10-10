@@ -557,6 +557,7 @@ LIVRABLES_LISIBLES = [
     ("Registre des risques", "registre-risques.md"),
     ("Validation et suivi", "06-validation.md"),
     ("Synthèse", "SYNTHESE.md"),
+    ("Recherches, contradictions et questions ouvertes", "recherches-contradictions-questions.md"),
     ("Rapport de contrôle", "RAPPORT-CONTROLE.md"),
 ]
 

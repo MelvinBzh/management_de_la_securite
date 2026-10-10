@@ -39,7 +39,7 @@ RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
-from web import controles, lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import connaissance, controles, lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
 from web import modeles_ollama as conseils_ollama  # alias : app.py a déjà une fonction modeles_ollama()
 from web import reglages  # noqa: E402  (réglages modèles, stockage local hors git)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
@@ -367,7 +367,8 @@ def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True, tel
     for libelle, chemin in disponibles:
         with st.expander(f"✓ {libelle}", expanded=(libelle == recent)):
             texte = chemin.read_text(encoding="utf-8", errors="replace")
-            st.markdown(texte)
+            lisible, avec_html = connaissance.pour_lecture(dossier, texte)
+            st.markdown(lisible, unsafe_allow_html=avec_html)  # notes de preuves : HTML produit par le code, texte échappé
             if telecharger:  # le téléchargement est réservé à la page « Résultats » (fin de parcours)
                 st.download_button(
                     f"Télécharger {chemin.name}", texte.encode("utf-8"), file_name=chemin.name,
@@ -388,9 +389,11 @@ PAGES = [
     "À propos / Garde-fous",
 ]
 PAGE_VALIDATION = "Validation des risques"
+PAGE_CONNAISSANCES = "Connaissances du projet"
 # Parcours dans l'ordre où l'analyste travaille ; les pages techniques sont regroupées en « Avancé ».
 NAV = {
     "① Documents": PAGES[0],
+    "ⓘ Connaissances (lecture seule)": PAGE_CONNAISSANCES,
     "② Lancer l'analyse": PAGES[3],
     "③ Résultats": PAGES[2],
     "④ Validation": PAGE_VALIDATION,
@@ -539,6 +542,9 @@ if page == PAGES[0]:
             ))
             # Le projet déposé devient le projet en cours pour TOUTES les pages : le message
             # est conservé le temps du rechargement (un widget ne se modifie pas après coup).
+            lance, motif = connaissance.demarrer(dossier_cible)
+            retours.append(("ok" if lance else "warn", ("Connaissance du projet : " + motif) if lance
+                            else "Connaissance du projet : " + motif))
             st.session_state["_flash"] = retours
             st.session_state["_flash_suite"] = True
             st.session_state["_projet_a_selectionner"] = dossier_cible
@@ -1083,6 +1089,109 @@ elif page == PAGES[3]:
             time.sleep(1.2)
             st.rerun()
 
+# ----------------------------------------------- page « Connaissances » (lecture seule)
+elif page == PAGE_CONNAISSANCES:
+    st.title("Connaissances du projet")
+    st.markdown(
+        "Chaque document est lu **une seule fois** : on en garde des **faits avec l'extrait exact** (vérifié mot "
+        "pour mot par le programme, pas par un modèle), les **relations** entre les éléments, les "
+        "**contradictions** entre documents, et ce que le dossier **sait, sait en partie, ou ignore**. "
+        "Les étapes d'analyse lisent ces preuves au lieu de tout relire. Cette page est en lecture seule."
+    )
+    if not projet:
+        st.info("Aucun projet sélectionné : créez-en un dans le menu de gauche.")
+        st.stop()
+    etat_conn = connaissance.etat(projet)
+    en_cours = etat_conn.get("statut") == "en_cours"
+    with st.container(border=True):
+        st.markdown(f"**État :** {etat_conn['resume']}")
+        if en_cours:
+            st.progress(min(etat_conn["pourcent"], 100) / 100, text=str(etat_conn.get("message", ""))[:100])
+            st.caption("Le travail se poursuit en arrière-plan : vous pouvez changer de page, il continue.")
+        col_a, col_b = st.columns(2)
+        if col_a.button("Mettre à jour maintenant", key="conn_maj", disabled=en_cours):
+            lance, motif = connaissance.demarrer(projet)
+            (st.success if lance else st.info)(motif)
+            if lance:
+                st.rerun()
+        if col_b.button("Tout refaire (croisement complet)", key="conn_complet", disabled=en_cours,
+                        help="Reconfronte TOUS les faits entre eux. Plus long ; utile avant une livraison."):
+            lance, motif = connaissance.demarrer(projet, complet=True)
+            (st.success if lance else st.info)(motif)
+            if lance:
+                st.rerun()
+    contenu_conn = connaissance.lire(projet)
+    if not contenu_conn:
+        st.info("Rien n'est encore construit pour ce projet : déposez des documents en ① puis lancez la mise à jour.")
+    else:
+        docs_c = contenu_conn["documents"]
+        onglets = st.tabs(["Documents", "Faits et preuves", "Entités", "Contradictions", "Ce que l'on sait / ignore"])
+        with onglets[0]:
+            st.caption(f"{len(docs_c)} document(s) lus · dernière mise à jour : {contenu_conn['maj'] or '—'}")
+            st.dataframe(
+                [{"Document": d["nom"], "État": "✓" if d["statut"] == "ok" else "⚠ erreur",
+                  "Faits retenus": f"{d['faits_verifies']}/{d['faits']}", "Relations retenues": f"{d['relations_verifiees']}/{d['relations']}",
+                  "Passages": d["passages"], "Lu le": d["date"], "Détail": d["detail"]} for d in docs_c.values()],
+                use_container_width=True, hide_index=True,
+            )
+            st.caption("« Retenus » = faits dont l'extrait a été retrouvé tel quel dans le document. Les autres sont écartés.")
+        with onglets[1]:
+            choix_doc = st.selectbox("Document", ["(tous)"] + sorted(docs_c), key="conn_doc")
+            filtre = st.text_input("Chercher dans les faits", key="conn_filtre")
+            lignes_f = [f for f in contenu_conn["faits"] if choix_doc in ("(tous)", f["doc"])
+                        and filtre.lower() in (f["texte"] + " " + f["extrait"]).lower()]
+            st.caption(f"{len(lignes_f)} fait(s) ou relation(s) affiché(s) (200 au plus).")
+            for f in lignes_f[:200]:
+                with st.expander(f"{f['texte'][:120]}"):
+                    st.markdown(f"**Preuve** ({f['doc']}) : « {f['extrait']} »")
+        with onglets[2]:
+            groupes: dict[str, list[str]] = {}
+            for e in contenu_conn["entites"]:
+                groupes.setdefault(e["canonique"], []).append(e["nom"])
+            fusionnees = {c: sorted(set(v)) for c, v in groupes.items() if len(set(v)) > 1}
+            st.caption(f"{len(groupes)} entité(s) distincte(s), dont {len(fusionnees)} regroupant plusieurs écritures (à relire).")
+            for canonique, variantes in sorted(fusionnees.items()):
+                st.markdown(f"- **{canonique}** = {' · '.join(v for v in variantes)}")
+            with st.expander("Toutes les entités"):
+                st.dataframe([{"Nom": e["nom"], "Regroupé sous": e["canonique"], "Type": e["type"], "Documents": ", ".join(e["docs"])}
+                              for e in contenu_conn["entites"]], use_container_width=True, hide_index=True)
+        with onglets[3]:
+            hautes = [c for c in contenu_conn["contradictions"] if c["confirmations"] >= 1]
+            basses = [c for c in contenu_conn["contradictions"] if c["confirmations"] < 1]
+            st.caption("Un second modèle confirme les signalements de priorité haute. Tous restent à valider par un humain : "
+                       "deux textes qui se contredisent peuvent aussi décrire une règle et la pratique observée.")
+            for c in hautes:
+                st.markdown(f"- **{c['doc_a'][:40]}** : « {c['extrait_a'][:200]} »  \n  **≠ {c['doc_b'][:40]}** : « {c['extrait_b'][:200]} »  \n  _{c['explication'][:240]}_")
+            if not hautes:
+                st.info("Aucune contradiction de priorité haute.")
+            if basses:
+                with st.expander(f"À relire si le temps le permet ({len(basses)})"):
+                    for c in basses:
+                        st.markdown(f"- **{c['doc_a'][:40]}** : « {c['extrait_a'][:160]} » **≠** **{c['doc_b'][:40]}** : « {c['extrait_b'][:160]} »")
+        with onglets[4]:
+            ICONES = {"connu": "🟢 connu", "partiel": "🟠 partiel", "inconnu": "⚪ non documenté"}
+            reps = sorted(contenu_conn["couvertures"], key=lambda r: -r.get("priorite", 0))
+            st.caption("« Non documenté » veut dire que les documents n'en parlent pas : ce n'est PAS une preuve que la mesure n'existe pas. "
+                       "C'est une question à poser à l'entreprise. Les points à relire sont classés en premier.")
+            for r in reps:
+                titre = f"{ICONES.get(r['statut'], r['statut'])} — {r['question']}"
+                if r.get("contestations"):
+                    titre += " · ⚠ CONTESTÉ"
+                elif r.get("a_valider"):
+                    titre += " · à valider"
+                with st.expander(titre):
+                    if r["reponse"]:
+                        st.markdown(f"**Réponse tirée des documents :** {r['reponse']}")
+                    for p in r.get("preuves", []):
+                        st.markdown(f"- preuve ({p['doc'][:40]}) : « {p['extrait'][:220]} »")
+                    if r.get("manque"):
+                        st.markdown(f"**À obtenir :** {r['manque']}")
+                    if r.get("pourquoi"):
+                        st.markdown(f"**Pourquoi relire :** {r['pourquoi']}")
+        if en_cours:
+            time.sleep(2.0)
+            st.rerun()
+
 # ------------------------------------------------------ page ④ : validation humaine
 elif page == PAGE_VALIDATION:
     st.title("④ Validation des risques")
@@ -1112,6 +1221,14 @@ elif page == PAGE_VALIDATION:
                 st.markdown(f"**{point['libelle']}** (contrôle n°{point['numero']})")
                 st.markdown(f"- *Pourquoi* : {point['humaine']['pourquoi']}")
                 st.markdown(f"- *Quoi vérifier* : {point['humaine']['quoi']}")
+    a_relire = controles.a_relire(dossier)
+    if a_relire:
+        with st.expander(f"Lignes à relire : la preuve citée est en doute ({sum(len(p['doutes']) for p in a_relire)})"):
+            st.caption("Deux vérificateurs indépendants ne sont pas d'accord sur ces lignes : relisez la preuve citée (survolez la note).")
+            for point in a_relire:
+                st.markdown(f"**{point['libelle']}**")
+                for ligne in point["doutes"][:10]:
+                    st.markdown("- " + ligne[:240])
     CHAMPS_ADMIN = {"id", "valide_par", "date validation"}
     for genre, texte in st.session_state.pop("_flash_valid", []):
         (st.success if genre == "ok" else st.error)(texte)
