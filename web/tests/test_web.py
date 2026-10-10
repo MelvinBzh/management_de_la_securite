@@ -195,7 +195,8 @@ def test_web_01():
         app.radio[0].set_value(nom).run()
         assert not app.exception, f"page « {nom} » : {app.exception[0].message}"
         pages = [element.value for element in app.title]
-        assert any(nom.split(" ")[0] in titre for titre in pages), \
+        mots = [m for m in nom.replace("Avancé · ", "").split(" ") if m.strip("①②③④")]  # « ② Lancer… » → « Lancer… »
+        assert any(mots[0] in titre for titre in pages), \
             f"titre de la page « {nom} » absent : {pages}"
     passer("WEB-01", f"9 pages affichées · titres {titres} · navigation · file_uploader")
 
