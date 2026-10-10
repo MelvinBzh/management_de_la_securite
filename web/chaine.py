@@ -884,6 +884,14 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
                                         pret=lambda: pret_depuis(dossier, cibles, debut_appel))
                 manquants = livrables_manquants(dossier, fichiers)
                 diagnostic = diagnostiquer(dossier, fichiers) if manquants else ""
+                if not manquants and (tour > 0 or corrections):
+                    # reprise : un livrable que l'agent n'a PAS réécrit n'est pas une correction (mesuré : qwen3.5 répond
+                    # par du texte « j'ai corrigé » sans appeler write) — on relance tout de suite, sans gaspiller un contrôle
+                    pas_reecrits = [f for f in cibles if (Path(dossier) / f).stat().st_mtime < debut_appel]
+                    if pas_reecrits:
+                        manquants = pas_reecrits
+                        diagnostic = ("NON RÉÉCRIT : " + ", ".join(pas_reecrits) + " n'a pas été modifié. Une réponse en texte ne "
+                                      "corrige rien : appelle l'outil write pour réécrire le fichier complet avec les corrections.")
                 hors = purger_hors_etape(dossier, numero, debut_etape)
                 if hors:
                     _journal(f"[chaine] fichiers hors étape écartés : {', '.join(hors)}")
