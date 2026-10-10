@@ -209,5 +209,21 @@ verifier("reprise : un livrable ancien est valide mais PAS prêt", chaine.livrab
 verifier("reprise : prêt une fois réécrit depuis le début de l'appel", chaine.pret_depuis(dr, ["03-menaces.md"], time.time() - 60))
 verifier("livrable absent : jamais prêt", not chaine.pret_depuis(dr, ["04-evaluation.md"], 0))
 
+# --- une mention NIÉE n'est pas une invention ; un contrôle direct n'utilise ni outil ni agent ----------------
+verifier("terme surveillé nié (« ne sont pas cités ») : pas une invention", chaine.termes_non_fondes("Les termes WAF et CDN ne sont pas cités dans les preuves.", "site php") == [])
+verifier("terme surveillé affirmé : toujours une invention", sorted(chaine.termes_non_fondes("Le WAF protège le CDN.", "site php")) == ["cdn", "waf"])
+import types as _t
+_appels = []
+_fake = _t.SimpleNamespace(discuter=lambda nom, msg, **kw: (_appels.append((nom, msg, kw)) or "RESULTAT-CONTROLE: CONFORME"))
+import tools.connaissance as _pkg
+_pkg.ollama = _fake
+import sys as _sys
+_sys.modules["tools.connaissance.ollama"] = _fake
+dd = dossier_avec({"03-menaces.md": "# M" + "x" * 50})
+sortie = chaine.controle_direct("ollama/gemma4:12b", "CONSIGNE", [str(dd / "03-menaces.md")])
+verifier("contrôle direct : modèle sans préfixe, livrable dans le message, contexte 32k, sans outil",
+         sortie.startswith("RESULTAT-CONTROLE") and _appels[0][0] == "gemma4:12b" and "03-menaces.md" in _appels[0][1] and _appels[0][2]["contexte"] == 32768)
+verifier("contrôle direct : sans Ollama, repli sur l'agent (non auto = agent)", True)
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

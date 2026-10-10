@@ -49,9 +49,14 @@ def lignes_de_donnees(texte: str) -> list[str]:
 
 def affirmation(ligne: str) -> str:
     """Texte à vérifier d'une ligne : sans marqueurs de citation, cellules séparées par « ; »."""
-    sans = RE_CITATION.sub("", ligne)
-    cellules = [c.strip() for c in sans.strip().strip("|").split("|")] if sans.lstrip().startswith("|") else [sans.strip()]
-    return " ; ".join(c for c in cellules if c)
+    if ligne.lstrip().startswith("|"):
+        brutes = [c.strip() for c in ligne.strip().strip("|").split("|")]
+        # une ligne de tableau mêle des FAITS (cellule qui cite sa preuve) et des JUGEMENTS (probabilité, impact,
+        # décision) que l'extrait ne peut pas porter : on ne vérifie que les cellules qui citent
+        citantes = [c for c in brutes if RE_CITATION.search(c)]
+        cellules = [RE_CITATION.sub("", c).strip() for c in (citantes or brutes)]
+        return " ; ".join(c for c in cellules if c)
+    return RE_CITATION.sub("", ligne).strip()
 
 
 def analyser(texte: str, index, *, exiger: bool = False, verificateurs=None, limite: int = LIMITE_LIGNES) -> dict:

@@ -82,7 +82,8 @@ propre = "| Actif | D |" + chr(10) + "|---|---|" + chr(10) + f"| Site | PHP [E{e
 verifier("les lignes en doute ne produisent PAS de correction automatique", citations.corrections("x.md", citations.analyser(propre, index, verificateurs=desaccord)) == "")
 verifier("sans exigence, une ligne non citée n'est pas reprochée", citations.analyser(doc, index, exiger=False, verificateurs=accord)["non_cite"] == [])
 verifier("part citée calculée", abs(r["part_citee"] - 0.75) < 1e-9)
-verifier("affirmation vérifiée : sans marqueur, cellules séparées", citations.affirmation(f"| Site | PHP [E{e1}] |") == "Site ; PHP")
+verifier("affirmation vérifiée : seule la cellule qui cite sa preuve (les jugements ne sont pas vérifiés)", citations.affirmation(f"| Site | PHP [E{e1}] | Élevée | Grave |") == "PHP")
+verifier("affirmation : ligne sans citation de cellule = toute la ligne", citations.affirmation("| A | B |") == "A ; B")
 verifier("`limite` borne le nombre de lignes vérifiées", citations.analyser(doc, index, verificateurs=accord, limite=1)["verifiees"] == 1)
 
 # --- affichage ------------------------------------------------------------------------------------------------
