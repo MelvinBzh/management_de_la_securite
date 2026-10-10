@@ -1,8 +1,8 @@
 # 09 — Dossier de connaissance : plan de mise en place
 
-> Statut : **plan validé en principe** (Melvin, 2026-10-09/10). Le paquet `tools/connaissance/` existe, est testé et
-> mesuré, mais **n'est pas encore branché** sur le site ni sur les agents. Ce document dit pourquoi, quoi, dans quel
-> ordre, et comment on saura que ça marche.
+> Statut : **plan validé en entier** par Melvin le 2026-10-10 ; **étapes 0 et A à G réalisées et testées de façon hermétique**
+> (aucun modèle contacté par les tests). Reste à **mesurer sur le serveur** (compaction, temps, qualité des citations) et à faire
+> tester par l'analyste. Ce document dit pourquoi, quoi, dans quel ordre, et comment on saura que ça marche.
 
 ## 1. Le problème
 
@@ -79,6 +79,21 @@ La revue a comparé, point par point, ce que Melvin a demandé à ce qui est éc
 | Injection de prompt dans les documents | le nouveau paquet lit des documents non fiables | consignes d'extraction et de jugement = données uniquement ; test avec le document piégé existant |
 | CI du nouveau paquet | 88 tests non lancés par la CI | cible `make test-connaissance` + étape dans `.github/workflows/suite.yml` |
 | Fusion et publication | la branche contient chaîne + site + paquet | ouvrir la PR (décision de l'analyste), relire par morceaux |
+
+### 4 ter. État de réalisation (2026-10-10)
+
+| Étape | Réalisé | Où |
+|---|---|---|
+| 0 | Granite retiré ; rapports de contrôle **numérotés par version** (ce qui n'allait pas / ce qui a changé) ; « nécessite une validation humaine » avec pourquoi et quoi vérifier ; 3 contrôleurs en alternance jusqu'à un verdict lisible ; `compaction` réglée ; opencode figé (1.18.35) ; `make test-chaine test-connaissance` + CI | `web/controles.py`, `web/chaine.py`, `opencode.jsonc`, `Dockerfile`, `Makefile` |
+| A | Ingestion incrémentale par empreinte, tâche de fond avec état, lancement automatique au dépôt | `ingestion.py`, `travail.py`, `web/connaissance.py` |
+| B | Page « Connaissances » (documents, faits et preuves, entités, contradictions, connu / ignoré) en lecture seule | `web/app.py` |
+| C | Dossier de preuves par étape à la place des documents (repli : lecture directe) | `preuves.py`, `web/chaine.py` |
+| D | Citations `[E…]` vérifiées (code puis 2 vérificateurs), notes discrètes à l'affichage | `citations.py` |
+| E | Rapports numérotés + validation guidée dans ④ (pourquoi, quoi vérifier, lignes à relire) | `web/controles.py`, `web/app.py` |
+| F | Propagation ciblée après validation, contrôlée et tracée | `web/propagation.py` |
+| G | Recherche hors documents (`origine = externe`), jamais mêlée aux documents | `externe.py` |
+
+**Limites connues.** Le croisement incrémental ne reconfronte pas un fait inchangé à un document ajouté (bouton « Tout refaire »). La recherche externe demande un moteur SearXNG configuré. La compaction d'opencode (`reserved`) reste à mesurer sur le serveur. La sécurité du site (authentification, SSH, Ollama exposé) est toujours reportée.
 
 ## 5. Règles de conception à ne pas casser
 

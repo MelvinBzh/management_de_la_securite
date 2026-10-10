@@ -1,7 +1,7 @@
 # `tools/connaissance` — le dossier de connaissance E21
 
-> **Statut : prototype validé en principe, NON branché** sur le site ni sur les agents. Il sert à mesurer
-> la qualité de la solution avant de la relier (voir « Branchement prévu »).
+> **Statut : branché** sur le site (page « Connaissances », lancement automatique au dépôt de documents) et sur la chaîne
+> (dossier de preuves par étape, citations vérifiées, propagation des décisions). Voir « Branchement réalisé » en bas.
 
 ## À quoi ça sert
 
@@ -42,7 +42,12 @@ flowchart LR
 | `relations.py` | entités et relations typées (`Relation.verifiee`) | oui (extraction) |
 | `alias.py` | fusion des noms qui désignent la même chose | non (règles) + vecteurs |
 | `contradictions.py` | `croiser` : chaque fait face aux passages des AUTRES documents → signalements | oui (juge) sur un fait + 4 passages |
-| `index.py` | SQLite : stockage + recherche hybride | non |
+| `index.py` | SQLite : stockage + recherche hybride + cycle de vie des documents | non |
+| `ingestion.py` | mise à jour INCRÉMENTALE (nouveau / modifié / retiré, par empreinte) : faits, alias, croisement, couverture | via les moteurs injectés |
+| `travail.py` | tâche de fond d'un projet : `etat.json`, un seul travail à la fois, reprise après interruption | — |
+| `preuves.py` | dossier de preuves d'une étape (`[E12]`) que les agents lisent à la place des documents | vecteurs des questions |
+| `citations.py` | contrôle des citations : identifiant existant (code), ligne soutenue (2 vérificateurs), affichage en notes | oui (vérification) |
+| `externe.py` | recherche hors documents (`origine = externe`), extrait exact + 2 vérificateurs, jamais mêlée aux documents | oui |
 | `experience.py` | mesure la qualité de bout en bout sur un dossier | — |
 
 ## Ce qui a été mesuré (Nordval : 22 documents, 38 Ko, RTX 5070)
@@ -91,10 +96,17 @@ sqlite3 connaissance.sqlite "SELECT genre, doc, libelle FROM elements LIMIT 10;"
 `qwen3.5:9b` extrait (rapide, JSON contraint) · `gemma4:12b` juge les contradictions et vérifie ·
 `bespoke-minicheck` second avis de vérification · `nomic-embed-text` vecteurs.
 
-## Branchement prévu (à valider avec l'analyste avant de coder)
+## Branchement réalisé
 
-1. à l'ajout d'un document : fiche + relations + index (seuls les nouveaux documents sont traités) ;
-2. les agents d'étape reçoivent les **preuves pertinentes** (recherche) au lieu des documents entiers ;
-3. chaque ligne produite cite ses preuves ; le code vérifie qu'elles existent, puis Gemma + MiniCheck ;
-4. après validation humaine, une modification retrouve par l'index les lignes liées et ne réécrit que celles-là ;
-5. livrable « recherches, relations, contradictions, questions » affiché dans le site.
+1. **Ingestion** : au dépôt de documents, le site lance `travail` en arrière-plan ; seuls les documents nouveaux ou modifiés sont retraités (empreinte), un document retiré emporte ses preuves, un document en erreur est réessayé.
+2. **Les agents lisent des preuves** : avant chaque étape, le pilote (`web/chaine.py`) écrit `connaissance/preuves-etape-N.md` (≈ 14 Ko) et le joint à la place des documents. Sans Ollama ou en cas d'échec : lecture directe des documents, comme avant.
+3. **Citations** : les agents citent `[E12]` ; le code rejette les identifiants inexistants et les lignes non soutenues, les lignes en doute vont à la validation humaine ; le site affiche des notes discrètes (infobulle = extrait).
+4. **Propagation** (`web/propagation.py`) : après validation, seules les lignes liées à un risque modifié sont réécrites, contrôlées par le code, tracées dans `PROPAGATION.md`.
+5. **Livrables dans le site** : « Recherches, contradictions et questions ouvertes », rapport de contrôle numéroté, propagation.
+6. **Hors documents** : bouton « Chercher hors des documents » si `E21_RECHERCHE_URL` (SearXNG) est configuré ; `origine = externe`, toujours à valider.
+
+```bash
+make test-connaissance        # 4 fichiers de tests, aucun modèle contacté
+python -m tools.connaissance.travail analyses/<projet>            # mise à jour d'un projet
+python -m tools.connaissance.travail analyses/<projet> --complet  # refait tout le croisement
+```
