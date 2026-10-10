@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tools.connaissance import citations, travail
+from tools.connaissance import citations, externe, travail
 from tools.connaissance.index import Index
 from web import lib, reglages
 
@@ -50,8 +50,15 @@ def etat(projet: str) -> dict:
     return e
 
 
-def demarrer(projet: str, *, complet: bool = False) -> tuple[bool, str]:
+def recherche_externe_disponible() -> bool:
+    """Un moteur de recherche web est-il configuré (E21_RECHERCHE_URL) ?"""
+    return bool(externe.serveur_recherche())
+
+
+def demarrer(projet: str, *, complet: bool = False, avec_externe: bool = False) -> tuple[bool, str]:
     """Lance la mise à jour en arrière-plan. `(lancé, message)` : jamais d'exception pour l'interface."""
+    if avec_externe and not recherche_externe_disponible():
+        return False, "La recherche hors des documents n'est pas configurée sur ce serveur (variable E21_RECHERCHE_URL)."
     ollama = endpoint_ollama()
     if not ollama:
         return False, ("La connaissance du projet se construit avec les modèles Ollama : choisissez le profil "
@@ -59,10 +66,10 @@ def demarrer(projet: str, *, complet: bool = False) -> tuple[bool, str]:
     dossier = dossier_du_projet(projet)
     if not (dossier / travail.DOSSIER_INTRANTS).is_dir():
         return False, "Ce projet n'a pas encore de documents."
-    if not complet and not travail.a_mettre_a_jour(dossier):
+    if not complet and not avec_externe and not travail.a_mettre_a_jour(dossier):
         return False, "Le dossier de connaissance est déjà à jour."
     try:
-        travail.lancer(dossier, complet=complet, endpoint=ollama)
+        travail.lancer(dossier, complet=complet, endpoint=ollama, externe=avec_externe)
     except RuntimeError as exc:
         return False, str(exc)
     return True, "Mise à jour de la connaissance lancée en arrière-plan."
@@ -81,7 +88,7 @@ def lire(projet: str) -> dict | None:
         entites = [dict(zip(("nom", "canonique", "type", "docs"), (l[0], l[1], l[2], json.loads(l[3] or "[]"))))
                    for l in index.base.execute("SELECT nom, canonique, type, docs FROM entites ORDER BY canonique, nom")]
         return {"documents": documents, "faits": faits, "entites": entites, "contradictions": index.contradictions(),
-                "couvertures": index.couvertures(), "compte": index.compter(),
+                "couvertures": index.couvertures(), "compte": index.compter(), "externes": externe.externes(index),
                 "maj": index.lire_meta("derniere_mise_a_jour")}
     finally:
         index.fermer()

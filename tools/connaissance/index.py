@@ -167,13 +167,19 @@ class Index:
                 for t in ("elements", "entites", "contradictions")}
 
     def rechercher(self, question: str, vecteur_question: list[float] | None = None, k: int = 5,
-                   verifies_seulement: bool = True, mots_cles: bool = True) -> list[dict]:
+                   verifies_seulement: bool = True, mots_cles: bool = True,
+                   origines: tuple[str, ...] = ("document",)) -> list[dict]:
         """Les `k` éléments les plus pertinents : fusion (RRF) du classement par vecteurs et par mots-clés.
 
         `vecteur_question=None` = mots-clés seuls ; `mots_cles=False` = vecteurs seuls (pour comparer).
+        `origines` : par défaut les seuls documents fournis — une information « externe » (web) n'entre jamais
+        dans une analyse sans qu'on la demande (`origines=("document", "externe")`).
         """
-        filtre = "WHERE verifie = 1" if verifies_seulement else ""
-        lignes = self.base.execute(f"SELECT id, genre, doc, libelle, extrait, vecteur, origine FROM elements {filtre}").fetchall()
+        conditions = ["origine IN (" + ",".join("?" * len(origines)) + ")"]
+        if verifies_seulement:
+            conditions.append("verifie = 1")
+        lignes = self.base.execute("SELECT id, genre, doc, libelle, extrait, vecteur, origine FROM elements WHERE "
+                                   + " AND ".join(conditions), tuple(origines)).fetchall()
         rangs: dict[int, float] = {}
         if vecteur_question:
             notes = sorted(((ollama.cosinus(vecteur_question, json.loads(v)), i) for i, _g, _d, _l, _e, v, _o in lignes if v), reverse=True)

@@ -22,6 +22,7 @@ import sys
 import time
 from pathlib import Path
 
+from . import externe as recherche_externe
 from . import ingestion
 from .index import Index
 
@@ -35,6 +36,7 @@ LIBELLES_PHASES = {
     "alias": "Fusion des noms qui désignent la même chose",
     "croisement": "Recherche de contradictions entre documents",
     "couverture": "Ce que l'on sait, en partie, ou pas encore",
+    "externe": "Recherche hors des documents (web)",
 }
 
 
@@ -95,11 +97,11 @@ def a_mettre_a_jour(dossier_projet: str | Path) -> bool:
         index.fermer()
 
 
-def lancer(dossier_projet: str | Path, *, complet: bool = False, endpoint: str = "") -> int:
+def lancer(dossier_projet: str | Path, *, complet: bool = False, endpoint: str = "", externe: bool = False) -> int:
     """Démarre le travail en arrière-plan ; renvoie le PID. Refuse s'il y en a déjà un pour ce projet."""
     if lire_etat(dossier_projet).get("statut") == "en_cours":
         raise RuntimeError("Un travail de connaissance est déjà en cours pour ce projet.")
-    argv = [sys.executable, "-m", "tools.connaissance.travail", str(dossier_projet)] + (["--complet"] if complet else [])
+    argv = [sys.executable, "-m", "tools.connaissance.travail", str(dossier_projet)] + (["--complet"] if complet else []) + (["--externe"] if externe else [])
     env = dict(os.environ)
     if endpoint:
         env["OLLAMA_ENDPOINT"] = endpoint
@@ -111,7 +113,8 @@ def lancer(dossier_projet: str | Path, *, complet: bool = False, endpoint: str =
     return proc.pid
 
 
-def executer(dossier_projet: str | Path, *, complet: bool = False, moteurs=None, options_couverture: dict | None = None) -> int:
+def executer(dossier_projet: str | Path, *, complet: bool = False, moteurs=None, options_couverture: dict | None = None,
+             externe: bool = False, moteurs_externes: dict | None = None) -> int:
     """Exécute le travail dans CE processus (utilisé par la commande et par le pilote de chaîne). 0 = réussi."""
     dossier, base, _ = chemins(dossier_projet)
     dossier.mkdir(parents=True, exist_ok=True)
@@ -126,6 +129,9 @@ def executer(dossier_projet: str | Path, *, complet: bool = False, moteurs=None,
     try:
         bilan = ingestion.mettre_a_jour(str(Path(dossier_projet) / DOSSIER_INTRANTS), index, moteurs=moteurs,
                                         progression=progression, complet=complet, options_couverture=options_couverture)
+        if externe:  # recherche hors documents pour les besoins restés sans réponse ; jamais mêlée aux documents
+            trouvees = recherche_externe.enrichir_inconnus(index, progression=progression, **(moteurs_externes or {}))
+            bilan["externes"] = len(trouvees)
         (Path(dossier_projet) / NOM_LIVRABLE).write_text(ingestion.rapport(index), encoding="utf-8")
         _ecrire_etat(dossier_projet, statut="termine", fin=time.strftime("%Y-%m-%d %H:%M:%S"), bilan=bilan, message="à jour")
         return 0
@@ -151,7 +157,7 @@ def main(argv: list[str]) -> int:
         sys.exit(1)
 
     signal.signal(signal.SIGTERM, _arret)
-    return executer(dossier, complet="--complet" in argv)
+    return executer(dossier, complet="--complet" in argv, externe="--externe" in argv)
 
 
 if __name__ == "__main__":

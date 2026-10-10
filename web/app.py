@@ -1108,7 +1108,17 @@ elif page == PAGE_CONNAISSANCES:
         if en_cours:
             st.progress(min(etat_conn["pourcent"], 100) / 100, text=str(etat_conn.get("message", ""))[:100])
             st.caption("Le travail se poursuit en arrière-plan : vous pouvez changer de page, il continue.")
-        col_a, col_b = st.columns(2)
+        col_a, col_b, col_c = st.columns(3)
+        if col_c.button("Chercher hors des documents", key="conn_externe", disabled=en_cours or not connaissance.recherche_externe_disponible(),
+                        help="Cherche sur le web une réponse aux questions restées sans réponse. Seules les questions génériques "
+                             "sont envoyées (jamais un extrait de vos documents). Les résultats sont à valider : une source "
+                             "générale ne dit pas ce qui est vrai chez ce client."):
+            lance, motif = connaissance.demarrer(projet, avec_externe=True)
+            (st.success if lance else st.info)(motif)
+            if lance:
+                st.rerun()
+        if not connaissance.recherche_externe_disponible():
+            st.caption("Recherche hors des documents : non configurée sur ce serveur (variable `E21_RECHERCHE_URL`).")
         if col_a.button("Mettre à jour maintenant", key="conn_maj", disabled=en_cours):
             lance, motif = connaissance.demarrer(projet)
             (st.success if lance else st.info)(motif)
@@ -1188,6 +1198,12 @@ elif page == PAGE_CONNAISSANCES:
                         st.markdown(f"**À obtenir :** {r['manque']}")
                     if r.get("pourquoi"):
                         st.markdown(f"**Pourquoi relire :** {r['pourquoi']}")
+            if contenu_conn.get("externes"):
+                st.divider()
+                st.markdown("#### Trouvé hors des documents (origine externe, à valider)")
+                st.caption("Ces informations viennent du web, pas de l'entreprise : elles ne disent pas ce qui est vrai chez ce client.")
+                for x in contenu_conn["externes"]:
+                    st.markdown(f"- {x['libelle']}  \n  source : {x['url']} — « {x['extrait'][:240]} »")
         if en_cours:
             time.sleep(2.0)
             st.rerun()

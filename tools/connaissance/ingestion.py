@@ -22,7 +22,7 @@ import os
 import time
 from dataclasses import dataclass, field
 
-from . import alias, contradictions, couverture, fiches, ollama, passages, relations, texte
+from . import alias, contradictions, couverture, externe, fiches, ollama, passages, relations, texte
 from .index import Index
 
 TAILLE_MIN_DOC = 300  # en dessous, un « document » n'est que du bruit (page vide, en-tête seul)
@@ -192,4 +192,4 @@ def rapport(index: Index) -> str:
     reponses = [couverture.depuis_dict(d) for d in index.couvertures()]
     signaux = [contradictions.Signal(c["doc_a"], c["extrait_a"], c["doc_b"], c["extrait_b"], c["explication"], c["confirmations"])
                for c in index.contradictions()]
-    return couverture.rapport_markdown(reponses, signaux)
+    return couverture.rapport_markdown(reponses, signaux) + externe.rapport_markdown(externe.externes(index))
