@@ -225,5 +225,15 @@ verifier("contrôle direct : modèle sans préfixe, livrable dans le message, co
          sortie.startswith("RESULTAT-CONTROLE") and _appels[0][0] == "gemma4:12b" and "03-menaces.md" in _appels[0][1] and _appels[0][2]["contexte"] == 32768)
 verifier("contrôle direct : sans Ollama, repli sur l'agent (non auto = agent)", True)
 
+# --- des tableaux sans aucune ligne de données ne sont PAS un livrable (03-menaces.md vide, 2026-10-10) --------
+NLx = chr(10)
+vide = "# Menaces" + NLx + NLx + (("| ID | Actif | Menace |" + NLx + "|---|---|---|" + NLx + NLx) * 12)
+verifier("12 tableaux sans donnée : 0 ligne", chaine._lignes_de_tableau(vide) == 0)
+verifier("tableau avec 3 lignes : 3", chaine._lignes_de_tableau("| a | b |" + NLx + "|---|---|" + NLx + "| 1 | 2 |" + NLx + "| 3 | 4 |" + NLx + "| 5 | 6 |") == 3)
+verifier("deux tableaux 2 + 1 lignes : 3 (chaque en-tête retiré)", chaine._lignes_de_tableau("| a | b |" + NLx + "|---|---|" + NLx + "| 1 | 2 |" + NLx + "| 3 | 4 |" + NLx + NLx + "| c | d |" + NLx + "|---|---|" + NLx + "| 5 | 6 |") == 3)
+verifier("ligne aux cellules toutes vides : non comptée", chaine._lignes_de_tableau("| a | b |" + NLx + "|---|---|" + NLx + "|  |  |" + NLx + "| 1 | 2 |") == 1)
+dv = dossier_avec({"03-menaces.md": vide + "texte " * 100})
+verifier("le livrable de tableaux vides est refusé", chaine.livrables_manquants(dv, ["03-menaces.md"]) == ["03-menaces.md"] and "au moins 5 lignes" in chaine.diagnostiquer(dv, ["03-menaces.md"]))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

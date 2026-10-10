@@ -177,10 +177,27 @@ def sources_inconnues(texte: str, connus: set[str] | None = None) -> list[str]:
 
 
 def _lignes_de_tableau(texte: str) -> int:
-    """Lignes de données d'un tableau Markdown (hors en-tête et séparateur)."""
-    lignes = [l for l in texte.splitlines() if l.lstrip().startswith("|")]
-    donnees = [l for l in lignes if not set(l.replace("|", "").strip()) <= set("-: ")]
-    return max(len(donnees) - 1, 0)
+    """Lignes de DONNÉES des tableaux Markdown : hors en-tête et séparateur de CHAQUE tableau, lignes vides exclues.
+
+    Une version antérieure ne retirait qu'un seul en-tête pour tout le fichier : un livrable fait de vingt tableaux
+    sans aucune ligne (constaté le 2026-10-10 sur 03-menaces.md) passait pour « riche ». Un tableau est une suite de
+    lignes commençant par `|` ; sa première ligne est l'en-tête, la seconde le séparateur `|---|`."""
+    total, courant = 0, []
+
+    def clore() -> None:
+        nonlocal total, courant
+        donnees = [l for l in courant[1:] if not set(l.replace("|", "").strip()) <= set("-: ")]
+        total += sum(1 for l in donnees if l.replace("|", "").strip())  # une ligne sans aucune cellule remplie ne compte pas
+        courant = []
+
+    for ligne in texte.splitlines():
+        if ligne.lstrip().startswith("|"):
+            courant.append(ligne)
+        elif courant:
+            clore()
+    if courant:
+        clore()
+    return total
 
 
 def sources_autorisees() -> str:
