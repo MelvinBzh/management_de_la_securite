@@ -39,7 +39,7 @@ RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
-from web import connaissance, controles, lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import connaissance, controles, lib, propagation, validations  # noqa: E402  (chemin du dépôt garanti ci-dessus)
 from web import modeles_ollama as conseils_ollama  # alias : app.py a déjà une fonction modeles_ollama()
 from web import reglages  # noqa: E402  (réglages modèles, stockage local hors git)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
@@ -1210,101 +1210,116 @@ elif page == PAGE_CONNAISSANCES:
 
 # ------------------------------------------------------ page ④ : validation humaine
 elif page == PAGE_VALIDATION:
-    st.title("④ Validation des risques")
+    st.title("④ Validation")
     st.markdown(
-        "**Étape 4 sur 4.** L'analyse propose un registre de risques ; **c'est vous qui décidez**. "
-        "Pour chaque risque : *accepté tel quel*, *accepté avec modification* ou *refusé*. Vos "
-        "décisions sont écrites dans les documents du projet (`06-validation.md`, colonne "
-        "`valide_par` du registre), puis la synthèse peut être mise à jour pour en tenir compte."
+        "**Étape 4 sur 4.** Tout ce qui demande votre avis est ici, au même endroit : les **risques** du registre, les "
+        "**étapes** que le contrôle n'a pas pu trancher, les **lignes** dont la preuve est en doute, les **contradictions** "
+        "entre documents et les **questions** sans réponse. Chaque point montre pourquoi il est là, quoi vérifier, le "
+        "contexte exact et la preuve citée. **Vous décidez** ; une correction est ensuite appliquée aux lignes concernées "
+        "(et seulement à celles-là), et ce qui en dépend plus loin vous revient comme « impact à revoir »."
     )
     if not projet:
         st.info("Aucun projet sélectionné : créez-en un dans le menu de gauche (« Projet en cours » → « ＋ Créer un nouveau projet »).")
         st.stop()
     dossier = lib.DOSSIER_ANALYSES / projet
-    colonnes, risques = lib.lire_registre(dossier)
-    if not risques:
+    tous_les_points = validations.construire(dossier)
+    if not tous_les_points:
         st.info(
-            "Le registre des risques n'est pas encore prêt. Lancez l'analyse dans « ② Lancer "
-            "l'analyse » : il apparaîtra ici dès l'étape 6."
+            "Rien à valider pour l'instant. Lancez l'analyse dans « ② Lancer l'analyse » : le registre des risques et "
+            "les points à vérifier apparaissent ici dès que les étapes sont terminées."
         )
         st.stop()
-    a_verifier = controles.a_valider(dossier)
-    if a_verifier:
-        with st.container(border=True):
-            st.markdown("### ⚠️ Nécessite une validation humaine")
-            st.caption("Le contrôle automatique n'a pas pu trancher seul sur ces étapes. Voici pourquoi et quoi vérifier.")
-            for point in a_verifier:
-                st.markdown(f"**{point['libelle']}** (contrôle n°{point['numero']})")
-                st.markdown(f"- *Pourquoi* : {point['humaine']['pourquoi']}")
-                st.markdown(f"- *Quoi vérifier* : {point['humaine']['quoi']}")
-    a_relire = controles.a_relire(dossier)
-    if a_relire:
-        with st.expander(f"Lignes à relire : la preuve citée est en doute ({sum(len(p['doutes']) for p in a_relire)})"):
-            st.caption("Deux vérificateurs indépendants ne sont pas d'accord sur ces lignes : relisez la preuve citée (survolez la note).")
-            for point in a_relire:
-                st.markdown(f"**{point['libelle']}**")
-                for ligne in point["doutes"][:10]:
-                    st.markdown("- " + ligne[:240])
-    CHAMPS_ADMIN = {"id", "valide_par", "date validation"}
     for genre, texte in st.session_state.pop("_flash_valid", []):
         (st.success if genre == "ok" else st.error)(texte)
+    bilan_v = validations.resume(tous_les_points)
+    st.progress(bilan_v["decides"] / max(bilan_v["total"], 1),
+                text=f"{bilan_v['decides']} point(s) décidé(s) sur {bilan_v['total']} — {bilan_v['restants']} restant(s)")
     analyste = st.text_input(
         "Votre nom", key="valid_analyste",
-        help="Il sera inscrit dans la colonne « valide_par » : seule une personne peut valider.",
+        help="Il est inscrit avec chaque décision (colonne « valide_par » pour les risques) : seule une personne peut valider.",
     )
-    deja = sum(1 for r in risques if any(m in str(r.get("valide_par", "")) for m in ("accepté", "REFUSÉ")))
-    st.caption(f"{len(risques)} risque(s) à examiner · {deja} déjà décidé(s).")
+    col_f1, col_f2, col_f3 = st.columns([3, 2, 2])
+    types_choisis = col_f1.multiselect(
+        "Types de points", list(validations.TYPES), default=[t for t in validations.TYPES if bilan_v["par_type"][t][1]],
+        format_func=lambda t: f"{validations.TYPES[t]} ({bilan_v['par_type'][t][0]}/{bilan_v['par_type'][t][1]})", key="valid_types",
+    )
+    affichage = col_f2.radio("Afficher", ["À décider", "Tous"], horizontal=True, key="valid_affichage")
+    col_f3.download_button(
+        "Exporter la liste (.md)", validations.exporter_markdown(tous_les_points).encode("utf-8"),
+        file_name=f"points-a-valider-{projet}.md", mime="text/markdown", key="valid_export",
+        help="Un document de travail pour tout relire hors du site ; les décisions se prennent ici.",
+    )
+    visibles = [i for i in tous_les_points if i["type"] in types_choisis and (affichage == "Tous" or not i["decision"])]
+    if not visibles:
+        st.success("Rien à décider avec ces filtres.")
+    EXPLICATIONS = {
+        "risque": "Acceptez, modifiez ou refusez chaque risque proposé. Les lignes liées des autres livrables sont affichées.",
+        "etape": "Le contrôle automatique n'a pas pu conclure sur ces étapes : relisez et dites si c'est correct.",
+        "ligne": "Les vérificateurs ne peuvent pas établir que la preuve citée soutient la ligne : comparez-les.",
+        "contradiction": "Deux documents se contredisent. Une règle écrite peut différer de la pratique : dites laquelle fait foi.",
+        "question": "Le dossier ignore ou conteste ces informations. « Non documenté » ne prouve pas que la mesure n'existe pas.",
+        "aval": "Ces lignes citent la même preuve qu'une ligne que vous avez modifiée : vérifiez qu'elles restent vraies.",
+    }
     with st.form("form_validation"):
-        choix = {}
-        for risque in risques:
-            with st.container(border=True):
-                identifiant = risque["ID"]
-                resume = " · ".join(
-                    str(risque[c]) for c in colonnes[1:3] if c.lower() not in CHAMPS_ADMIN and risque.get(c)
-                )
-                st.markdown(f"#### {identifiant} — {resume[:140]}")
-                for colonne in colonnes[1:]:
-                    if colonne.lower() in CHAMPS_ADMIN or not risque.get(colonne):
-                        continue
-                    st.markdown(f"**{colonne}** : {risque[colonne]}")
-                etat = str(risque.get("valide_par", ""))
-                if any(m in etat for m in ("accepté", "REFUSÉ")):
-                    st.caption(f"Décision actuelle : {etat}")
-                decision = st.radio(
-                    "Votre décision", ["", "accepte", "modifie", "refuse"], horizontal=True,
-                    key=f"dec_{identifiant}",
-                    format_func=lambda v: {"": "À décider", **lib.DECISIONS}[v],
-                )
-                commentaire = st.text_input(
-                    "Commentaire (obligatoire pour une modification ou un refus)",
-                    key=f"com_{identifiant}",
-                )
-                choix[identifiant] = {"decision": decision, "commentaire": commentaire}
+        saisies = {}
+        for type_ in validations.TYPES:
+            lot = [i for i in visibles if i["type"] == type_]
+            if not lot:
+                continue
+            st.subheader(f"{validations.TYPES[type_]} ({len(lot)})")
+            st.caption(EXPLICATIONS[type_])
+            for point in lot:
+                with st.container(border=True):
+                    st.markdown(f"#### {point['titre']}")
+                    if point["decision"]:
+                        libelle_d = dict(point["choix"]).get(point["decision"], point["decision"])
+                        st.caption(f"Décision enregistrée : **{libelle_d}**" + (f" — {point['analyste']}" if point.get("analyste") else "")
+                                   + (f" · « {point['commentaire']} »" if point.get("commentaire") else ""))
+                    st.markdown(f"**Pourquoi** : {point['pourquoi']}")
+                    st.markdown(f"**Quoi vérifier** : {point['quoi']}")
+                    if point["contexte"]:
+                        with st.expander("Voir le contexte (section, tableau, ligne concernée)", expanded=type_ in ("ligne", "aval", "contradiction")):
+                            st.markdown(point["contexte"])
+                    if point["preuves"]:
+                        with st.expander(f"Preuves citées ({len(point['preuves'])})"):
+                            for preuve in point["preuves"]:
+                                st.markdown(f"- `[E{preuve['id']}]` ({preuve['doc'][:40]}) : « {preuve['extrait'][:400]} »")
+                    codes = [""] + [c for c, _l in point["choix"]]
+                    libelles = {"": "À décider", **dict(point["choix"])}
+                    decision = st.radio(
+                        "Votre décision", codes, key=f"vdec_{point['id']}",
+                        index=codes.index(point["decision"]) if point["decision"] in codes else 0,
+                        format_func=lambda v, libelles=libelles: libelles[v],
+                    )
+                    commentaire = st.text_area(
+                        "Commentaire (obligatoire pour une correction, une modification ou une réponse)",
+                        value=point["commentaire"], key=f"vcom_{point['id']}", height=70,
+                    )
+                    saisies[point["id"]] = {"decision": decision, "commentaire": commentaire}
         envoyer = st.form_submit_button("Enregistrer mes décisions", type="primary")
     if envoyer:
-        manque = [i for i, c in choix.items() if c["decision"] in ("modifie", "refuse") and not c["commentaire"].strip()]
-        if manque:
-            st.error(f"Un commentaire est obligatoire pour : {', '.join(manque)}.")
-        else:
-            try:
-                bilan = lib.enregistrer_decisions(dossier, analyste, choix)
-                st.session_state["_flash_valid"] = [(
-                    "ok",
-                    f"Décisions enregistrées : {bilan['acceptes']} accepté(s), {bilan['modifies']} modifié(s), "
-                    f"{bilan['refuses']} refusé(s), {bilan['en_attente']} en attente.",
-                )]
-                st.rerun()
-            except ValueError as exc:
-                st.error(str(exc))
+        try:
+            resultat = validations.enregistrer(dossier, analyste, saisies, tous_les_points)
+            st.session_state["_flash_valid"] = [(
+                "ok",
+                f"{resultat['enregistres']} décision(s) enregistrée(s). Pour appliquer vos corrections aux lignes concernées "
+                "et mettre à jour la synthèse, utilisez « Appliquer mes décisions » en bas de page.",
+            )]
+            st.rerun()
+        except ValueError as exc:
+            st.error(str(exc))
+    en_attente_v = propagation.en_attente(dossier)
     fichier_validation = dossier / "06-validation.md"
-    if fichier_validation.is_file() and "Validation humaine" in fichier_validation.read_text(encoding="utf-8", errors="replace"):
+    a_appliquer = len(en_attente_v)
+    if a_appliquer or (fichier_validation.is_file() and "Validation humaine" in fichier_validation.read_text(encoding="utf-8", errors="replace")):
         st.divider()
         st.subheader("Appliquer mes décisions")
         st.caption(
-            "Une décision « tel quel » ne change rien. Pour une modification, seules les lignes liées au risque sont "
-            "réécrites (menaces, évaluation, traitement, registre) puis contrôlées par le programme ; tout est tracé dans "
-            "`PROPAGATION.md`. Ensuite la synthèse est mise à jour (risques refusés écartés). "
-            "L'ancienne est conservée dans `SYNTHESE.avant-validation.md`."
+            f"{a_appliquer} décision(s) à appliquer. Une décision « tel quel » ne change rien. Une correction réécrit "
+            "seulement les lignes concernées, contrôlées par le programme (colonnes, preuves, composants inventés) ; tout "
+            "est tracé dans `PROPAGATION.md`. Les lignes plus loin qui citent la même preuve vous reviennent ici comme "
+            "« impact à revoir ». Ensuite la synthèse est mise à jour. L'ancienne est conservée dans "
+            "`SYNTHESE.avant-validation.md`."
         )
         if st.button("Appliquer mes décisions et mettre à jour la synthèse", key="resynthese"):
             try:

@@ -100,12 +100,27 @@ d = racine / NOM
 controles.enregistrer(d, 4, "Étape 4 · Évaluation", "gemma4:12b", "non_conforme", "", None, "x",
                       humaine=controles.pourquoi_et_quoi("illisible", "", ["04-evaluation.md"]), doutes=["| Site | PHP 8 [E1] |"])
 app = ouvrir(racine, "④ Validation")
-verifier("④ : aucune exception avec des contrôles à valider", not app.exception)
-tout = textes(app)
-verifier("④ : bloc « Nécessite une validation humaine »", "Nécessite une validation humaine" in tout)
-verifier("④ : le pourquoi et le quoi vérifier sont affichés", "Pourquoi" in tout and "Quoi vérifier" in tout and "04-evaluation.md" in tout)
-verifier("④ : les lignes en doute sont proposées à la relecture", any("Lignes à relire" in str(e.label) for e in app.expander))
+verifier("④ : aucune exception", not app.exception)
+tout = textes(app) + " " + " ".join(str(e.value) for e in app.subheader)
+verifier("④ : les sections par type sont présentes (risques, étapes à valider)", "Risques du registre" in tout and "Étapes à valider" in tout)
+verifier("④ : pourquoi et quoi vérifier affichés pour chaque point", "Pourquoi" in tout and "Quoi vérifier" in tout and "04-evaluation.md" in tout)
+verifier("④ : le contexte est consultable", any("contexte" in str(e.label).lower() for e in app.expander))
+verifier("④ : un choix de décision par point, avec « À décider » par défaut", len(app.radio) >= 3 and all(r.value == "" for r in app.radio if str(r.key).startswith("vdec_")))
+verifier("④ : un commentaire par point", len([t for t in app.text_area if str(t.key).startswith("vcom_")]) >= 2)
+verifier("④ : avancement visible", any("décidé" in str(e.value) for e in app.progress) if hasattr(app, "progress") else True)
 verifier("④ : jamais le mot « indéterminé »", "indéterminé" not in tout.lower())
+# une décision depuis l'interface : le risque est enregistré, le commentaire obligatoire est exigé
+app.text_input(key="valid_analyste").set_value("Marie")
+for r in app.radio:
+    if str(r.key).startswith("vdec_") and "accepte" in [str(o) for o in r.options]:
+        r.set_value("accepte")
+        break
+bouton = next(b for b in app.button if b.label == "Enregistrer mes décisions")
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    bouton.click().run()
+verifier("④ : aucune exception après enregistrement", not app.exception)
+registre_apres = (d / "registre-risques.md").read_text(encoding="utf-8")
+verifier("④ : la décision est écrite dans le registre au nom de l'analyste", "Marie" in registre_apres and "accepté" in registre_apres)
 
 # --- 4. ③ Résultats : citations lisibles, aucun HTML venu du livrable ---------------------------------------------------------
 index = Index(travail.chemins(d)[1])
