@@ -330,13 +330,13 @@ RE_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # Principe de la soutenance (CHOIX-MODELES-IA.md) : le plus capable raisonne, le rapide extrait,
 # et le JUGE est d'une autre famille que le producteur (mêmes angles morts sinon).
 ROUTAGE = {
-    "e21-analyse-existant": ["qwen3.5:9b", "qwen3:14b"],           # extraction depuis les intrants
-    "e21-choix-methode": ["qwen3.5:9b", "qwen3:14b"],              # arbitrage de méthode
-    "e21-menaces": ["qwen3.5:9b", "qwen3:14b"],                    # cœur métier
-    "e21-evaluation": ["qwen3.5:9b", "qwen3:14b"],                 # probabilité × impact
-    "e21-traitement": ["qwen3.5:9b", "qwen3:14b"],                 # contre-mesures sourcées
-    "e21-validation-suivi": ["qwen3.5:9b", "qwen3:14b"],           # mise en forme du registre
-    "e21-synthese": ["qwen3.5:9b", "qwen3:14b"],                   # rédaction finale
+    "e21-analyse-existant": ["qwen3.5:9b", "qwen3:8b"],           # extraction depuis les intrants
+    "e21-choix-methode": ["qwen3.5:9b", "qwen3:8b"],              # arbitrage de méthode
+    "e21-menaces": ["qwen3.5:9b", "qwen3:8b"],                    # cœur métier
+    "e21-evaluation": ["qwen3.5:9b", "qwen3:8b"],                 # probabilité × impact
+    "e21-traitement": ["qwen3.5:9b", "qwen3:8b"],                 # contre-mesures sourcées
+    "e21-validation-suivi": ["qwen3.5:9b", "qwen3:8b"],           # mise en forme du registre
+    "e21-synthese": ["qwen3.5:9b", "qwen3:8b"],                   # rédaction finale
 }
 JUGES = {"qwen": ["gemma4:12b"], "gemma": ["qwen3.5:9b"]}
 MODELE_DEFAUT = "ollama/qwen3.5:9b"
@@ -784,7 +784,7 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
             diagnostic = ""
             debut_etape = time.time() - 1
             for essai in range(1, ESSAIS + 1):
-                m = choisir_modele(agent, essai + tour, installes, defaut) if auto else modele
+                m = choisir_modele(agent, essai, installes, defaut) if auto else modele  # une REPRISE reste sur le modèle principal : seul un essai raté change de modèle
                 dernier_modele = m
                 _journal(f"[chaine] {agent} · modèle {m} · essai {essai}/{ESSAIS}" + (f" · reprise {tour}" if tour else ""))
                 texte = consigne(agent, dossier_nom, fichiers, manquants, diagnostic, avec_preuves=bool(preuves_f))

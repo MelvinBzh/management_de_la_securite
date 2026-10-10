@@ -60,12 +60,12 @@ for args in (("", ["R-01"]), ("A", ["R-99"])):
         verifier("validation invalide refusée", True)
 
 # --- routage par agent et contrôle bloquant ------------------------------------------------
-ins = {"qwen3.5:9b", "granite4:7b-a1b-h", "gemma4:12b", "qwen3:14b", "llama3.1:8b"}
+ins = {"qwen3.5:9b", "granite4:7b-a1b-h", "gemma4:12b", "qwen3:8b", "qwen3:14b", "llama3.1:8b"}
 verifier("routage : extraction sur qwen3.5 (granite écarté)", chaine.choisir_modele("e21-analyse-existant", 1, ins, "d") == "ollama/qwen3.5:9b")
 verifier("routage : granite n'apparaît plus nulle part", all("granite" not in m for l in chaine.ROUTAGE.values() for m in l) and all("granite" not in m for l in chaine.JUGES.values() for m in l) and "granite" not in chaine.JUGES)
 verifier("routage : raisonnement sur qwen3.5", chaine.choisir_modele("e21-menaces", 1, ins, "d") == "ollama/qwen3.5:9b")
-verifier("routage : la 2e tentative change de modèle", chaine.choisir_modele("e21-analyse-existant", 2, ins, "d") == "ollama/qwen3:14b")
-verifier("routage : repli si le modèle manque", chaine.choisir_modele("e21-menaces", 1, {"qwen3:14b"}, "d") == "ollama/qwen3:14b")
+verifier("routage : la 2e tentative change de modèle", chaine.choisir_modele("e21-analyse-existant", 2, ins, "d") == "ollama/qwen3:8b")
+verifier("routage : repli si le modèle manque", chaine.choisir_modele("e21-menaces", 1, {"qwen3:8b"}, "d") == "ollama/qwen3:8b")
 verifier("routage : jamais un modèle à 4/6 d'outils pour écrire", all(m not in ("llama3.1:8b", "mistral:7b", "gemma4:12b", "qwen3-vl:8b") for l in chaine.ROUTAGE.values() for m in l))
 verifier("juge : autre famille que le producteur (qwen -> gemma)", chaine.choisir_juge("ollama/qwen3.5:9b", ins, "d") == "ollama/gemma4:12b")
 verifier("juge : gemma relu par qwen", chaine.choisir_juge("ollama/gemma4:12b", ins, "d") == "ollama/qwen3.5:9b")
