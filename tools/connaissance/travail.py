@@ -47,6 +47,19 @@ def chemins(dossier_projet: str | Path) -> tuple[Path, Path, Path]:
 
 
 def _vivant(pid: int) -> bool:
+    """Le processus `pid` existe-t-il encore ? (Sous Windows, `os.kill(pid, 0)` TERMINE le processus : on l'interroge à part.)"""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        noyau = ctypes.windll.kernel32
+        poignee = noyau.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not poignee:
+            return False
+        code = ctypes.c_ulong()
+        noyau.GetExitCodeProcess(poignee, ctypes.byref(code))
+        noyau.CloseHandle(poignee)
+        return code.value == 259  # STILL_ACTIVE
     try:
         os.kill(pid, 0)
     except (OSError, ValueError):

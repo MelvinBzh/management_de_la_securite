@@ -33,6 +33,7 @@ Usage : `python -m web.chaine <cas> <dossier-analyse> <modele|auto>`.
 """
 from __future__ import annotations
 
+import os
 import re
 import signal
 import subprocess
@@ -329,6 +330,13 @@ JUGES = {"qwen": ["gemma4:12b"], "gemma": ["qwen3.5:9b"]}
 MODELE_DEFAUT = "ollama/qwen3.5:9b"
 ROUNDS_CONTROLE = 2           # reprises demandées par le contrôle avant « terminé avec réserves »
 LIMITE_CORRECTIONS = 1500
+
+
+def regler_endpoint(endpoint: str) -> None:
+    """Le paquet `tools.connaissance` lit `OLLAMA_ENDPOINT` : on lui donne le serveur des réglages du site
+    (sinon, dans le conteneur, il viserait `localhost` et non le PC qui héberge le GPU)."""
+    if endpoint:
+        os.environ["OLLAMA_ENDPOINT"] = endpoint
 
 
 def modeles_installes(endpoint: str) -> set[str]:
@@ -731,6 +739,7 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
     installes: set[str] = set()
     if auto:
         from web import reglages
+        regler_endpoint(reglages.charger().get("endpoint", ""))
         installes = modeles_installes(reglages.charger().get("endpoint", ""))
         declares = modeles_declares(cli)
         non_declares = sorted(m for m in installes if declares and m not in declares and any(m in l for l in ROUTAGE.values()))
@@ -855,6 +864,7 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
     installes: set[str] = set()
     if auto:
         from web import reglages
+        regler_endpoint(reglages.charger().get("endpoint", ""))
         installes = modeles_installes(reglages.charger().get("endpoint", ""))
         declares = modeles_declares(cli)
         if declares:
