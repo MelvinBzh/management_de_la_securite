@@ -191,8 +191,12 @@ def test_web_01():
     assert app.file_uploader, "téléverseur de documents absent"
     assert len(app.radio[0].options) == 9, f"9 entrées attendues : {app.radio[0].options}"
     # Chaque page de la navigation doit s'afficher sans exception.
-    for nom in app.radio[0].options:
-        app.radio[0].set_value(nom).run()
+    options = list(app.radio[0].options)
+    for nom in options:
+        # une session neuve par page : une page qui s'arrête (`st.stop()`, ex. ④ sans registre) vide l'arbre de test
+        app = AppTest.from_file(str(APP), default_timeout=90)
+        app.session_state["nav"] = nom
+        app.run()
         assert not app.exception, f"page « {nom} » : {app.exception[0].message}"
         pages = [element.value for element in app.title]
         mots = [m for m in nom.replace("Avancé · ", "").split(" ") if m.strip("①②③④")]  # « ② Lancer… » → « Lancer… »
