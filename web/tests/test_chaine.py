@@ -241,8 +241,8 @@ dpp = dossier_avec({"00-description.md": "# A" + "a" * 9000, "01-actifs.md": "# 
 (dpp / "connaissance" / "preuves-etape-4.md").write_text("# P" + "p" * 12000, encoding="utf-8")
 pjp = chaine.pieces_jointes(dpp, dpp / "connaissance" / "preuves-etape-4.md")
 verifier("preuves : le dossier de preuves passe en premier", pjp[0].endswith("preuves-etape-4.md"))
-verifier("preuves : budget réduit, livrable le plus récent gardé d'abord", sum((Path(p)).stat().st_size for p in pjp) <= chaine.BUDGET_PIECES_PREUVES
-         and any(p.endswith("02-methodes.md") for p in pjp) and not any(p.endswith("00-description.md") for p in pjp))
+verifier("preuves : pas de réduction du budget (40 Ko), livrables récents d'abord", chaine.BUDGET_PIECES_PREUVES == chaine.BUDGET_PIECES
+         and sum((Path(p)).stat().st_size for p in pjp) <= chaine.BUDGET_PIECES and pjp[1].endswith("02-methodes.md"))
 verifier("une seule reprise demandée au contrôle", chaine.ROUNDS_CONTROLE == 1)
 
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")

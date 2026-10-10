@@ -298,7 +298,7 @@ def _journal(texte: str) -> None:
 # Volume maximal de pièces jointes par appel (octets) : borne le contexte du modèle.
 BUDGET_PIECES = 40000
 BUDGET_CONTROLE = 40000
-BUDGET_PIECES_PREUVES = 26000  # dossier de preuves (≈ 13 Ko) + les livrables précédents les plus récents
+BUDGET_PIECES_PREUVES = BUDGET_PIECES  # pas de réduction : demande de l'analyste (les pièces jointes restent à 40 Ko)
 
 
 def pieces_jointes(dossier: Path, preuves_fichier: Path | None = None) -> list[str]:
