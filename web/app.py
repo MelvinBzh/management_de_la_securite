@@ -39,7 +39,7 @@ RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
-from web import lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
+from web import controles, lib  # noqa: E402  (chemin du dépôt garanti ci-dessus)
 from web import modeles_ollama as conseils_ollama  # alias : app.py a déjà une fonction modeles_ollama()
 from web import reglages  # noqa: E402  (réglages modèles, stockage local hors git)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
@@ -1020,9 +1020,9 @@ elif page == PAGES[3]:
             aucun_livrable = n_faites == 0
             if code_sortie == 2 and n_faites == len(etapes):
                 st.warning(
-                    "Chaîne terminée **avec réserves** : le contrôle (véracité, sources, "
-                    "injection) reste « non conforme » sur certaines étapes malgré les reprises. "
-                    "Lisez `RAPPORT-CONTROLE.md` avant de valider le registre."
+                    "Chaîne terminée : **certains points nécessitent une validation humaine**. Le contrôle "
+                    "n'a pas pu les lever seul malgré les reprises. L'étape ④ vous dit pourquoi et "
+                    "quoi vérifier ; le détail est dans le rapport de contrôle numéroté."
                 )
             elif code_sortie not in (0, None) or aucun_livrable:
                 st.error(
@@ -1103,6 +1103,15 @@ elif page == PAGE_VALIDATION:
             "l'analyse » : il apparaîtra ici dès l'étape 6."
         )
         st.stop()
+    a_verifier = controles.a_valider(dossier)
+    if a_verifier:
+        with st.container(border=True):
+            st.markdown("### ⚠️ Nécessite une validation humaine")
+            st.caption("Le contrôle automatique n'a pas pu trancher seul sur ces étapes. Voici pourquoi et quoi vérifier.")
+            for point in a_verifier:
+                st.markdown(f"**{point['libelle']}** (contrôle n°{point['numero']})")
+                st.markdown(f"- *Pourquoi* : {point['humaine']['pourquoi']}")
+                st.markdown(f"- *Quoi vérifier* : {point['humaine']['quoi']}")
     CHAMPS_ADMIN = {"id", "valide_par", "date validation"}
     for genre, texte in st.session_state.pop("_flash_valid", []):
         (st.success if genre == "ok" else st.error)(texte)

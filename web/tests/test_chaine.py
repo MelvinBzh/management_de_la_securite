@@ -61,18 +61,19 @@ for args in (("", ["R-01"]), ("A", ["R-99"])):
 
 # --- routage par agent et contrôle bloquant ------------------------------------------------
 ins = {"qwen3.5:9b", "granite4:7b-a1b-h", "gemma4:12b", "qwen3:14b", "llama3.1:8b"}
-verifier("routage : extraction sur le modèle rapide", chaine.choisir_modele("e21-analyse-existant", 1, ins, "d") == "ollama/granite4:7b-a1b-h")
+verifier("routage : extraction sur qwen3.5 (granite écarté)", chaine.choisir_modele("e21-analyse-existant", 1, ins, "d") == "ollama/qwen3.5:9b")
+verifier("routage : granite n'apparaît plus nulle part", all("granite" not in m for l in chaine.ROUTAGE.values() for m in l) and all("granite" not in m for l in chaine.JUGES.values() for m in l) and "granite" not in chaine.JUGES)
 verifier("routage : raisonnement sur qwen3.5", chaine.choisir_modele("e21-menaces", 1, ins, "d") == "ollama/qwen3.5:9b")
-verifier("routage : la 2e tentative change de modèle", chaine.choisir_modele("e21-analyse-existant", 2, ins, "d") == "ollama/qwen3.5:9b")
+verifier("routage : la 2e tentative change de modèle", chaine.choisir_modele("e21-analyse-existant", 2, ins, "d") == "ollama/qwen3:14b")
 verifier("routage : repli si le modèle manque", chaine.choisir_modele("e21-menaces", 1, {"qwen3:14b"}, "d") == "ollama/qwen3:14b")
 verifier("routage : jamais un modèle à 4/6 d'outils pour écrire", all(m not in ("llama3.1:8b", "mistral:7b", "gemma4:12b", "qwen3-vl:8b") for l in chaine.ROUTAGE.values() for m in l))
 verifier("juge : autre famille que le producteur (qwen -> gemma)", chaine.choisir_juge("ollama/qwen3.5:9b", ins, "d") == "ollama/gemma4:12b")
-verifier("juge : granite relu par qwen", chaine.choisir_juge("ollama/granite4:7b-a1b-h", ins, "d") == "ollama/qwen3.5:9b")
+verifier("juge : gemma relu par qwen", chaine.choisir_juge("ollama/gemma4:12b", ins, "d") == "ollama/qwen3.5:9b")
 verifier("juge : défaut si aucune autre famille", chaine.choisir_juge("ollama/qwen3.5:9b", {"qwen3.5:9b"}, "d") == "d")
 verifier("verdict CONFORME lu", chaine.analyser_verdict("txt\nRESULTAT-CONTROLE: CONFORME") == (True, ""))
 conforme, corr = chaine.analyser_verdict("a\nRESULTAT-CONTROLE: NON CONFORME\n1. CVE inventé")
 verifier("verdict NON CONFORME + corrections lus", conforme is False and "CVE inventé" in corr)
-verifier("verdict illisible = indéterminé", chaine.analyser_verdict("rien") == (None, ""))
+verifier("verdict illisible = None (jamais « indéterminé » affiché)", chaine.analyser_verdict("rien") == (None, ""))
 verifier("le premier verdict prime sur une citation ultérieure", chaine.analyser_verdict("RESULTAT-CONTROLE: CONFORME"+chr(10)+"RESULTAT-CONTROLE: NON CONFORME")[0] is True)
 verifier("l'écho de la consigne ne déclenche aucun verdict", chaine.analyser_verdict(chaine.consigne_controle("d", 3, ["03-menaces.md"]))[0] is None)
 verifier("le juge reçoit le livrable AVANT les intrants", chaine.pieces_controle(dossier_avec({"SYNTHESE.md": "x" * 20000}), ["SYNTHESE.md"])[0].endswith("SYNTHESE.md"))
@@ -134,6 +135,54 @@ verifier("22 documents de 1,8 Ko tous joints", len(chaine.pieces_jointes(d)) == 
 verifier("un document hors budget est signalé, pas ignoré en silence", chaine.pieces_omises(d) == ["gros.md.md"])
 (d / "01-actifs.md").write_text("# A" + "z" * 600, encoding="utf-8")
 verifier("les livrables précédents passent avant les intrants", chaine.pieces_jointes(d)[0].endswith("01-actifs.md"))
+
+# --- boucle de verdict : trois contrôleurs jusqu'à un verdict lisible ------------------------------------
+verifier("3 contrôleurs : gemma, qwen, gemma", chaine.juges_en_alternance("ollama/qwen3.5:9b", ins, "d") == ["ollama/gemma4:12b", "ollama/qwen3.5:9b", "ollama/gemma4:12b"])
+appels = []
+def faux_controleur(reponses):
+    suite = iter(reponses)
+    def lancer(modele, texte, pieces):
+        appels.append((modele, texte))
+        return next(suite)
+    return lancer
+appels.clear()
+r = chaine.obtenir_verdict(faux_controleur(["blabla", "RESULTAT-CONTROLE: CONFORME"]), ["a", "b", "a"], "C", [])
+verifier("verdict illisible puis lisible : le 2e contrôleur tranche", r == (True, "", "b") and len(appels) == 2)
+appels.clear()
+r = chaine.obtenir_verdict(faux_controleur(["x", "y", "z"]), ["a", "b", "a"], "C", [])
+verifier("trois réponses illisibles : None, 3 essais, rappel de format au 3e", r == (None, "", "a") and len(appels) == 3 and "RAPPEL" in appels[2][1] and "RAPPEL" not in appels[0][1])
+appels.clear()
+r = chaine.obtenir_verdict(faux_controleur(["RESULTAT-CONTROLE: NON CONFORME" + chr(10) + "1. nginx inventé"]), ["a", "b", "a"], "C", [])
+verifier("non conforme lisible : corrections gardées, un seul appel", r[0] is False and "nginx" in r[1] and len(appels) == 1)
+
+# --- rapports de contrôle numérotés par version -------------------------------------------------
+from web import controles  # noqa: E402
+d = dossier_avec({})
+v1 = "# Menaces" + chr(10) + "Le serveur nginx héberge le site." + chr(10) + "Spoofing du back-office." + chr(10)
+v2 = "# Menaces" + chr(10) + "Le site est hébergé sur un mutualisé." + chr(10) + "Spoofing du back-office." + chr(10)
+e1 = controles.enregistrer(d, 3, "Étape 3 · Menaces", "gemma4:12b", "non_conforme", "nginx absent des intrants", None, v1)
+e2 = controles.enregistrer(d, 3, "Étape 3 · Menaces", "gemma4:12b", "conforme", "", v1, v2)
+verifier("contrôles numérotés 1 puis 2", (e1["numero"], e2["numero"]) == (1, 2))
+verifier("versions de l'étape 1 puis 2", (e1["version"], e2["version"]) == (1, 2))
+verifier("première version annoncée comme telle", "Première version" in e1["changements"])
+verifier("ce qui a changé : ligne retirée et ajoutée", "Retiré : Le serveur nginx" in e2["changements"] and "Ajouté : Le site est hébergé" in e2["changements"])
+rapport = (d / "RAPPORT-CONTROLE.md").read_text(encoding="utf-8")
+verifier("rapport lisible : numéro, version, verdict", "Contrôle n°1 — Étape 3 · Menaces, version 1 : NON CONFORME" in rapport and "Contrôle n°2" in rapport and "version 2 : CONFORME" in rapport)
+verifier("rapport : ce qui n'allait pas", "nginx absent des intrants" in rapport)
+verifier("rien à valider quand la reprise est conforme", controles.a_valider(d) == [])
+controles.enregistrer(d, 4, "Étape 4 · Évaluation", "gemma4:12b", "non_conforme", "", None, "x", humaine=controles.pourquoi_et_quoi("illisible", "", ["04-evaluation.md"]))
+att = controles.a_valider(d)
+verifier("illisible : validation humaine avec pourquoi ET quoi vérifier", len(att) == 1 and "verdict exploitable" in att[0]["humaine"]["pourquoi"] and "04-evaluation.md" in att[0]["humaine"]["quoi"])
+texte_rapport = (d / "RAPPORT-CONTROLE.md").read_text(encoding="utf-8")
+verifier("le rapport affiche « nécessite une validation humaine », jamais « indéterminé »", "NÉCESSITE UNE VALIDATION HUMAINE" in texte_rapport and "indéterminé" not in texte_rapport.lower())
+controles.enregistrer(d, 5, "Étape 5 · Traitement", "gemma4:12b", "non_conforme", "CVE-2099-1 inventé", None, "x")
+controles.marquer_humaine(d, 5, *controles.pourquoi_et_quoi("reste_non_conforme", "CVE-2099-1 inventé", ["05-traitement.md"]))
+verifier("non conforme après reprises : le pourquoi cite le point signalé", any("CVE-2099-1" in a["humaine"]["pourquoi"] for a in controles.a_valider(d)))
+verifier("deux étapes à valider listées", len(controles.a_valider(d)) == 2)
+verifier("rapport sans contrôle : message clair", "Aucun contrôle" in controles.rapport_markdown([]))
+d2 = dossier_avec({"00-description.md": "x", "controles.json": "[]", "RAPPORT-CONTROLE.md": "z"})
+arch = chaine.archiver_precedent(d2)
+verifier("un relancement archive aussi le journal des contrôles (numérotation repart de 1)", arch is not None and (arch / "controles.json").is_file() and not (d2 / "controles.json").exists())
 
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

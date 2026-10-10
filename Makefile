@@ -14,7 +14,7 @@ ADDRESS ?= 0.0.0.0
 
 .PHONY: web suite test-ingest test-preparation test-export test-web test-studio test-reseau \
 	test-detection test-methodes test-methodes-pasta test-methodes-linddun test-methodes-stride \
-	test-methodes-ebios test-studio studio-init studio-deploy agents-modele tests aide
+	test-methodes-ebios test-chaine test-connaissance test-studio studio-init studio-deploy agents-modele tests aide
 
 ## Tests autonomes du Studio (base source de vérité agents/skills).
 test-studio:
@@ -62,6 +62,14 @@ test-preparation:
 test-export:
 	$(PYTHON) tools/export/tests/test_export.py
 
+## Tests hermétiques du pilote de chaîne (routage, contrôle, rapports numérotés) : aucun modèle contacté.
+test-chaine:
+	$(PYTHON) web/tests/test_chaine.py
+
+## Tests hermétiques du dossier de connaissance (faits, relations, index, contradictions, couverture).
+test-connaissance:
+	$(PYTHON) tools/connaissance/tests/test_connaissance.py
+
 ## Tests autonomes de l'interface web (chantier #26).
 test-web:
 	$(PYTHON) web/tests/test_web.py
@@ -86,7 +94,7 @@ test-methodes-stride:
 test-methodes: test-methodes-ebios test-methodes-pasta test-methodes-linddun test-methodes-stride
 
 ## Tous les runners autonomes, puis la suite de référence.
-tests: test-ingest test-preparation test-export test-web test-reseau test-detection test-methodes suite
+tests: test-ingest test-preparation test-export test-web test-chaine test-connaissance test-reseau test-detection test-methodes suite
 
 ## Rappel des cibles disponibles.
 aide:

@@ -37,6 +37,11 @@ jobs:
             streamlit weasyprint==70.0
           (cd .opencode && test -f package.json && npm install --package-lock-only --no-audit --silent)
 
+      - name: Tests hermétiques du pilote et du dossier de connaissance
+        run: |
+          # Aucun modèle n'est contacté : ces tests doivent passer sans réseau ni Ollama.
+          OLLAMA_ENDPOINT=http://127.0.0.1:1 make test-chaine test-connaissance
+
       - name: Suite de vérification (verification.py)
         run: |
           # La suite est lancée UNE seule fois (l'exécuter deux fois de suite rendait

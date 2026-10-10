@@ -32,15 +32,17 @@ WORKDIR /app
 
 # opencode CLI (binaire autonome : Node n'est pas requis) — c'est lui qui exécute
 # la chaîne d'agents depuis le bouton « Lancer la chaîne » de l'interface.
-# Version non figée : le script d'installation choisit la dernière version publiée,
-# donc le conteneur dispose toujours du même CLI que le poste de développement.
+# Version FIGÉE (`OPENCODE_VERSION`) : une mise à jour silencieuse a déjà changé le comportement
+# des permissions d'écriture (1.18.34 → 1.18.35). Pour monter de version : la changer ici, relancer
+# `make test-web` et la chaîne sur un petit cas, puis committer.
 # Si le réseau du serveur bloque le téléchargement, construire avec
 # `--build-arg INSTALL_OPENCODE=0` : l'application fonctionne, seul le lancement
 # de la chaîne depuis l'interface est indisponible.
 ARG INSTALL_OPENCODE=1
+ARG OPENCODE_VERSION=1.18.35
 RUN if [ "$INSTALL_OPENCODE" = "1" ]; then \
         set -eux; \
-        curl -fsSL https://opencode.ai/install | bash; \
+        curl -fsSL https://opencode.ai/install | bash -s -- --version "$OPENCODE_VERSION"; \
         ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode; \
         opencode --version; \
     else \

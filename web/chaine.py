@@ -45,7 +45,7 @@ RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
     sys.path.insert(0, str(RACINE))
 
-from web import lib  # noqa: E402
+from web import controles, lib  # noqa: E402
 
 # Relances par étape, durée maximale d'un appel opencode, taille minimale utile.
 ESSAIS = 3
@@ -292,7 +292,7 @@ RE_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # --- routage : le meilleur modèle disponible pour chaque tâche -----------------------------
 # Mesuré le 2026-10-09 (RTX 5070 12 Go ; 6 appels d'outils aux schémas d'opencode ; vitesse) :
 #   qwen3.5:9b        6/6 · 93 tok/s · 5,9 Go    (BFCL v4 66,1 · IFEval 91,5, publiés)
-#   granite4:7b-a1b-h 6/6 · 249 tok/s · 4,7 Go   (BFCL v4 52,4 : rapide, moins fin)
+#   granite4:7b-a1b-h 6/6 · 249 tok/s · 4,7 Go   (a décrit UN seul document sur 22 : écarté du routage)
 #   qwen3:8b          6/6 · 103 tok/s · 7,6 Go
 #   qwen3:14b         6/6 · 15 tok/s · déborde de la carte → trop lent
 #   gemma4:12b        4/6 (oublie la clé `description`) → juge seulement, sans outils
@@ -300,15 +300,15 @@ RE_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # Principe de la soutenance (CHOIX-MODELES-IA.md) : le plus capable raisonne, le rapide extrait,
 # et le JUGE est d'une autre famille que le producteur (mêmes angles morts sinon).
 ROUTAGE = {
-    "e21-analyse-existant": ["granite4:7b-a1b-h", "qwen3.5:9b"],  # extraction depuis les intrants
+    "e21-analyse-existant": ["qwen3.5:9b", "qwen3:14b"],           # extraction depuis les intrants
     "e21-choix-methode": ["qwen3.5:9b", "qwen3:14b"],              # arbitrage de méthode
     "e21-menaces": ["qwen3.5:9b", "qwen3:14b"],                    # cœur métier
     "e21-evaluation": ["qwen3.5:9b", "qwen3:14b"],                 # probabilité × impact
     "e21-traitement": ["qwen3.5:9b", "qwen3:14b"],                 # contre-mesures sourcées
-    "e21-validation-suivi": ["granite4:7b-a1b-h", "qwen3.5:9b"],   # mise en forme du registre
+    "e21-validation-suivi": ["qwen3.5:9b", "qwen3:14b"],           # mise en forme du registre
     "e21-synthese": ["qwen3.5:9b", "qwen3:14b"],                   # rédaction finale
 }
-JUGES = {"qwen": ["gemma4:12b", "granite4:7b-a1b-h"], "granite": ["qwen3.5:9b"], "gemma": ["qwen3.5:9b"]}
+JUGES = {"qwen": ["gemma4:12b"], "gemma": ["qwen3.5:9b"]}
 MODELE_DEFAUT = "ollama/qwen3.5:9b"
 ROUNDS_CONTROLE = 2           # reprises demandées par le contrôle avant « terminé avec réserves »
 LIMITE_CORRECTIONS = 1500
@@ -492,17 +492,32 @@ def purger_hors_etape(dossier: Path, numero: int, depuis: float) -> list[str]:
     return retires
 
 
-def _rapport(dossier: Path, numero: int, libelle: str, modele: str, conforme: bool | None, corrections: str) -> None:
-    """Ajoute au RAPPORT-CONTROLE.md la décision du contrôle (écrite par le pilote)."""
-    etat = {True: "CONFORME", False: "NON CONFORME", None: "INDÉTERMINÉ (réponse illisible)"}[conforme]
-    ligne = f"\n## {libelle} — {etat}\n\n- Contrôleur : {modele}\n"
-    if corrections:
-        ligne += f"- Corrections demandées : {corrections}\n"
-    chemin = Path(dossier) / "RAPPORT-CONTROLE.md"
-    if not chemin.exists():
-        chemin.write_text("# RAPPORT-CONTROLE\n\nGénéré par le pilote de chaîne (web/chaine.py).\n", encoding="utf-8")
-    with open(chemin, "a", encoding="utf-8") as sortie:
-        sortie.write(ligne)
+RAPPEL_FORMAT = (" RAPPEL : ta toute première ligne doit être exactement « RESULTAT-CONTROLE: CONFORME » ou "
+                 "« RESULTAT-CONTROLE: NON CONFORME », sans rien avant.")
+
+
+def juges_en_alternance(modele_producteur: str, installes: set[str], defaut: str) -> list[str]:
+    """Les 3 contrôleurs successifs : un juge d'une autre famille que le producteur, puis un second
+    avis d'une autre famille que ce premier juge, puis le premier avec un rappel de format."""
+    premier = choisir_juge(modele_producteur, installes, defaut)
+    return [premier, choisir_juge(premier, installes, defaut), premier]
+
+
+def obtenir_verdict(lancer, juges: list[str], consigne_texte: str, pieces: list[str]) -> tuple[bool | None, str, str]:
+    """Interroge les contrôleurs jusqu'à un verdict LISIBLE. Renvoie (conforme, corrections, contrôleur).
+
+    `lancer(modele, consigne, pieces)` renvoie la sortie du contrôle. Après `len(juges)` réponses
+    illisibles, `conforme` reste None : l'appelant demande alors une validation humaine, jamais un
+    « indéterminé » muet."""
+    dernier = juges[0]
+    for rang, juge in enumerate(juges):
+        dernier = juge
+        texte = consigne_texte + (RAPPEL_FORMAT if rang >= 2 else "")
+        conforme, corrections = analyser_verdict(lancer(juge, texte, pieces))
+        if conforme is not None:
+            return conforme, corrections, juge
+        _journal(f"[chaine] verdict illisible ({rang + 1}/{len(juges)}) · modèle {juge}")
+    return None, "", dernier
 
 
 # --- ancrage dans les informations d'origine ------------------------------------------------
@@ -586,7 +601,7 @@ def consigne_relecture(dossier_nom: str) -> str:
     )
 
 
-def relecture_finale(cli: str, dossier: Path, dossier_nom: str, modele: str) -> tuple[bool | None, str]:
+def relecture_finale(cli: str, dossier: Path, dossier_nom: str, juges: list[str]) -> tuple[bool | None, str, str]:
     """Dernière revue : un agent compare registre + synthèse aux informations d'origine."""
     candidats = [dossier / "registre-risques.md", dossier / "SYNTHESE.md"]
     candidats += sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
@@ -598,8 +613,9 @@ def relecture_finale(cli: str, dossier: Path, dossier_nom: str, modele: str) -> 
         if total > BUDGET_CONTROLE and pieces:
             break
         pieces.append(str(chemin.relative_to(lib.RACINE)) if chemin.is_relative_to(lib.RACINE) else str(chemin))
-    _, sortie = _lancer_agent(cli, "e21-controle", modele, consigne_relecture(dossier_nom), pieces)
-    return analyser_verdict(sortie)
+    return obtenir_verdict(
+        lambda m, texte, p: _lancer_agent(cli, "e21-controle", m, texte, p)[1],
+        juges, consigne_relecture(dossier_nom), pieces)
 
 
 def archiver_precedent(dossier: Path) -> Path | None:
@@ -608,7 +624,7 @@ def archiver_precedent(dossier: Path) -> Path | None:
     Sans cela, un relancement affichait « ✓ » pour des étapes pas encore refaites (l'interface
     déduit l'avancement des fichiers présents) et écrasait le travail précédent sans trace.
     """
-    noms = [n for _a, _l, fs in ETAPES for n in fs] + ["RAPPORT-CONTROLE.md", lib.NOM_JSON_REGISTRE]
+    noms = [n for _a, _l, fs in ETAPES for n in fs] + ["RAPPORT-CONTROLE.md", controles.NOM_JSON, lib.NOM_JSON_REGISTRE]
     presents = [Path(dossier) / n for n in noms if (Path(dossier) / n).is_file()]
     if not presents:
         return None
@@ -651,6 +667,7 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
         corrections = ""
         conforme: bool | None = None
         dernier_modele = defaut
+        version_precedente: str | None = None
         for tour in range(ROUNDS_CONTROLE + 1):
             manquants: list[str] | None = None
             diagnostic = ""
@@ -676,43 +693,56 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str) -> int:
             if manquants:
                 _journal(f"[chaine] ÉCHEC à l'étape {numero} : {', '.join(manquants)} — chaîne interrompue.")
                 return 1
+            apres = controles.texte_des_livrables(dossier, fichiers)
             faits = faits_non_fondes(dossier, fichiers)
             if faits:
                 conforme, corrections = False, faits
-                _rapport(dossier, numero, libelle, "contrôle déterministe (termes absents des intrants)", False, faits)
+                controles.enregistrer(dossier, numero, libelle, "contrôle déterministe (termes absents des intrants)",
+                                      "non_conforme", faits, version_precedente, apres)
+                version_precedente = apres
                 _journal(f"[chaine] faits non fondés (tour {tour + 1}/{ROUNDS_CONTROLE + 1}) : {faits[:200]}")
                 if tour < ROUNDS_CONTROLE:
                     continue
                 break
-            mc = choisir_juge(dernier_modele, installes, defaut) if auto else modele
-            _journal(f"[chaine] contrôle de l'étape {numero} · modèle {mc}")
-            _, sortie_controle = _lancer_agent(cli, "e21-controle", mc, consigne_controle(dossier_nom, numero, fichiers), pieces_controle(dossier, fichiers))
-            conforme, corrections = analyser_verdict(sortie_controle)
-            if conforme is None:  # réponse illisible : une seconde demande, sur l'autre juge si possible
-                mc2 = choisir_juge("ollama/" + mc.split("/", 1)[-1], installes - {mc.split("/", 1)[-1]}, mc) if auto else mc
-                _journal(f"[chaine] verdict illisible — second avis · modèle {mc2}")
-                _, sortie_controle = _lancer_agent(cli, "e21-controle", mc2, consigne_controle(dossier_nom, numero, fichiers), pieces_controle(dossier, fichiers))
-                conforme, corrections = analyser_verdict(sortie_controle)
-                mc = mc2
-            _rapport(dossier, numero, libelle, mc, conforme, corrections)
-            if conforme is not False:
+            juges = juges_en_alternance(dernier_modele, installes, defaut) if auto else [modele] * 3
+            _journal(f"[chaine] contrôle de l'étape {numero} · modèles {', '.join(dict.fromkeys(juges))}")
+            conforme, corrections, mc = obtenir_verdict(
+                lambda m, texte, p: _lancer_agent(cli, "e21-controle", m, texte, p)[1],
+                juges, consigne_controle(dossier_nom, numero, fichiers), pieces_controle(dossier, fichiers))
+            if conforme is None:  # jamais d'« indéterminé » muet : la décision revient à l'analyste
+                controles.enregistrer(dossier, numero, libelle, mc, "non_conforme", "", version_precedente, apres,
+                                      humaine=controles.pourquoi_et_quoi("illisible", "", fichiers))
+                version_precedente = apres
+                break
+            controles.enregistrer(dossier, numero, libelle, mc, "conforme" if conforme else "non_conforme",
+                                  corrections, version_precedente, apres)
+            version_precedente = apres
+            if conforme:
                 break
             _journal(f"[chaine] contrôle NON CONFORME (tour {tour + 1}/{ROUNDS_CONTROLE + 1}) : {corrections[:200]}")
         reussies += 1
-        if conforme is False:
-            reserves.append(numero)
-            _journal(f"[chaine] étape {numero} terminée AVEC RÉSERVES (le contrôle reste non conforme).")
+        if conforme is True:
+            _journal(f"[chaine] étape {numero} : livrables OK et contrôle conforme.")
         else:
-            _journal(f"[chaine] étape {numero} : livrables OK et contrôle {'conforme' if conforme else 'indéterminé'}.")
-    jf = choisir_juge("ollama/qwen3.5:9b", installes, defaut) if auto else modele
-    _journal(f"[chaine] relecture finale (registre + synthèse face aux informations d'origine) · modèle {jf}")
-    conforme_f, corr_f = relecture_finale(cli, dossier, dossier_nom, jf)
-    _rapport(dossier, 8, "Relecture finale", jf, conforme_f, corr_f)
+            if conforme is False:  # reprises épuisées : on explique pourquoi et quoi relire
+                controles.marquer_humaine(dossier, numero, *controles.pourquoi_et_quoi("reste_non_conforme", corrections, fichiers))
+            reserves.append(numero)
+            _journal(f"[chaine] étape {numero} : NÉCESSITE UNE VALIDATION HUMAINE (voir {controles.NOM_RAPPORT}).")
+    juges_f = juges_en_alternance("ollama/qwen3.5:9b", installes, defaut) if auto else [modele] * 3
+    _journal(f"[chaine] relecture finale (registre + synthèse face aux informations d'origine) · modèles {', '.join(dict.fromkeys(juges_f))}")
+    conforme_f, corr_f, jf = relecture_finale(cli, dossier, dossier_nom, juges_f)
+    apres_f = controles.texte_des_livrables(dossier, ["registre-risques.md", "SYNTHESE.md"])
+    fichiers_f = ["registre-risques.md", "SYNTHESE.md"]
+    controles.enregistrer(dossier, "finale", "Relecture finale", jf, "non_conforme" if not conforme_f else "conforme",
+                          corr_f, None, apres_f,
+                          humaine=controles.pourquoi_et_quoi("illisible", "", fichiers_f) if conforme_f is None else None)
     if conforme_f is False:
+        controles.marquer_humaine(dossier, "finale", *controles.pourquoi_et_quoi("reste_non_conforme", corr_f, fichiers_f))
+    if conforme_f is not True:
         reserves.append("finale")
-        _journal(f"[chaine] relecture finale NON CONFORME : {corr_f[:200]}")
+        _journal(f"[chaine] relecture finale : NÉCESSITE UNE VALIDATION HUMAINE ({corr_f[:200] or 'verdict illisible'})")
     _journal(f"[chaine] {reussies}/{len(ETAPES)} étapes abouties"
-             + (f", réserves aux étapes {reserves}" if reserves else "")
+             + (f", validation humaine demandée : {reserves}" if reserves else "")
              + " — registre en attente de validation humaine.")
     return 2 if reserves else 0
 

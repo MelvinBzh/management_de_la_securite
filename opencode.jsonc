@@ -17,6 +17,11 @@
   // supplémentaire. Sans serveur Ollama actif, ce fournisseur est simplement
   // inutilisé — aucune des deux configurations ne casse.
   "$schema": "https://opencode.ai/config.json",
+  // Compaction : `reserved` est la marge LAISSÉE LIBRE (pas un plafond). Plus elle est grande, plus
+  // opencode résume TÔT la conversation et plus l'agent perd de détails (cause mesurée des
+  // hallucinations). On la garde petite : le résumé n'arrive qu'à la dernière extrémité, et `prune`
+  // retire d'abord les anciennes sorties d'outils (relectures de fichiers) au lieu de tout résumer.
+  "compaction": { "auto": true, "prune": true, "reserved": 4096 },
   "provider": {
     "ollama": {
       "options": {
@@ -45,7 +50,6 @@
         // Modèles testés pour l'appel d'outils (audit 2026-10-09) : qwen3:8b = 6/6 appels valides,
         // llama3.1:8b / mistral:7b / qwen3-vl:8b = 4/6 seulement → inutilisables pour piloter la chaîne.
         "qwen3.5:9b":         { "name": "qwen3.5:9b",         "limit": { "context": 32768, "output": 8192 } },   // raisonnement + outils (6/6, 93 tok/s)
-        "granite4:7b-a1b-h":  { "name": "granite4:7b-a1b-h",  "limit": { "context": 32768, "output": 4096 } },   // extraction rapide (6/6, 249 tok/s)
         "gemma4:12b":         { "name": "gemma4:12b",         "limit": { "context": 32768, "output": 4096 } },   // juge d'une autre famille (sans outils : 4/6)
         "qwen3:8b":           { "name": "qwen3:8b",           "limit": { "context": 32768, "output": 8192 } },   // recommandé (outils fiables)
         "qwen3:14b":          { "name": "qwen3:14b",          "limit": { "context": 32768, "output": 8192 } },   // plus capable, serré sur 12 Go
