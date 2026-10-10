@@ -235,5 +235,15 @@ verifier("ligne aux cellules toutes vides : non comptée", chaine._lignes_de_tab
 dv = dossier_avec({"03-menaces.md": vide + "texte " * 100})
 verifier("le livrable de tableaux vides est refusé", chaine.livrables_manquants(dv, ["03-menaces.md"]) == ["03-menaces.md"] and "au moins 5 lignes" in chaine.diagnostiquer(dv, ["03-menaces.md"]))
 
+# --- mode preuves : budget réduit, livrables les plus récents d'abord ---------------------------------------------------
+dpp = dossier_avec({"00-description.md": "# A" + "a" * 9000, "01-actifs.md": "# B" + "b" * 9000, "02-methodes.md": "# C" + "c" * 9000})
+(dpp / "connaissance").mkdir()
+(dpp / "connaissance" / "preuves-etape-4.md").write_text("# P" + "p" * 12000, encoding="utf-8")
+pjp = chaine.pieces_jointes(dpp, dpp / "connaissance" / "preuves-etape-4.md")
+verifier("preuves : le dossier de preuves passe en premier", pjp[0].endswith("preuves-etape-4.md"))
+verifier("preuves : budget réduit, livrable le plus récent gardé d'abord", sum((Path(p)).stat().st_size for p in pjp) <= chaine.BUDGET_PIECES_PREUVES
+         and any(p.endswith("02-methodes.md") for p in pjp) and not any(p.endswith("00-description.md") for p in pjp))
+verifier("une seule reprise demandée au contrôle", chaine.ROUNDS_CONTROLE == 1)
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

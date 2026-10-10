@@ -298,6 +298,7 @@ def _journal(texte: str) -> None:
 # Volume maximal de pièces jointes par appel (octets) : borne le contexte du modèle.
 BUDGET_PIECES = 40000
 BUDGET_CONTROLE = 40000
+BUDGET_PIECES_PREUVES = 26000  # dossier de preuves (≈ 13 Ko) + les livrables précédents les plus récents
 
 
 def pieces_jointes(dossier: Path, preuves_fichier: Path | None = None) -> list[str]:
@@ -310,17 +311,23 @@ def pieces_jointes(dossier: Path, preuves_fichier: Path | None = None) -> list[s
     comme pièce jointe, jamais dans la consigne.
     """
     dossier = Path(dossier)
-    candidats = [dossier / n for _a, _l, fs in ETAPES for n in fs]
-    if preuves_fichier is not None:  # le dossier de preuves REMPLACE les documents d'origine
-        candidats.append(Path(preuves_fichier))
+    budget = BUDGET_PIECES
+    if preuves_fichier is not None:
+        # le dossier de preuves REMPLACE les documents d'origine : il passe en premier, suivi des livrables précédents
+        # LES PLUS RÉCENTS d'abord, dans un budget réduit (mesuré : à 40 Ko, le contexte de 32 k débordait et opencode
+        # résumait la conversation — 13 résumés automatiques sur un run de 7 étapes)
+        budget = BUDGET_PIECES_PREUVES
+        precedents = [dossier / n for _a, _l, fs in ETAPES for n in fs]
+        candidats = [Path(preuves_fichier)] + list(reversed(precedents))
     else:
+        candidats = [dossier / n for _a, _l, fs in ETAPES for n in fs]
         candidats += sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
     retenus, total = [], 0
     for chemin in candidats:
         if not chemin.is_file() or chemin.name.startswith("chaine-"):
             continue
         taille = chemin.stat().st_size
-        if total + taille > BUDGET_PIECES:
+        if total + taille > budget:
             continue
         total += taille
         retenus.append(str(chemin.relative_to(lib.RACINE)) if chemin.is_relative_to(lib.RACINE) else str(chemin))
@@ -357,7 +364,10 @@ ROUTAGE = {
 }
 JUGES = {"qwen": ["gemma4:12b"], "gemma": ["qwen3.5:9b"]}
 MODELE_DEFAUT = "ollama/qwen3.5:9b"
-ROUNDS_CONTROLE = 2           # reprises demandées par le contrôle avant « terminé avec réserves »
+ROUNDS_CONTROLE = 1           # reprises demandées par le contrôle avant « validation humaine »
+# Mesuré le 2026-10-10 (Nordval, 22 documents, qwen3.5:9b) : avec 2 reprises, les 8 points signalés restaient 8 d'une
+# version à l'autre sur les 7 étapes, pour ~10 minutes de plus par reprise (2 h au total). Une reprise suffit à
+# corriger l'évident ; le reste va à l'analyste, avec les points relevés en contexte.
 LIMITE_CORRECTIONS = 1500
 
 

@@ -107,7 +107,7 @@ s4 = Scenario({4: [nc, nc, nc]})
 code, d = derouler(s4)
 e4 = [e for e in controles.lire(d) if str(e["etape"]) == "4"]
 att = controles.a_valider(d)
-verifier("reprises épuisées : 3 contrôles pour l'étape 4", len(e4) == 3 and [e["version"] for e in e4] == [1, 2, 3])
+verifier("reprise épuisée : 2 contrôles pour l'étape 4 (une seule reprise)", len(e4) == 2 and [e["version"] for e in e4] == [1, 2])
 verifier("reprises épuisées : validation humaine, le point signalé est cité", code == 2 and len(att) == 1 and "pare-feu applicatif" in att[0]["humaine"]["pourquoi"])
 verifier("l'étape suivante est tout de même exécutée (la chaîne continue)", any(a == "e21-traitement" for a, _m in s4.messages_etapes))
 
