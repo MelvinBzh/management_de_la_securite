@@ -23,7 +23,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # outils (make, git, pip), runtime du binaire opencode (libstdc++, certificats).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        make git curl ca-certificates libstdc++6 \
+        make git curl ca-certificates libstdc++6 tzdata \
         tesseract-ocr tesseract-ocr-fra tesseract-ocr-osd \
         libpango-1.0-0 libpangocairo-1.0-0 fonts-dejavu ripgrep \
     && rm -rf /var/lib/apt/lists/*
@@ -38,6 +38,7 @@ WORKDIR /app
 # Si le réseau du serveur bloque le téléchargement, construire avec
 # `--build-arg INSTALL_OPENCODE=0` : l'application fonctionne, seul le lancement
 # de la chaîne depuis l'interface est indisponible.
+ENV TZ=Europe/Paris
 ARG INSTALL_OPENCODE=1
 ARG OPENCODE_VERSION=1.18.35
 RUN if [ "$INSTALL_OPENCODE" = "1" ]; then \

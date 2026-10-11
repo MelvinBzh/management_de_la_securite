@@ -97,6 +97,37 @@ class Reponse:
     contestations: tuple = ()  # signalements : un AUTRE document contredit les preuves citées
 
 
+STOP = frozenset("""quel quelle quels quelles dans pour avec sont est que qui quoi comment quand depuis entre sous leur
+leurs cette cela elles ils des les une aux par sur son ses ont fait faire est-il est-ce existe existent""".split())
+
+
+def passages_aux_mots_de_la_question(index, question: str, minimum: int = 2, k: int = 3) -> list[dict]:
+    """Passages (mots-clés seuls) qui contiennent au moins `minimum` mots significatifs distincts de la question.
+
+    Sert de garde-fou : un « non documenté » ne doit pas venir d'une extraction qui a simplement raté l'information."""
+    from . import texte as _t
+    mots = {m for m in _t.normaliser(question).split() if len(m) >= 5 and m not in STOP}
+    if len(mots) < minimum:
+        return []
+    retenus = []
+    for c in index.rechercher(question, None, k=12, mots_cles=True):
+        present = {m for m in mots if m in _t.normaliser(c["extrait"] + " " + c["libelle"])}
+        if len(present) >= minimum:
+            retenus.append(c)
+    return retenus[:k]
+
+
+def _suspect(besoin: Besoin, index, base: Reponse) -> Reponse:
+    """Si des passages parlent clairement du sujet, un « inconnu » devient « à relire » (jamais une certitude)."""
+    trouves = passages_aux_mots_de_la_question(index, besoin.question)
+    if not trouves:
+        return base
+    extraits = " ; ".join(f"{c['doc'][:30]} : « {' '.join(c['extrait'].split())[:140]} »" for c in trouves[:2])
+    return Reponse(besoin, INCONNU, "", (), base.manque, "sans_objet", True,
+                   "Aucune réponse n'a pu être établie, MAIS des passages mentionnent le sujet : relire avant de conclure "
+                   "« non documenté ». " + extraits)
+
+
 def _juger(besoin: Besoin, candidats: list[dict], modele: str) -> dict:
     passages = "\n".join(
         f"[{i + 1}] (document {c['doc'][:40]}{' · ' + c['libelle'] if c['genre'] == 'passage' and c['libelle'] else ''}) {c['extrait']}"
@@ -112,8 +143,8 @@ def evaluer(index, besoin: Besoin, vecteur_question: list[float] | None = None, 
     juge = juge or _juger
     candidats = index.rechercher(besoin.question, vecteur_question, k=k)
     if not candidats:
-        return Reponse(besoin, INCONNU, "", (), "Aucun document indexé n'aborde ce sujet.", "sans_objet", True,
-                       "Aucune preuve : à demander à l'entreprise. Ne pas en conclure que la mesure n'existe pas.")
+        return _suspect(besoin, index, Reponse(besoin, INCONNU, "", (), "Aucun document indexé n'aborde ce sujet.", "sans_objet", True,
+                        "Aucune preuve : à demander à l'entreprise. Ne pas en conclure que la mesure n'existe pas."))
     verdict = juge(besoin, candidats, modele)
     statut = verdict.get("statut", INCONNU)
     cites = [p for p in verdict.get("passages", []) if isinstance(p, int) and 1 <= p <= len(candidats)]
@@ -121,8 +152,9 @@ def evaluer(index, besoin: Besoin, vecteur_question: list[float] | None = None, 
     if statut not in (CONNU, PARTIEL) or not cites:
         # un « connu » sans preuve citée est une affirmation en l'air : il devient inconnu
         motif = "" if statut == INCONNU else "Le juge a répondu sans citer de preuve valide : réponse écartée."
-        return Reponse(besoin, INCONNU, "", (), manque or "Information à obtenir.", "sans_objet", True,
-                       (motif + " Aucune preuve ne répond : à demander. Ne pas en conclure que la mesure n'existe pas.").strip())
+        return _suspect(besoin, index, Reponse(
+            besoin, INCONNU, "", (), manque or "Information à obtenir.", "sans_objet", True,
+            (motif + " Aucune preuve ne répond : à demander. Ne pas en conclure que la mesure n'existe pas.").strip()))
     preuves = tuple({"id": candidats[p - 1]["id"], "doc": candidats[p - 1]["doc"], "extrait": candidats[p - 1]["extrait"]} for p in cites)
     reponse = str(verdict.get("reponse", "")).strip()
     controle = verification.verifier("\n".join(p["extrait"] for p in preuves), reponse, verificateurs=verificateurs) if reponse else verification.DOUTE

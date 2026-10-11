@@ -915,6 +915,12 @@ elif page == PAGES[3]:
             )
     if not run:
         _deja = any(e["terminee"] for e in lib.avancement_chaine(lib.DOSSIER_ANALYSES / cible))
+        _perimees = connaissance.etapes_perimees(cible) if _deja else []
+        if _perimees:
+            st.warning(
+                f"Les documents ont changé depuis l'analyse : l'étape {_perimees[0]} et les suivantes ({', '.join(_perimees)}) "
+                "ont été produites sur d'autres documents. « Reprendre » les refait ; les étapes d'avant sont conservées."
+            )
         if _deja:
             st.info(
                 "Des livrables existent déjà pour ce projet. **Reprendre** garde les étapes déjà faites et contrôlées "
@@ -1140,8 +1146,9 @@ elif page == PAGE_CONNAISSANCES:
             (st.success if lance else st.info)(motif)
             if lance:
                 st.rerun()
-        if col_b.button("Tout refaire (croisement complet)", key="conn_complet", disabled=en_cours,
-                        help="Reconfronte TOUS les faits entre eux. Plus long ; utile avant une livraison."):
+        if col_b.button("Tout refaire (relecture complète)", key="conn_complet", disabled=en_cours,
+                        help="Relit TOUS les documents et reconfronte tous les faits. Long (plus d'une heure sur 22 documents) ; "
+                             "utile après une amélioration de la lecture, ou avant une livraison."):
             lance, motif = connaissance.demarrer(projet, complet=True)
             (st.success if lance else st.info)(motif)
             if lance:

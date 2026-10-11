@@ -69,8 +69,32 @@ def traiter_document(index: Index, nom: str, contenu: str, moteurs: Moteurs) -> 
         morceaux = passages.decouper(nom, contenu)
         sûrs = [f for f in faits if f.verifie]
         rels_ok = [r for r in rels if r.verifiee]
-        elements = ([("fait", f.doc, f.texte, f.extrait) for f in sûrs]
-                    + [("relation", r.doc, f"{r.sujet} {r.relation} {r.objet}", r.extrait) for r in rels_ok]
+        lignes_doc = texte.corps(contenu).splitlines()
+
+        def contexte_de(extrait: str) -> str:
+            """Titre de section et en-tête de colonnes du tableau qui contient l'extrait : sans eux, « | Postes | 95 | 40 | »
+            ne dit pas que 95 est un budget en k€ (mesuré sur Nordval : lu comme 95 postes)."""
+            cible = texte.normaliser(extrait)
+            titre, entete, dans_tableau = "", "", False
+            for ligne in lignes_doc:
+                if ligne.startswith("#"):
+                    titre, entete, dans_tableau = ligne.lstrip("# ").strip(), "", False
+                elif ligne.lstrip().startswith("|"):
+                    if not dans_tableau:
+                        entete, dans_tableau = ligne.strip(), True
+                    if cible and cible in texte.normaliser(ligne) and ligne.strip() != entete:
+                        return " · ".join(x for x in (titre, entete) if x)
+                else:
+                    dans_tableau = False
+            return ""
+
+        def libelle_contextuel(phrase: str, extrait: str) -> str:
+            c = contexte_de(extrait) if extrait.lstrip().startswith("|") else ""
+            return f"[{c}] {phrase}" if c else phrase
+
+        elements = ([("fait", f.doc, libelle_contextuel(f.texte, f.extrait), f.extrait) for f in sûrs]
+                    + [("relation", r.doc, libelle_contextuel(f"{r.sujet} {r.relation} {r.objet}", r.extrait), r.extrait)
+                       for r in rels_ok]
                     + [("passage", p.doc, p.contexte, p.texte) for p in morceaux])
         vecs = moteurs.vecteurs([f"{lib}. {ext}" for _g, _d, lib, ext in elements]) if elements else []
     except Exception as erreur:  # noqa: BLE001 — un document en échec n'arrête pas les autres
@@ -149,8 +173,9 @@ def mettre_a_jour(dossier_intrants: str, index: Index, *, moteurs: Moteurs | Non
     docs = lire_documents(dossier_intrants)
     connus = index.documents()
     retires = sorted(n for n in connus if n not in docs)
+    # `complet` = TOUT refaire : chaque document est relu (nouvelle extraction, cartes d'identité) puis tout est recroisé
     a_traiter = sorted(n for n, contenu in docs.items()
-                       if n not in connus or connus[n]["empreinte"] != empreinte(contenu) or connus[n]["statut"] != "ok")
+                       if complet or n not in connus or connus[n]["empreinte"] != empreinte(contenu) or connus[n]["statut"] != "ok")
     bilan: dict = {"documents": len(docs), "traites": [], "retires": retires, "erreurs": [], "inchange": False}
     if not retires and not a_traiter and not complet and index.couvertures() and index.lire_meta("croisement") == "a_jour":
         bilan["inchange"] = True

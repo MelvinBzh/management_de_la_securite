@@ -75,6 +75,16 @@ def demarrer(projet: str, *, complet: bool = False, avec_externe: bool = False) 
     return True, "Mise à jour de la connaissance lancée en arrière-plan."
 
 
+def etapes_perimees(projet: str) -> list[str]:
+    """Étapes dont les livrables ont été produits sur d'AUTRES documents que ceux d'aujourd'hui (liste vide si tout est à jour)."""
+    try:
+        from web import controles
+        dossier = dossier_du_projet(projet)
+        return controles.etapes_perimees(dossier, travail.signature_documents(dossier))
+    except Exception:  # noqa: BLE001 — un doute ne doit jamais casser la page
+        return []
+
+
 def lire(projet: str) -> dict | None:
     """Contenu de l'index d'un projet pour affichage (lecture seule) ; None si rien n'est encore construit."""
     _, base, _ = travail.chemins(dossier_du_projet(projet))

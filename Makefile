@@ -69,6 +69,8 @@ test-chaine:
 	$(PYTHON) web/tests/test_derouler.py
 	$(PYTHON) web/tests/test_validations.py
 	$(PYTHON) web/tests/test_coherence.py
+	$(PYTHON) web/tests/test_lots.py
+	$(PYTHON) web/tests/test_derouler_lots.py
 
 ## Tests hermétiques du dossier de connaissance (faits, relations, index, contradictions, couverture).
 test-connaissance:
@@ -77,6 +79,7 @@ test-connaissance:
 	$(PYTHON) tools/connaissance/tests/test_preuves.py
 	$(PYTHON) tools/connaissance/tests/test_externe.py
 	$(PYTHON) tools/connaissance/tests/test_identite.py
+	$(PYTHON) tools/connaissance/tests/test_garde_fous.py
 
 ## Tests autonomes de l'interface web (chantier #26).
 test-web:

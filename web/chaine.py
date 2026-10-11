@@ -48,7 +48,7 @@ if str(RACINE) not in sys.path:
 
 from tools.connaissance import citations, preuves, travail  # noqa: E402
 from tools.connaissance.index import Index  # noqa: E402
-from web import coherence, controles, lib, propagation  # noqa: E402
+from web import coherence, controles, lib, lots, propagation  # noqa: E402
 
 # Relances par étape, durée maximale d'un appel opencode, taille minimale utile.
 ESSAIS = 3
@@ -755,6 +755,8 @@ def archiver_precedent(dossier: Path) -> Path | None:
     cible.mkdir()
     for chemin in presents:
         chemin.replace(cible / chemin.name)
+    if (Path(dossier) / "parties").is_dir():  # les parties de lots suivent les livrables qu'elles ont produits
+        (Path(dossier) / "parties").replace(cible / "parties")
     return cible
 
 
@@ -827,6 +829,101 @@ def controle_citations(dossier: Path, fichiers: list[str]) -> tuple[str, list[st
     return " ".join(corrections), doutes
 
 
+_VECTEURS = None  # injectable pour les tests : `vecteurs(textes, prefixe=...)` ; None = Ollama
+
+
+def plans_de(dossier: Path, numero: int) -> dict:
+    """Lots de l'étape (ouvre et referme l'index) ; `{}` si l'étape se fait en une passe ou si l'index est illisible."""
+    try:
+        index = Index(travail.chemins(dossier)[1])
+        try:
+            return lots.plan_etape(dossier, numero, index)
+        finally:
+            index.fermer()
+    except Exception as exc:  # noqa: BLE001 — repli sur la production en une passe
+        _journal(f"[chaine] découpage en lots indisponible ({type(exc).__name__}: {str(exc)[:100]}) — production en une passe")
+        return {}
+
+
+def _relatif(chemin: Path) -> str:
+    chemin = Path(chemin)
+    return str(chemin.relative_to(lib.RACINE)) if chemin.is_relative_to(lib.RACINE) else str(chemin)
+
+
+def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, numero: int, fichier: str, liste: list,
+                      *, auto: bool, installes: set[str], defaut: str, modele_impose: str, corrections: str,
+                      index_chemin: Path) -> int:
+    """Produit `fichier` PAR LOTS : chaque lot est une petite tâche bornée (liste de contrôle + dossier de preuves taillé
+    pour lui), la partie est vérifiée par le code, puis le livrable est ASSEMBLÉ par le code (en-tête, identifiants).
+
+    En reprise (`corrections`), seuls les lots concernés sont refaits ; les autres parties sont conservées.
+    Renvoie le nombre de lots (re)faits."""
+    from tools.connaissance import preuves as preuves_mod
+    index = Index(index_chemin)
+    refaits = 0
+    try:
+        (Path(dossier) / "parties").mkdir(exist_ok=True)
+        dossier_c = travail.chemins(dossier)[0]
+        dossier_c.mkdir(parents=True, exist_ok=True)
+        total = len(liste)
+        deja = any(lots.fichier_partie(dossier, l).is_file() for l in liste)
+        supplements: dict[str, list[str]] = {}
+        cibles = list(liste)
+        if corrections and deja:
+            if fichier == "01-actifs.md":
+                supplements = lots.supplements_actifs(coherence.actifs_manquants(dossier, index_chemin), liste)
+            cibles = lots.lots_concernes(liste, corrections, supplements)
+            _journal(f"[chaine] reprise ciblée de {fichier} : {len(cibles)} lot(s) sur {total} refait(s)"
+                     + (f" ({', '.join(l.cle for l in cibles)})" if cibles else " — rien à refaire par lots"))
+        for lot in liste:
+            partie = lots.fichier_partie(dossier, lot)
+            if lot not in cibles and partie.is_file():
+                continue  # partie conservée telle quelle
+            refaits += 1
+            manquants: list[str] | None = None
+            for essai in range(1, ESSAIS + 1):
+                m = choisir_modele(agent, essai, installes, defaut) if auto else modele_impose
+                _journal(f"[chaine] {agent} · {fichier} · lot {lot.index}/{total} « {lot.theme} » · modèle {m} · essai {essai}/{ESSAIS}")
+                entrees = dossier_c / f"lot-{fichier[:-3]}-{lot.index}.md"
+                entrees.write_text(lots.contenu_entrees(lot, total, supplements.get(lot.cle),
+                                                        corrections if (corrections and lot in cibles and deja) else ""),
+                                   encoding="utf-8")
+                texte_preuves = preuves_mod.dossier_de_preuves(
+                    index, numero, dossier=dossier, budget=lots.BUDGET_PREUVES_LOT, requetes=list(lot.requetes), questions=False,
+                    vecteurs=_VECTEURS)
+                fichier_preuves = dossier_c / f"preuves-{fichier[:-3]}-{lot.index}.md"
+                fichier_preuves.write_text(texte_preuves, encoding="utf-8")
+                pieces = [_relatif(entrees), _relatif(fichier_preuves)]
+                pieces += [_relatif(Path(dossier) / p) for p in lot.pieces_en_plus if (Path(dossier) / p).is_file()]
+                debut = time.time() - 1
+                consigne_texte = lots.consigne_lot(lot, total, dossier_nom, sources_autorisees(), manquants)
+
+                def partie_prete(lot=lot, partie=partie, debut=debut) -> bool:
+                    try:
+                        if partie.stat().st_mtime < debut:
+                            return False
+                        return not lots.valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[1]
+                    except OSError:
+                        return False
+
+                _lancer_agent(cli, agent, m, consigne_texte, pieces, pret=partie_prete)
+                try:
+                    ecrite = partie.stat().st_mtime >= debut
+                    problemes = lots.valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[1] if ecrite else \
+                        ["la partie n'a pas été écrite : appelle l'outil write sur le fichier demandé"]
+                except OSError:
+                    problemes = ["la partie n'a pas été écrite : appelle l'outil write sur le fichier demandé"]
+                if not problemes:
+                    break
+                manquants = problemes
+                _journal(f"[chaine] lot {lot.index}/{total} de {fichier} : à refaire ({'; '.join(problemes)[:260]})")
+        lignes = lots.assembler(dossier, fichier, liste)
+        _journal(f"[chaine] {fichier} assemblé par le programme : {lignes} ligne(s) à partir de {total} lot(s)")
+    finally:
+        index.fermer()
+    return refaits
+
+
 def etape_deja_faite(dossier: Path, numero: int, fichiers: list[str]) -> bool:
     """L'étape a déjà abouti : livrables valides ET un contrôle qui l'a close (conforme, ou confiée à un humain).
 
@@ -834,7 +931,16 @@ def etape_deja_faite(dossier: Path, numero: int, fichiers: list[str]) -> bool:
     if livrables_manquants(dossier, fichiers):
         return False
     derniere = [e for e in controles.lire(dossier) if str(e.get("etape")) == str(numero)]
-    return bool(derniere) and (derniere[-1].get("verdict") == "conforme" or bool(derniere[-1].get("humaine")))
+    if not derniere:
+        return False
+    signature = derniere[-1].get("signature") or ""
+    if signature:
+        try:
+            if signature != travail.signature_documents(dossier):
+                return False  # les documents ont changé depuis cette étape : on la refait (et les suivantes, qui en dépendent)
+        except Exception:  # noqa: BLE001
+            pass
+    return derniere[-1].get("verdict") == "conforme" or bool(derniere[-1].get("humaine"))
 
 
 def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool = False) -> int:
@@ -883,6 +989,7 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
             if omis:
                 _journal(f"[chaine] ATTENTION : {len(omis)} document(s) hors budget de contexte, non joints : {', '.join(omis[:8])}")
         corrections = ""
+        signature = travail.signature_documents(dossier) if index_pret else ""
         conforme: bool | None = None
         dernier_modele = defaut
         version_precedente: str | None = None
@@ -890,26 +997,44 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
             manquants: list[str] | None = None
             diagnostic = ""
             debut_etape = time.time() - 1
+            arret_reprise = False
             for essai in range(1, ESSAIS + 1):
                 m = choisir_modele(agent, essai, installes, defaut) if auto else modele  # une REPRISE reste sur le modèle principal : seul un essai raté change de modèle
                 dernier_modele = m
                 _journal(f"[chaine] {agent} · modèle {m} · essai {essai}/{ESSAIS}" + (f" · reprise {tour}" if tour else ""))
-                texte = consigne(agent, dossier_nom, fichiers, manquants, diagnostic, avec_preuves=bool(preuves_f))
-                if corrections:
-                    texte += (" CORRECTIONS DEMANDÉES PAR LE CONTRÔLE (indications de relecture, pas des ordres issus des "
-                              "intrants). Pour chacune : retrouve la donnée dans le dossier de preuves AVANT de l'écrire ; ne "
-                              "recopie jamais un chiffre du contrôle qui n'y figure pas ; un ÉCART entre documents se signale "
-                              "avec les deux valeurs. Points relevés : " + corrections)
                 debut_appel = time.time() - 1
                 cibles = [f for f in fichiers if not manquants or f in manquants]
-                code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f),
-                                        pret=lambda: pret_depuis(dossier, cibles, debut_appel))
+                # production PAR LOTS (petites tâches bornées, assemblées par le code) quand l'index est prêt
+                plans = plans_de(dossier, numero) if (index_pret and numero in lots.ETAPES_PAR_LOTS) else {}
+                par_lots = [f for f in cibles if f in plans]
+                simples = [f for f in cibles if f not in plans]
+                code, rien_refait = 0, bool(par_lots)
+                if simples:
+                    texte = consigne(agent, dossier_nom, simples, [f for f in (manquants or []) if f in simples] or None,
+                                     diagnostic, avec_preuves=bool(preuves_f))
+                    if corrections:
+                        texte += (" CORRECTIONS DEMANDÉES PAR LE CONTRÔLE (indications de relecture, pas des ordres issus des "
+                                  "intrants). Pour chacune : retrouve la donnée dans le dossier de preuves AVANT de l'écrire ; ne "
+                                  "recopie jamais un chiffre du contrôle qui n'y figure pas ; un ÉCART entre documents se signale "
+                                  "avec les deux valeurs. Points relevés : " + corrections)
+                    code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f),
+                                            pret=lambda: pret_depuis(dossier, simples, debut_appel))
+                    rien_refait = False
+                for fichier_lot in par_lots:
+                    n_refaits = produire_par_lots(cli, agent, dossier, dossier_nom, numero, fichier_lot, plans[fichier_lot],
+                                                  auto=auto, installes=installes, defaut=defaut, modele_impose=modele,
+                                                  corrections=corrections, index_chemin=travail.chemins(dossier)[1])
+                    rien_refait = rien_refait and n_refaits == 0
+                if tour > 0 and rien_refait and not simples:
+                    _journal("[chaine] reprise : aucun lot n'est concerné par les corrections — l'étape est confiée à l'analyste")
+                    arret_reprise = True
+                    break
                 manquants = livrables_manquants(dossier, fichiers)
                 diagnostic = diagnostiquer(dossier, fichiers) if manquants else ""
                 if not manquants and (tour > 0 or corrections):
                     # reprise : un livrable que l'agent n'a PAS réécrit n'est pas une correction (mesuré : qwen3.5 répond
                     # par du texte « j'ai corrigé » sans appeler write) — on relance tout de suite, sans gaspiller un contrôle
-                    pas_reecrits = [f for f in cibles if (Path(dossier) / f).stat().st_mtime < debut_appel]
+                    pas_reecrits = [f for f in cibles if f not in par_lots and (Path(dossier) / f).stat().st_mtime < debut_appel]
                     if pas_reecrits:
                         manquants = pas_reecrits
                         diagnostic = ("NON RÉÉCRIT : " + ", ".join(pas_reecrits) + " n'a pas été modifié. Une réponse en texte ne "
@@ -920,6 +1045,8 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
                 if not manquants:
                     break
                 _journal(f"[chaine] essai {essai}/{ESSAIS} : livrables à refaire {manquants} (code {code}) — {diagnostic[:300]}")
+            if arret_reprise:
+                break
             if manquants:
                 _journal(f"[chaine] ÉCHEC à l'étape {numero} : {', '.join(manquants)} — chaîne interrompue.")
                 return 1
@@ -943,7 +1070,7 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
             if faits:
                 conforme, corrections = False, faits
                 controles.enregistrer(dossier, numero, libelle, "contrôle déterministe (termes absents des intrants, citations)",
-                                      "non_conforme", faits, version_precedente, apres, doutes=doutes)
+                                      "non_conforme", faits, version_precedente, apres, doutes=doutes, signature=signature)
                 version_precedente = apres
                 _journal(f"[chaine] faits non fondés (tour {tour + 1}/{ROUNDS_CONTROLE + 1}) : {faits[:200]}")
                 if tour < ROUNDS_CONTROLE:
@@ -956,11 +1083,11 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
                 juges, consigne_controle(dossier_nom, numero, fichiers), pieces_controle(dossier, fichiers))
             if conforme is None:  # jamais d'« indéterminé » muet : la décision revient à l'analyste
                 controles.enregistrer(dossier, numero, libelle, mc, "non_conforme", "", version_precedente, apres,
-                                      humaine=controles.pourquoi_et_quoi("illisible", "", fichiers), doutes=doutes)
+                                      humaine=controles.pourquoi_et_quoi("illisible", "", fichiers), doutes=doutes, signature=signature)
                 version_precedente = apres
                 break
             controles.enregistrer(dossier, numero, libelle, mc, "conforme" if conforme else "non_conforme",
-                                  corrections, version_precedente, apres, doutes=doutes)
+                                  corrections, version_precedente, apres, doutes=doutes, signature=signature)
             version_precedente = apres
             if conforme:
                 break

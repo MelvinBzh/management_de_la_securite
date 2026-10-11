@@ -162,16 +162,17 @@ def passages_classes(index, requetes: list[str], vecs: list[list[float]]) -> lis
     return resultat
 
 
-def dossier_de_preuves(index, numero: int, *, vecteurs=None, budget: int = BUDGET_OCTETS, dossier: Path | None = None) -> str:
+def dossier_de_preuves(index, numero: int, *, vecteurs=None, budget: int = BUDGET_OCTETS, dossier: Path | None = None,
+                       requetes: list[str] | None = None, questions: bool = True) -> str:
     """Markdown du dossier de preuves de l'étape `numero` (1 à 7), d'au plus `budget` caractères environ.
 
     `vecteurs(textes, prefixe=...)` calcule les vecteurs des questions (Ollama par défaut ; injectable) ;
     `dossier` : dossier du projet, pour relire les décisions de l'analyste."""
     vecteurs = vecteurs or ollama.vecteurs
-    requetes = REQUETES.get(numero, REQUETES[7])
+    requetes = [r for r in (requetes or []) if r.strip()] or REQUETES.get(numero, REQUETES[7])
     vecs = vecteurs(requetes, prefixe="search_query: ")
     debut = ENTETE.format(numero=numero) + "\n" + _section_decisions(decisions_ecarts(dossier))
-    fin = _section_ecarts(index, max(budget // 4, 4000)) + "\n" + _section_questions(index)
+    fin = _section_ecarts(index, max(budget // 4, 4000)) + "\n" + (_section_questions(index) if questions else "")
     reste = max(budget - len(debut) - len(fin), 2000)
     retenus, total = [], 0
     classes = passages_classes(index, requetes, vecs)

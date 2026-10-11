@@ -92,6 +92,23 @@ def _ecrire_etat(dossier_projet: str | Path, **champs) -> None:
     temporaire.replace(fichier)
 
 
+def signature_documents(dossier_projet: str | Path) -> str:
+    """Empreinte de l'ensemble des documents indexés (noms + empreintes) ; « » si rien n'est indexé.
+
+    Enregistrée avec chaque contrôle : si elle change, les livrables ont été produits sur d'autres documents."""
+    import hashlib
+    _, base, _ = chemins(dossier_projet)
+    if not Path(base).is_file():
+        return ""
+    index = Index(base)
+    try:
+        docs = index.documents()
+    finally:
+        index.fermer()
+    brut = "|".join(f"{n}:{d['empreinte']}" for n, d in sorted(docs.items()))
+    return hashlib.sha256(brut.encode("utf-8")).hexdigest()[:12] if brut else ""
+
+
 def a_mettre_a_jour(dossier_projet: str | Path) -> bool:
     """Vrai si au moins un document est nouveau, modifié, retiré ou resté en erreur (ou si rien n'a jamais été fait)."""
     dossier, base, _ = chemins(dossier_projet)

@@ -148,7 +148,7 @@ verifier("au passage suivant, seul le document en erreur est refait", faux5.fait
 # --- 6. croisement complet à la demande -------------------------------------------------------------
 faux6 = Faux()
 ingestion.mettre_a_jour(str(dossier / "intrants"), index, moteurs=faux6.moteurs(), complet=True)
-verifier("`complet` refait tout le croisement", faux6.croisements == [None] and not faux6.faits)
+verifier("`complet` refait tout : chaque document relu et tout le croisement", faux6.croisements == [None] and sorted(faux6.faits) == ["a.md", "b.md"])
 
 # --- 7. les contradictions trouvées sont rangées avec leur priorité ----------------------------------
 d7 = projet({"a.md": A, "b.md": B})
