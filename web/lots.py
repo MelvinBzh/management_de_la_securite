@@ -22,6 +22,8 @@ from pathlib import Path
 ETAPES_PAR_LOTS = {1: ("01-actifs.md",), 3: ("03-menaces.md",), 4: ("04-evaluation.md",), 5: ("05-traitement.md",)}
 TAILLE_LOT = {"03-menaces.md": 5, "04-evaluation.md": 8, "05-traitement.md": 8}
 BUDGET_PREUVES_LOT = 14000
+MAX_LIGNES_LOT_ACTIFS = 16      # un lot d'inventaire regroupe les éléments de même nature (mesuré : 115 actifs sans plafond)
+MAX_LOTS = 12                    # au-delà, la taille des lots grandit : la durée de la chaîne reste bornée
 
 ENTETES: dict[str, tuple[str, list[str]]] = {
     "01-actifs.md": ("# Inventaire des actifs (étape 1)",
@@ -47,7 +49,9 @@ REGLES = {
         "documentée » : tout dans UNE cellule, sans barre verticale. Sensibilité ∈ {Publique, Interne, Sensible, Critique}. « Preuve "
         "source » : les [E…] qui établissent l'actif. Les éléments de la liste « À examiner » "
         "sont des CANDIDATS issus de l'index : ignore ceux qui ne sont pas des actifs (personne, norme, date, nom de l'entreprise) ; "
-        "ajoute tout actif important que les preuves montrent et que la liste ne contient pas."),
+        "ajoute tout actif important que les preuves montrent et que la liste ne contient pas. Écris AU PLUS " + str(MAX_LIGNES_LOT_ACTIFS) +
+        " lignes : REGROUPE les éléments de même nature en une seule ligne (ex. « Postes portables (126 unités) », « Capteurs de "
+        "température IoT », « Comptes de service ») et garde séparés ceux qui diffèrent par leur rôle ou leur criticité."),
     "03-menaces.md": (
         "Pour CHAQUE actif de la liste de contrôle, écris les menaces réalistes de la grille retenue (voir 02-methodes.md) : une "
         "ligne par menace, au moins une par actif. « Actif concerné » = l'ID de l'actif suivi de son nom. « Catégorie » toujours "
@@ -123,7 +127,7 @@ THEMES_ACTIFS = (
 )
 
 
-def entites_candidates(index, types: tuple[str, ...], maximum: int = 25) -> list[str]:
+def entites_candidates(index, types: tuple[str, ...], maximum: int = 18) -> list[str]:
     """Noms canoniques des entités de ces types, les plus citées (nombre de documents) d'abord."""
     import json
     groupes: dict[str, dict] = {}
@@ -145,6 +149,8 @@ def _lots_actifs(index) -> list[Lot]:
 
 
 def _decouper(lignes: list[list[str]], taille: int) -> list[list[list[str]]]:
+    # la taille grandit avec le volume pour ne pas dépasser MAX_LOTS lots (durée de la chaîne bornée)
+    taille = max(taille, -(-len(lignes) // MAX_LOTS)) if lignes else taille
     return [lignes[i:i + taille] for i in range(0, len(lignes), taille)]
 
 
@@ -263,6 +269,8 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
         # lot indicatif (inventaire des actifs) : quelques lignes mal formées ne justifient pas de tout refaire, les
         # lignes valides sont gardées ; le contrôle d'ensemble signale les actifs qui manqueraient
         problemes = [p for p in problemes if not p.startswith("ligne à ")]
+        if len(lignes) > MAX_LIGNES_LOT_ACTIFS + 6:
+            problemes.append(f"trop de lignes ({len(lignes)}) : au plus {MAX_LIGNES_LOT_ACTIFS}, regroupe les éléments de même nature")
     corps = " ".join(" ".join(l) for l in lignes)
     for a in lot.attendus:
         if not re.search(r"(?<![A-Za-z0-9])" + re.escape(a) + r"(?![A-Za-z0-9])", corps):

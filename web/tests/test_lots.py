@@ -134,6 +134,15 @@ verifier("récupération : lignes valides de la réponse, doublons exacts et lig
 verifier("récupération : le texte récupéré passe la validation", lots.valider_partie(lot3, recup)[1] == [])
 verifier("récupération : rien de tabulaire = rien récupéré", lots.recuperer_depuis_sortie(lot3, "Je ne sais pas.") == "")
 
+# --- plafonds : l'inventaire regroupe, le nombre de lots reste borné --------------------------------------------------------------
+beaucoup = NL.join(f"| - | Actif {n} | Logiciel | desc [E1] | Interne | [E1] |" for n in range(1, 31))
+_, pb_beaucoup = lots.valider_partie(liste1[0], beaucoup)
+verifier("un lot d'inventaire qui énumère 30 lignes est refusé (regrouper)", any("trop de lignes" in p for p in pb_beaucoup))
+verifier("16 à 22 lignes restent tolérées", lots.valider_partie(liste1[0], NL.join(beaucoup.split(NL)[:20]))[1] == [])
+gros = [[f"A{n:03d}", f"Actif {n}", "Logiciel", "d"] for n in range(1, 116)]
+verifier("115 actifs : 12 lots au plus pour les menaces (taille adaptée)", len(lots._lots_menaces(gros)) <= lots.MAX_LOTS + 1)
+verifier("petits volumes : taille de lot inchangée (12 actifs = 5 + 5 + 2)", [len(l.attendus) for l in lots._lots_menaces(gros[:12])][:3] == [5, 5, 2])
+
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")
 verifier("reprise : seuls les lots dont un identifiant est cité sont refaits", [l.index for l in cibles] == [1, 3])
