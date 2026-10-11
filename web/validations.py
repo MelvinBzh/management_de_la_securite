@@ -29,7 +29,7 @@ ETAPE_DE_FICHIER = {"00-description.md": 1, "01-actifs.md": 1, "02-methodes.md":
                     "05-traitement.md": 5, "registre-risques.md": 6, "06-validation.md": 6, "SYNTHESE.md": 7}
 MAX_CONTRADICTIONS = 15
 MAX_QUESTIONS = 20
-MAX_LIGNES = 60
+MAX_LIGNES = 400  # tous les points : l'écran les présente par pages, rien n'est tu
 
 TYPES = {
     "risque": "Risques du registre",

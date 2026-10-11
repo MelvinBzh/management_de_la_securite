@@ -400,12 +400,14 @@ def _limites(dossier: Path, f: dict) -> list[str]:
         entrees = []
     derniere: dict[str, dict] = {}
     for e in entrees:
+        if str(e.get("etape")) in ("6", "7", "finale"):
+            continue  # établis par le programme (ou rendus après lui) : la synthèse ne parle pas de son propre contrôle
         derniere[str(e.get("etape"))] = e
     a_valider = [k for k, e in derniere.items() if e.get("humaine")]
     doutes = sum(len(e.get("doutes") or []) for e in derniere.values())
     if a_valider:
         sortie.append(f"**Étapes à valider par une personne** : {', '.join(sorted(a_valider))} ; {doutes} ligne(s) dont la preuve "
-                      "citée n'a pas pu être établie par la machine (page ④, « Lignes à relire »).")
+                      "citée n'a pas pu être établie par la machine (page ④, « Lignes à relire », par pages de dix).")
     try:
         from tools.connaissance import travail
         manquants = coherence.actifs_manquants(Path(dossier), travail.chemins(Path(dossier))[1])

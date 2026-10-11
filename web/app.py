@@ -367,8 +367,19 @@ def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True, tel
     for libelle, chemin in disponibles:
         with st.expander(f"✓ {libelle}", expanded=(libelle == recent)):
             texte = chemin.read_text(encoding="utf-8", errors="replace")
-            lisible, avec_html = connaissance.pour_lecture(dossier, texte)
-            st.markdown(lisible, unsafe_allow_html=avec_html)  # notes de preuves : HTML produit par le code, texte échappé
+            colonnes_r, lignes_r = lib.lire_registre(dossier) if chemin.name == "registre-risques.md" else ([], [])
+            if lignes_r:
+                # un registre de plus de cent lignes : tableau défilant et triable plutôt que cent lignes de Markdown
+                introduction = texte.split("| ID |", 1)[0]
+                lisible, avec_html = connaissance.pour_lecture(dossier, introduction)
+                st.markdown(lisible, unsafe_allow_html=avec_html)
+                st.dataframe([{c: ligne.get(c, "") for c in colonnes_r} for ligne in lignes_r],
+                             use_container_width=True, hide_index=True, height=480)
+                st.caption("Les identifiants [E…] renvoient aux preuves citées dans les étapes 3, 4 et 5 ; le tableau se trie "
+                           "en cliquant sur une colonne.")
+            else:
+                lisible, avec_html = connaissance.pour_lecture(dossier, texte)
+                st.markdown(lisible, unsafe_allow_html=avec_html)  # notes de preuves : HTML produit par le code, texte échappé
             if telecharger:  # le téléchargement est réservé à la page « Résultats » (fin de parcours)
                 st.download_button(
                     f"Télécharger {chemin.name}", texte.encode("utf-8"), file_name=chemin.name,
@@ -1364,6 +1375,16 @@ elif page == PAGE_VALIDATION:
                         "Page", list(range(1, total_pages + 1)), key=f"valid_page_{niveau}",
                         format_func=lambda p, t=total_pages: f"{p} sur {t} ({RISQUES_PAR_PAGE} risques par page)",
                     )
+    # autres types : toujours TOUS les points (jamais un plafond muet), affichés par pages de dix quand ils sont nombreux
+    pages_t: dict[str, int] = {}
+    for type_ in validations.TYPES:
+        n_t = sum(1 for i in visibles if i["type"] == type_)
+        if type_ != "risque" and n_t > RISQUES_PAR_PAGE:
+            total_pages_t = -(-n_t // RISQUES_PAR_PAGE)
+            pages_t[type_] = st.selectbox(
+                f"{validations.TYPES[type_]} : {n_t} points — page", list(range(1, total_pages_t + 1)), key=f"valid_page_{type_}",
+                format_func=lambda p, t=total_pages_t: f"{p} sur {t} ({RISQUES_PAR_PAGE} points par page)",
+            )
     with st.form("form_validation"):
         saisies = {}
         for niveau in ordre_r:
@@ -1379,9 +1400,10 @@ elif page == PAGE_VALIDATION:
             lot = [i for i in visibles if i["type"] == type_]
             if not lot:
                 continue
+            page_t = pages_t.get(type_, 1)
             st.subheader(f"{validations.TYPES[type_]} ({len(lot)})")
             st.caption(EXPLICATIONS[type_])
-            for point in lot:
+            for point in lot[(page_t - 1) * RISQUES_PAR_PAGE: page_t * RISQUES_PAR_PAGE]:
                 saisies[point["id"]] = carte_de_point(point, type_)
         envoyer = st.form_submit_button("Enregistrer mes décisions", type="primary")
         if envoyer:  # « tous tels quels » : une décision par risque du tableau, sans commentaire à saisir

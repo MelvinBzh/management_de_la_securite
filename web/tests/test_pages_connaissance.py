@@ -158,6 +158,8 @@ index.fermer()
 (d / "SYNTHESE.md").write_text(f"# Synthèse{NL}{NL}Le site est en PHP [E{ident}].{NL}<script>alert(1)</script>{NL}", encoding="utf-8")
 app = ouvrir(racine, "③ Résultats")
 verifier("③ : aucune exception avec des citations", not app.exception)
+verifier("③ : le registre (25 risques) s'affiche en tableau défilant, pas en 25 lignes de Markdown",
+         any(len(df.value) == 25 and "valide_par" in list(df.value.columns) for df in app.dataframe))
 rendu = " ".join(str(e.value) for e in app.markdown)
 verifier("③ : la citation devient une note avec infobulle", "<sup title=" in rendu and "PHP 7.4" in rendu)
 avec_html = [str(e.value) for e in app.markdown if "<sup title=" in str(e.value)]
