@@ -55,7 +55,8 @@ REGLES = {
         "température IoT », « Comptes de service ») et garde séparés ceux qui diffèrent par leur rôle ou leur criticité."),
     "03-menaces.md": (
         "Pour CHAQUE actif de la liste de contrôle, écris les menaces réalistes de la grille retenue (voir 02-methodes.md) : une "
-        "ligne par menace, au moins une par actif. « Actif concerné » = l'ID de l'actif suivi de son nom. « Catégorie » toujours "
+        "ligne par menace, AU MOINS une et AU PLUS trois par actif (les plus réalistes d'abord). « Actif concerné » = l'ID de l'actif "
+        "suivi de son nom. « Catégorie » toujours "
         "préfixée par la grille (STRIDE-S, LINDDUN-L…). « Description » : qui attaque, comment, pour quel objectif, en citant les "
         "[E…] qui montrent l'exposition. « CVE si connue » : « — » si aucune. « Source » : un identifiant de grille autorisé."),
     "04-evaluation.md": (
@@ -203,6 +204,26 @@ def plan_etape(dossier: Path, numero: int, index=None) -> dict[str, list[Lot]]:
 
 
 # ----------------------------------------------------------------------------------------------- consigne, contrôle
+ENTREE_DU_LIVRABLE = {"03-menaces.md": "01-actifs.md", "04-evaluation.md": "03-menaces.md", "05-traitement.md": "04-evaluation.md"}
+
+
+def partie_reutilisable(dossier: Path, lot: Lot) -> bool:
+    """Une partie déjà écrite est réutilisée si elle est VALIDE et plus récente que ce dont elle dépend (le livrable
+    d'entrée, ou l'index pour l'inventaire) : une analyse reprise ne refait pas des lots déjà bons."""
+    partie = fichier_partie(dossier, lot)
+    try:
+        mtime = partie.stat().st_mtime
+        if lot.attendus and valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[1]:
+            return False
+        if not lot.attendus and not valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[0]:
+            return False
+        entree = ENTREE_DU_LIVRABLE.get(lot.fichier)
+        reference = (Path(dossier) / entree) if entree else (Path(dossier) / "connaissance" / "index.sqlite")
+        return mtime >= reference.stat().st_mtime
+    except OSError:
+        return False
+
+
 def fichier_partie(dossier: Path, lot: Lot) -> Path:
     return Path(dossier) / "parties" / f"{lot.fichier[:-3]}.{lot.index}.md"
 
@@ -389,7 +410,10 @@ def fusionner_doublons(lignes: list[list[str]]) -> tuple[list[list[str]], int]:
 DERNIER_ASSEMBLAGE: dict[str, int] = {}   # fichier -> nombre de lignes fusionnées au dernier assemblage (pour le journal)
 
 
-def assembler(dossier: Path, fichier: str, lots: list[Lot]) -> int:
+DERNIER_NETTOYAGE: dict[str, int] = {}   # fichier -> nombre d'éléments inventés retirés au dernier assemblage
+
+
+def assembler(dossier: Path, fichier: str, lots: list[Lot], nettoyer=None) -> int:
     """Écrit le livrable final : titre, en-tête, lignes de toutes les parties (identifiants posés par le code).
 
     Renvoie le nombre de lignes. Une partie absente ou invalide est ignorée (le contrôle d'ensemble le signalera)."""
@@ -409,8 +433,13 @@ def assembler(dossier: Path, fichier: str, lots: list[Lot]) -> int:
         toutes, DERNIER_ASSEMBLAGE[fichier] = fusionner_doublons(toutes)
     largeur = 2 if len(toutes) < 100 else 3
     corps = []
+    retires = 0
     for n, cellules in enumerate(toutes, start=1):
         c = list(cellules)
+        if nettoyer is not None:  # `nettoyer(texte) -> (texte, nb_retires)` : identifiants de source ou CVE inventés
+            for i in range(1, len(c)):
+                c[i], r = nettoyer(c[i])
+                retires += r
         if prefixe:
             c[0] = f"{prefixe}{n:0{largeur}d}"
         corps.append("| " + " | ".join(x.replace("\n", " ") for x in c) + " |")
@@ -418,5 +447,6 @@ def assembler(dossier: Path, fichier: str, lots: list[Lot]) -> int:
     if fichier == "04-evaluation.md":
         sortie += [MATRICE, ""]
     sortie += ["| " + " | ".join(colonnes) + " |", "|" + "|".join("---" for _ in colonnes) + "|"] + corps
+    DERNIER_NETTOYAGE[fichier] = retires
     (Path(dossier) / fichier).write_text("\n".join(sortie) + "\n", encoding="utf-8")
     return len(corps)

@@ -162,6 +162,30 @@ verifier("« - | A11 | Actif 11 | … » (7 cellules) : l'ID et le nom sont fusi
 verifier("la liste de contrôle n'a plus de barres verticales à recopier", all("|" not in e for l in plan3 for e in l.entrees))
 verifier("04 : idem", all("|" not in e for l in plan4 for e in l.entrees))
 
+# --- nettoyage à l'assemblage et réutilisation des parties valides --------------------------------------------------------------
+import os as _os, time as _time  # noqa: E402
+(D / "parties").mkdir(exist_ok=True)
+lots.fichier_partie(D, plan3[2]).write_text(NL.join(["| - | A11 Actif 11 | STRIDE-S | Desc [E1] | CVE-2023-1234 | STRIDE-S, STRIDE-Z |",
+                                                      "| - | A12 Actif 12 | STRIDE-T | Desc [E2] | — | STRIDE-T |"]), encoding="utf-8")
+def nettoyeur(texte):  # simule chaine.assainir_cellule : retire STRIDE-Z et la CVE factice
+    n = 0
+    for x in ("CVE-2023-1234", ", STRIDE-Z"):
+        if x in texte:
+            texte, k = texte.replace(x, "—" if x.startswith("CVE") else ""), 1
+            n += k
+    return texte, n
+nl = lots.assembler(D, "03-menaces.md", [plan3[2]], nettoyer=nettoyeur)
+fin_txt = (D / "03-menaces.md").read_text(encoding="utf-8")
+verifier("assemblage : éléments inventés retirés par le code, comptés", "STRIDE-Z" not in fin_txt and "CVE-2023-1234" not in fin_txt and lots.DERNIER_NETTOYAGE["03-menaces.md"] == 2)
+(D / "01-actifs.md").write_text(NL.join(actifs) + NL, encoding="utf-8")
+vieux = _time.time() - 3600
+_os.utime(D / "01-actifs.md", (vieux, vieux))
+verifier("partie valide et plus récente que le livrable d'entrée : réutilisable", lots.partie_reutilisable(D, plan3[2]))
+_os.utime(D / "01-actifs.md", None)
+_os.utime(lots.fichier_partie(D, plan3[2]), (vieux, vieux))
+verifier("partie plus ancienne que son entrée : refaite", not lots.partie_reutilisable(D, plan3[2]))
+verifier("partie absente : à produire", not lots.partie_reutilisable(D, plan3[0]) or lots.fichier_partie(D, plan3[0]).is_file())
+
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")
 verifier("reprise : seuls les lots dont un identifiant est cité sont refaits", [l.index for l in cibles] == [1, 3])
@@ -171,7 +195,7 @@ verifier("actifs manquants affectés au lot de leur type", sorted(sup) == ["01-a
 verifier("un actif manquant fait refaire son lot", [l.index for l in lots.lots_concernes(liste1, "", {"01-actifs:2": ["x"]})] == [2])
 
 # --- assemblage ------------------------------------------------------------------------------------------------------------------------
-(D / "parties").mkdir()
+(D / "parties").mkdir(exist_ok=True)
 for lot, rows in ((plan3[0], [f"| - | A{n:02d} Actif {n} | STRIDE-S | d [E1] | — | STRIDE-S |" for n in range(1, 6)]),
                   (plan3[2], [bonne.split(NL)[0].replace("A11", "A11"), bonne.split(NL)[1]])):
     lots.fichier_partie(D, lot).write_text(NL.join(rows), encoding="utf-8")

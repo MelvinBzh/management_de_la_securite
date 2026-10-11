@@ -254,5 +254,11 @@ for option in ("--reprendre", "--synthese"):
         verifier(f"main accepte {option}", False)
 verifier("main refuse un nombre d'arguments inattendu", chaine.main(["chaine.py", "a", "b"]) == 2)
 
+# --- nettoyage par le code des sources et CVE inventées (assemblage des lots) --------------------------------------------------
+if chaine.ids_connus():
+    verifier("source inventée retirée, sources valides gardées", chaine.assainir_cellule("STRIDE-S, STRIDE-C, ANSSI-PSSI") == ("STRIDE-S, ANSSI-PSSI", 1))
+    verifier("source valide : inchangée", chaine.assainir_cellule("STRIDE-T") == ("STRIDE-T", 0))
+verifier("CVE de remplissage remplacée par un tiret", chaine.assainir_cellule("CVE-2023-1234") == ("—", 1))
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)

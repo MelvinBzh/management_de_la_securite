@@ -857,6 +857,22 @@ def _relatif(chemin: Path) -> str:
     return str(chemin.relative_to(lib.RACINE)) if chemin.is_relative_to(lib.RACINE) else str(chemin)
 
 
+def assainir_cellule(texte: str) -> tuple[str, int]:
+    """Retire d'une cellule les identifiants de source INEXISTANTS (STRIDE-C, LINDDUN-E…) et les CVE de remplissage :
+    ce sont des inventions vérifiables par le code, inutile de redemander 40 minutes de travail pour les ôter."""
+    connus = ids_connus()
+    retires = 0
+    if RE_CVE_FACTICE.search(texte):
+        texte, n = RE_CVE_FACTICE.subn("—", texte)
+        retires += n
+    if connus:
+        for ident in sources_inconnues(texte, connus):
+            texte, n = re.subn(r"\s*,?\s*(?<![A-Za-z0-9-])" + re.escape(ident) + r"(?![A-Za-z0-9-])", "", texte)
+            retires += n
+        texte = re.sub(r"^\s*,\s*", "", texte).strip()
+    return texte, retires
+
+
 def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, numero: int, fichier: str, liste: list,
                       *, auto: bool, installes: set[str], defaut: str, modele_impose: str, corrections: str,
                       index_chemin: Path) -> int:
@@ -876,6 +892,11 @@ def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, num
         deja = any(lots.fichier_partie(dossier, l).is_file() for l in liste)
         supplements: dict[str, list[str]] = {}
         cibles = list(liste)
+        if not corrections:
+            # parties déjà valides et plus récentes que leur entrée : réutilisées (analyse reprise, essai suivant)
+            cibles = [l for l in liste if not lots.partie_reutilisable(dossier, l)]
+            if deja and len(cibles) < len(liste):
+                _journal(f"[chaine] {fichier} : {len(liste) - len(cibles)} partie(s) déjà valide(s) réutilisée(s), {len(cibles)} à produire")
         if corrections and deja:
             if fichier == "01-actifs.md":
                 supplements = lots.supplements_actifs(coherence.actifs_manquants(dossier, index_chemin), liste)
@@ -934,10 +955,12 @@ def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, num
                     break
                 manquants = problemes
                 _journal(f"[chaine] lot {lot.index}/{total} de {fichier} : à refaire ({'; '.join(problemes)[:260]})")
-        lignes = lots.assembler(dossier, fichier, liste)
+        lignes = lots.assembler(dossier, fichier, liste, nettoyer=assainir_cellule if fichier in FICHIERS_A_SOURCES else None)
         fusion = lots.DERNIER_ASSEMBLAGE.get(fichier, 0)
+        retires = lots.DERNIER_NETTOYAGE.get(fichier, 0)
         _journal(f"[chaine] {fichier} assemblé par le programme : {lignes} ligne(s) à partir de {total} lot(s)"
-                 + (f" ({fusion} doublon(s) fusionné(s))" if fusion else ""))
+                 + (f" ({fusion} doublon(s) fusionné(s))" if fusion else "")
+                 + (f" ({retires} identifiant(s) de source ou CVE inventé(s) retiré(s))" if retires else ""))
     finally:
         index.fermer()
     return refaits
@@ -1042,7 +1065,8 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
                 for fichier_lot in par_lots:
                     n_refaits = produire_par_lots(cli, agent, dossier, dossier_nom, numero, fichier_lot, plans[fichier_lot],
                                                   auto=auto, installes=installes, defaut=defaut, modele_impose=modele,
-                                                  corrections=corrections, index_chemin=travail.chemins(dossier)[1])
+                                                  corrections=(corrections or (diagnostic if essai > 1 else "")),
+                                                  index_chemin=travail.chemins(dossier)[1])
                     rien_refait = rien_refait and n_refaits == 0
                 if tour > 0 and rien_refait and not simples:
                     _journal("[chaine] reprise : aucun lot n'est concerné par les corrections — l'étape est confiée à l'analyste")
