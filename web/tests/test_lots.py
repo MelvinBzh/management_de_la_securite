@@ -137,8 +137,9 @@ verifier("récupération : rien de tabulaire = rien récupéré", lots.recuperer
 # --- plafonds : l'inventaire regroupe, le nombre de lots reste borné --------------------------------------------------------------
 beaucoup = NL.join(f"| - | Actif {n} | Logiciel | desc [E1] | Interne | [E1] |" for n in range(1, 31))
 _, pb_beaucoup = lots.valider_partie(liste1[0], beaucoup)
-verifier("un lot d'inventaire qui énumère 30 lignes est refusé (regrouper)", any("trop de lignes" in p for p in pb_beaucoup))
-verifier("16 à 22 lignes restent tolérées", lots.valider_partie(liste1[0], NL.join(beaucoup.split(NL)[:20]))[1] == [])
+verifier("30 lignes dans un lot d'inventaire : tolérées (le plafond est un conseil)", not any("trop de lignes" in p for p in pb_beaucoup))
+enorme = NL.join(f"| - | Actif {n} | Logiciel | desc [E1] | Interne | [E1] |" for n in range(1, 60))
+verifier("un excès manifeste (59 lignes) est refusé : regrouper", any("trop de lignes" in p for p in lots.valider_partie(liste1[0], enorme)[1]))
 gros = [[f"A{n:03d}", f"Actif {n}", "Logiciel", "d"] for n in range(1, 116)]
 verifier("115 actifs : 12 lots au plus pour les menaces (taille adaptée)", len(lots._lots_menaces(gros)) <= lots.MAX_LOTS + 1)
 verifier("petits volumes : taille de lot inchangée (12 actifs = 5 + 5 + 2)", [len(l.attendus) for l in lots._lots_menaces(gros[:12])][:3] == [5, 5, 2])

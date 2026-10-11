@@ -23,6 +23,7 @@ ETAPES_PAR_LOTS = {1: ("01-actifs.md",), 3: ("03-menaces.md",), 4: ("04-evaluati
 TAILLE_LOT = {"03-menaces.md": 5, "04-evaluation.md": 8, "05-traitement.md": 8}
 BUDGET_PREUVES_LOT = 14000
 MAX_LIGNES_LOT_ACTIFS = 16      # un lot d'inventaire regroupe les éléments de même nature (mesuré : 115 actifs sans plafond)
+SEUIL_EXCES_ACTIFS = 40          # mesuré : le modèle rend 24 à 25 lignes malgré « au plus 16 » ; refaire un lot coûte plus cher
 MAX_LOTS = 12                    # au-delà, la taille des lots grandit : la durée de la chaîne reste bornée
 
 ENTETES: dict[str, tuple[str, list[str]]] = {
@@ -294,7 +295,7 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
         # lot indicatif (inventaire des actifs) : quelques lignes mal formées ne justifient pas de tout refaire, les
         # lignes valides sont gardées ; le contrôle d'ensemble signale les actifs qui manqueraient
         problemes = [p for p in problemes if not p.startswith("ligne à ")]
-        if len(lignes) > MAX_LIGNES_LOT_ACTIFS + 6:
+        if len(lignes) > SEUIL_EXCES_ACTIFS:   # le plafond est un CONSEIL ; seul un excès manifeste justifie un nouvel essai
             problemes.append(f"trop de lignes ({len(lignes)}) : au plus {MAX_LIGNES_LOT_ACTIFS}, regroupe les éléments de même nature")
     corps = " ".join(" ".join(l) for l in lignes)
     for a in lot.attendus:
