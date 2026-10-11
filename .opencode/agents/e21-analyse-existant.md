@@ -3,10 +3,10 @@ description: Étape 1 E21 — analyse l'existant du système à étudier : descr
 mode: all
 model: opencode/big-pickle
 permission:
-  read: allow
-  glob: allow
-  grep: allow
-  list: allow
+  read: deny
+  glob: deny
+  grep: deny
+  list: deny
   question: allow
   edit:
     "**": deny

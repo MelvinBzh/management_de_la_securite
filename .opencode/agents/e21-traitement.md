@@ -3,10 +3,10 @@ description: Étape 5 E21 — traite chaque risque : réponse (réduire/transfé
 mode: all
 model: opencode/big-pickle
 permission:
-  read: allow
-  glob: allow
-  grep: allow
-  list: allow
+  read: deny
+  glob: deny
+  grep: deny
+  list: deny
   edit:
     "**": deny
     "analyses/**": allow

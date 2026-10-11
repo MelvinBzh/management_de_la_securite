@@ -3,10 +3,10 @@ description: Étape 3 E21 — identifie les menaces en appliquant la grille choi
 mode: all
 model: opencode/big-pickle
 permission:
-  read: allow
-  glob: allow
-  grep: allow
-  list: allow
+  read: deny
+  glob: deny
+  grep: deny
+  list: deny
   edit:
     "**": deny
     "analyses/**": allow
