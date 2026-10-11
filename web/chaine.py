@@ -788,13 +788,20 @@ def preparer_connaissance(dossier: Path, auto: bool) -> bool:
         return False
 
 
+BUDGET_DESCRIPTION = 14000   # 00-description.md seule : le détail des actifs est traité par les lots, avec leurs propres preuves
+
+
 def fichier_de_preuves(dossier: Path, numero: int) -> Path | None:
-    """Écrit le dossier de preuves de l'étape `numero` ; None si impossible (retour à la lecture des documents)."""
+    """Écrit le dossier de preuves de l'étape `numero` ; None si impossible (retour à la lecture des documents).
+
+    Étape 1 : ce dossier ne sert qu'à 00-description.md (la description d'ensemble) ; l'inventaire des actifs passe par des
+    lots qui reçoivent chacun leurs preuves. Un dossier de 38 Ko pour une description déclenchait le résumé automatique
+    d'opencode (mesuré le 2026-10-11) : on le taille à la tâche, sans rien retirer à ce que les lots reçoivent."""
     try:
         index = Index(travail.chemins(dossier)[1])
         try:
             texte = preuves.dossier_de_preuves(index, numero, dossier=dossier,
-                                               budget=preuves.BUDGET_ETAPE_1 if numero == 1 else preuves.BUDGET_OCTETS)
+                                               budget=BUDGET_DESCRIPTION if numero == 1 else preuves.BUDGET_OCTETS)
         finally:
             index.fermer()
         chemin = travail.chemins(dossier)[0] / f"preuves-etape-{numero}.md"
@@ -918,7 +925,9 @@ def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, num
                 manquants = problemes
                 _journal(f"[chaine] lot {lot.index}/{total} de {fichier} : à refaire ({'; '.join(problemes)[:260]})")
         lignes = lots.assembler(dossier, fichier, liste)
-        _journal(f"[chaine] {fichier} assemblé par le programme : {lignes} ligne(s) à partir de {total} lot(s)")
+        fusion = lots.DERNIER_ASSEMBLAGE.get(fichier, 0)
+        _journal(f"[chaine] {fichier} assemblé par le programme : {lignes} ligne(s) à partir de {total} lot(s)"
+                 + (f" ({fusion} doublon(s) fusionné(s))" if fusion else ""))
     finally:
         index.fermer()
     return refaits

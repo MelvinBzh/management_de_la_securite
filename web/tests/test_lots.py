@@ -86,6 +86,15 @@ verifier("04 : un identifiant inattendu n'est pas une ligne valide", any("inatte
 lignes, pb = lots.valider_partie(lot4, "| **M17** | menace | Moyenne | j | Élevé | j | Élevé | j |")
 verifier("04 : identifiant en gras accepté", len(lignes) == 1 and pb == [])
 
+# --- préfixes que les modèles ajoutent devant les lignes (numéro, tiret, citation) ------------------------------------------------
+prefixes = NL.join(["1: | - | A11 Actif 11 | STRIDE-S | Description [E1] | — | STRIDE-S |",
+                    "- | - | A12 Actif 12 | STRIDE-T | Description [E2] | — | STRIDE-T |"])
+lignes, pb = lots.valider_partie(lot3, prefixes)
+verifier("lignes préfixées par « 1: » ou « - » : lues, pas rejetées", len(lignes) == 2 and pb == [])
+sans_pipe_final = "| - | A11 Actif 11 | STRIDE-S | Description [E1] | — | STRIDE-S" + NL + "| - | A12 | STRIDE-T | Description [E2] | — | STRIDE-T"
+lignes, pb = lots.valider_partie(lot3, sans_pipe_final)
+verifier("ligne sans barre finale : lue", len(lignes) == 2 and pb == [])
+
 # --- consigne, entrées ----------------------------------------------------------------------------------------------------------
 c = lots.consigne_lot(lot3, 4, "2026-01-01_x", "STRIDE-S, STRIDE-T")
 verifier("consigne : fichier de partie, 6 colonnes, « - » pour l'ID, sources autorisées",
@@ -98,6 +107,14 @@ e = lots.contenu_entrees(lot3, 4, None, "")
 verifier("entrées : liste de contrôle obligatoire", "OBLIGATOIRE" in e and "A11" in e)
 e1 = lots.contenu_entrees(liste1[0], 3, ["Veeam (systeme, cité par 2 documents)"], "")
 verifier("entrées du lot 1 : candidats indicatifs + supplément à ajouter OBLIGATOIREMENT", "candidats" in e1 and "AJOUTER OBLIGATOIREMENT" in e1 and "Veeam" in e1)
+
+# --- doublons entre lots : le même actif décrit deux fois est fusionné, les preuves réunies -------------------------------------------
+dup = [["-", "**FleetTrack**", "Logiciel", "Télématique [E1]", "Haute", "Critique", "[E1]"],
+       ["-", "Microsoft 365", "Logiciel", "Mail", "Haute", "Critique", "[E2]"],
+       ["-", "FleetTrack", "Prestataire", "Autre description", "Moyenne", "Sensible", "[E1][E9]"]]
+fusion, n_f = lots.fusionner_doublons(dup)
+verifier("même actif décrit par deux lots : une seule ligne, la première description gardée", n_f == 1 and len(fusion) == 2 and fusion[0][3] == "Télématique [E1]")
+verifier("les preuves des deux descriptions sont réunies sans doublon", fusion[0][-1] == "[E1] [E9]")
 
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")

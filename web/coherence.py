@@ -162,11 +162,12 @@ def nombres_introuvables(texte: str, corpus: str) -> list[tuple[str, str]]:
 
 
 def doublons(texte: str) -> list[str]:
-    """Lignes de tableau en double (mêmes deux premières cellules significatives)."""
+    """Lignes de tableau en double : toutes les cellules identiques, identifiant mis à part."""
     vus, dup = {}, []
     for t in tableaux(texte):
         for _n, c in t["lignes"]:
-            cle = tuple(_nettoyer(x).lower() for x in c[:3])
+            debut = 1 if c and RE_ID_DEFINITION.match(_nettoyer(c[0])) else 0   # l'identifiant ne distingue pas deux lignes
+            cle = tuple(_nettoyer(x).lower() for x in c[debut:])   # ligne IDENTIQUE hors identifiant : un vrai doublon
             if not any(cle):
                 continue
             if cle in vus:

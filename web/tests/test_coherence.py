@@ -42,6 +42,10 @@ verifier("« A-1 » et « A1 » sont le même identifiant", coherence.identifian
 
 # --- doublons, textes d'attente --------------------------------------------------------------------------------------
 verifier("ligne en double détectée", len(coherence.doublons(coherence.lire(D, "03-menaces.md"))) == 1)
+verifier("deux lignes qui ne diffèrent que par l'identifiant sont des doublons",
+         len(coherence.doublons("| ID | a | b |" + chr(10) + "|---|---|---|" + chr(10) + "| M1 | x | y |" + chr(10) + "| M2 | x | y |")) == 1)
+verifier("deux menaces de même catégorie mais de description différente ne sont pas des doublons",
+         coherence.doublons("| ID | a | b |" + chr(10) + "|---|---|---|" + chr(10) + "| M1 | x | y1 |" + chr(10) + "| M2 | x | y2 |") == [])
 verifier("texte d'attente détecté", len(coherence.textes_d_attente(coherence.lire(D, "05-traitement.md"))) == 1)
 verifier("tableaux : en-tête et lignes de données séparés", coherence.tableaux(coherence.lire(D, "01-actifs.md"))[0]["entete"] == ["ID", "Actif", "Type"]
          and len(coherence.tableaux(coherence.lire(D, "01-actifs.md"))[0]["lignes"]) == 2)

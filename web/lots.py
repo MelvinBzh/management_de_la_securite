@@ -82,6 +82,8 @@ def lignes_de_donnees(texte: str) -> list[list[str]]:
     """Cellules de chaque ligne de tableau de `texte`, hors séparateur et hors ligne d'en-tête (première cellule « ID »)."""
     sortie = []
     for l in texte.splitlines():
+        # un modèle écrit parfois « 1: | … », « - | … » ou « > | … » : le préfixe n'est pas du contenu (mesuré le 2026-10-11)
+        l = re.sub(r"^\s*(?:\d+\s*[:.)]|[-*•>])\s*(?=\|)", "", l)
         if not l.lstrip().startswith("|") or RE_SEPARATEUR.match(l):
             continue
         cellules = [c.strip() for c in l.strip().strip("|").split("|")]
@@ -295,6 +297,36 @@ def supplements_actifs(manquants: list[tuple[str, str, int]], lots: list[Lot]) -
 
 
 # ----------------------------------------------------------------------------------------------- assemblage
+def _cle_nom(cellule: str) -> str:
+    """Nom d'actif normalisé (sans gras, ponctuation ni casse) pour reconnaître le MÊME actif décrit par deux lots."""
+    return re.sub(r"[^0-9a-zàâäçéèêëîïôöùûüÿœ]+", " ", _propre(cellule).lower()).strip()
+
+
+def fusionner_doublons(lignes: list[list[str]]) -> tuple[list[list[str]], int]:
+    """Fusionne les lignes du MÊME actif (deux lots qui décrivent FleetTrack, Microsoft 365…) : on garde la première
+    description et on réunit les preuves citées. Renvoie `(lignes, nombre_fusionnées)`."""
+    vus: dict[str, int] = {}
+    sortie: list[list[str]] = []
+    fusionnees = 0
+    for cellules in lignes:
+        cle = _cle_nom(cellules[1]) if len(cellules) > 1 else ""
+        if cle and cle in vus:
+            gardee = sortie[vus[cle]]
+            existantes = set(re.findall(r"\[E\d+\]", gardee[-1]))
+            en_plus = [e for e in re.findall(r"\[E\d+\]", " ".join(cellules)) if e not in existantes]
+            if en_plus:
+                gardee[-1] = (gardee[-1] + " " + " ".join(dict.fromkeys(en_plus))).strip()
+            fusionnees += 1
+            continue
+        if cle:
+            vus[cle] = len(sortie)
+        sortie.append(list(cellules))
+    return sortie, fusionnees
+
+
+DERNIER_ASSEMBLAGE: dict[str, int] = {}   # fichier -> nombre de lignes fusionnées au dernier assemblage (pour le journal)
+
+
 def assembler(dossier: Path, fichier: str, lots: list[Lot]) -> int:
     """Écrit le livrable final : titre, en-tête, lignes de toutes les parties (identifiants posés par le code).
 
@@ -310,6 +342,9 @@ def assembler(dossier: Path, fichier: str, lots: list[Lot]) -> int:
             continue
         lignes, _problemes = valider_partie(lot, texte)
         toutes += lignes
+    DERNIER_ASSEMBLAGE[fichier] = 0
+    if fichier == "01-actifs.md":
+        toutes, DERNIER_ASSEMBLAGE[fichier] = fusionner_doublons(toutes)
     largeur = 2 if len(toutes) < 100 else 3
     corps = []
     for n, cellules in enumerate(toutes, start=1):
