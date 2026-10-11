@@ -38,6 +38,11 @@ ENTETES: dict[str, tuple[str, list[str]]] = {
 }
 MATRICE = ("Matrice probabilité × impact — Élevée : Faible→Moyen, Moyen→Élevé, Élevé→Critique ; Moyenne : Faible→Faible, "
            "Moyen→Moyen, Élevé→Élevé ; Faible : Faible→Faible, Moyen→Faible, Élevé→Moyen.")
+# Le modèle n'écrit que son JUGEMENT ; le code remplit ce qui vient d'une étape précédente et calcule le niveau (matrice).
+COLONNES_MODELE = {
+    "04-evaluation.md": ["ID", "Probabilité", "Impact", "Justification"],
+    "05-traitement.md": ["ID", "Traitement", "Contre-mesures", "Sources", "Risque résiduel estimé"],
+}
 PREFIXE_ID = {"01-actifs.md": "A", "03-menaces.md": "M"}   # identifiants posés par le CODE (jamais par le modèle)
 
 REGLES = {
@@ -58,14 +63,14 @@ REGLES = {
         "préfixée par la grille (STRIDE-S, LINDDUN-L…). « Description » : qui attaque, comment, pour quel objectif, en citant les "
         "[E…] qui montrent l'exposition. « CVE si connue » : « — » si aucune. « Source » : un identifiant de grille autorisé."),
     "04-evaluation.md": (
-        "Écris UNE ligne par menace de la liste de contrôle, avec exactement son ID en première colonne, puis le nom de la menace "
-        "en une cellule SANS barre verticale. Probabilité et Impact ∈ {Faible, Moyen, Élevé}. Niveau selon la matrice : " + MATRICE +
-        " « Justification » : UNE cellule qui justifie la probabilité et l'impact en une ou deux phrases appuyées sur les [E…] "
-        "(exposition, mesures existantes) ; si l'information manque, écris-le au lieu de deviner."),
+        "Écris UNE ligne par menace de la liste de contrôle, avec exactement son ID en première colonne. Tu n'écris que ton "
+        "JUGEMENT : Probabilité et Impact ∈ {Faible, Moyen, Élevé}, puis « Justification » : UNE cellule, une ou deux phrases "
+        "appuyées sur les [E…] (exposition, mesures existantes) ; si l'information manque, écris-le au lieu de deviner. Le "
+        "programme ajoute la menace et calcule le niveau avec la matrice : ne les écris pas."),
     "05-traitement.md": (
-        "Écris UNE ligne par risque de la liste de contrôle, avec exactement son ID en première colonne. « Actif et menace » : une "
-        "cellule qui reprend l'actif et la menace. Traitement ∈ {Réduire, Transférer, Éviter, Accepter}. « Contre-mesures » concrètes. "
-        "« Sources » : les identifiants de source autorisés des contre-mesures. « Risque résiduel estimé » : jamais nul."),
+        "Écris UNE ligne par risque de la liste de contrôle, avec exactement son ID en première colonne. Traitement ∈ {Réduire, "
+        "Transférer, Éviter, Accepter}. « Contre-mesures » concrètes. « Sources » : les identifiants de source autorisés des "
+        "contre-mesures. « Risque résiduel estimé » : jamais nul. Le programme ajoute l'actif et la menace : ne les écris pas."),
 }
 RE_SEPARATEUR = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
 
@@ -84,6 +89,11 @@ class Lot:
 
 
 # ----------------------------------------------------------------------------------------------- lecture
+def colonnes_ecrites(fichier: str) -> list[str]:
+    """Colonnes que le MODÈLE écrit pour ce livrable (les colonnes finales peuvent être plus nombreuses)."""
+    return COLONNES_MODELE.get(fichier) or ENTETES[fichier][1]
+
+
 def lignes_de_donnees(texte: str) -> list[list[str]]:
     """Cellules de chaque ligne de tableau de `texte`, hors séparateur et hors ligne d'en-tête (première cellule « ID »)."""
     sortie = []
@@ -244,7 +254,7 @@ def contenu_entrees(lot: Lot, total: int, supplements: list[str] | None = None, 
 
 def consigne_lot(lot: Lot, total: int, dossier_nom: str, sources: str = "", manquants: list[str] | None = None) -> str:
     """Consigne FIXE d'un lot : aucun contenu de document, seulement des noms de fichiers et des règles."""
-    titre, colonnes = ENTETES[lot.fichier]
+    colonnes = colonnes_ecrites(lot.fichier)
     partie = f"analyses/{dossier_nom}/parties/{lot.fichier[:-3]}.{lot.index}.md"
     id_code = lot.fichier in PREFIXE_ID
     exemple = "| " + " | ".join(("-" if (i == 0 and id_code) else f"<{c}>") for i, c in enumerate(colonnes)) + " |"
@@ -302,7 +312,7 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
 
     Problèmes : aucune ligne, mauvais nombre de colonnes, élément attendu absent."""
     sans_cloture = "\n".join(l for l in texte.splitlines() if not l.strip().startswith("```"))
-    nb = len(ENTETES[lot.fichier][1])
+    nb = len(colonnes_ecrites(lot.fichier))
     lignes, problemes = [], []
     brutes = [c for cellules in lignes_de_donnees(sans_cloture) for c in _normaliser_cellules(cellules, nb, lot.fichier)]
     for cellules in brutes:
@@ -332,7 +342,7 @@ def recuperer_depuis_sortie(lot: Lot, sortie: str) -> str:
     """Lignes de tableau valides trouvées dans la RÉPONSE de l'agent, quand il les a écrites dans son message au lieu
     d'appeler l'outil d'écriture (mesuré le 2026-10-11 : qwen3.5 imprime un appel `<tool_call>` mal formé que opencode
     n'exécute pas, le fichier n'existe donc pas alors que le tableau est complet). Renvoie le texte de la partie, ou « »."""
-    nb = len(ENTETES[lot.fichier][1])
+    nb = len(colonnes_ecrites(lot.fichier))
     vues: set[str] = set()
     gardees: list[str] = []
     for cellules in (c for brut in lignes_de_donnees(sortie) for c in _normaliser_cellules(brut, nb, lot.fichier)):
@@ -409,6 +419,41 @@ def fusionner_doublons(lignes: list[list[str]]) -> tuple[list[list[str]], int]:
 DERNIER_ASSEMBLAGE: dict[str, int] = {}   # fichier -> nombre de lignes fusionnées au dernier assemblage (pour le journal)
 
 
+NIVEAUX = {("élevé", "faible"): "Moyen", ("élevé", "moyen"): "Élevé", ("élevé", "élevé"): "Critique",
+           ("moyen", "faible"): "Faible", ("moyen", "moyen"): "Moyen", ("moyen", "élevé"): "Élevé",
+           ("faible", "faible"): "Faible", ("faible", "moyen"): "Faible", ("faible", "élevé"): "Moyen"}
+
+
+def _echelle(valeur: str) -> str:
+    """« Élevée », « Haute », « Moyenne », « Basse »… -> « élevé » | « moyen » | « faible » ; « » si non reconnu."""
+    v = _propre(valeur).lower()
+    if re.search(r"faib|bas|mineur", v):
+        return "faible"
+    if re.search(r"moy|modér|moder", v):
+        return "moyen"
+    if re.search(r"[ée]lev|haut|fort|major|critique", v):
+        return "élevé"
+    return ""
+
+
+def niveau(probabilite: str, impact: str) -> str:
+    """Niveau de risque selon la matrice probabilité × impact ; « à déterminer » si une des deux notes est illisible."""
+    return NIVEAUX.get((_echelle(probabilite), _echelle(impact)), "à déterminer")
+
+
+def _etendre(fichier: str, cellules: list[str], entree: dict[str, list[str]]) -> list[str]:
+    """Colonnes finales d'une ligne écrite par le modèle : la menace vient de l'étape précédente, le niveau est calculé."""
+    ref = entree.get(_propre(cellules[0]), [])
+    if fichier == "04-evaluation.md":
+        menace = " ".join(x for x in ((ref[1] if len(ref) > 1 else ""), (f"({_propre(ref[2])})" if len(ref) > 2 else ""),
+                                      (ref[3][:140] if len(ref) > 3 else "")) if x).strip() or "(menace non retrouvée)"
+        return [cellules[0], menace, cellules[1], cellules[2], niveau(cellules[1], cellules[2]), cellules[3]]
+    if fichier == "05-traitement.md":
+        contexte = " ".join(x for x in ((ref[1] if len(ref) > 1 else ""), (f"niveau {ref[4]}" if len(ref) > 4 else "")) if x).strip()
+        return [cellules[0], contexte or "(menace non retrouvée)"] + cellules[1:]
+    return cellules
+
+
 DERNIER_NETTOYAGE: dict[str, int] = {}   # fichier -> nombre d'éléments inventés retirés au dernier assemblage
 
 
@@ -418,6 +463,10 @@ def assembler(dossier: Path, fichier: str, lots: list[Lot], nettoyer=None) -> in
     Renvoie le nombre de lignes. Une partie absente ou invalide est ignorée (le contrôle d'ensemble le signalera)."""
     titre, colonnes = ENTETES[fichier]
     prefixe = PREFIXE_ID.get(fichier)
+    entree: dict[str, list[str]] = {}
+    if fichier in COLONNES_MODELE:  # lignes de l'étape précédente, par identifiant (menace, évaluation)
+        for r in lire_lignes(dossier, ENTREE_DU_LIVRABLE[fichier]):
+            entree[_propre(r[0])] = r
     toutes: list[list[str]] = []
     for lot in lots:
         partie = fichier_partie(dossier, lot)
@@ -426,7 +475,7 @@ def assembler(dossier: Path, fichier: str, lots: list[Lot], nettoyer=None) -> in
         except OSError:
             continue
         lignes, _problemes = valider_partie(lot, texte)
-        toutes += lignes
+        toutes += [_etendre(fichier, c, entree) for c in lignes] if fichier in COLONNES_MODELE else lignes
     DERNIER_ASSEMBLAGE[fichier] = 0
     if fichier == "01-actifs.md":
         toutes, DERNIER_ASSEMBLAGE[fichier] = fusionner_doublons(toutes)

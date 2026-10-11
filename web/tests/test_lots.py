@@ -86,9 +86,9 @@ entete_et_cloture = "```markdown" + NL + "| ID | Actif concerné | Catégorie (g
 lignes, pb = lots.valider_partie(lot3, entete_et_cloture)
 verifier("clôture de code et en-tête recopiés par le modèle : ignorés", len(lignes) == 2 and pb == [])
 lot4 = plan4[2]   # attendu M17
-_, pb = lots.valider_partie(lot4, "| M99 | x | Faible | Faible | Faible | j |")
+_, pb = lots.valider_partie(lot4, "| M99 | Faible | Faible | j |")
 verifier("04 : un identifiant inattendu n'est pas une ligne valide", any("inattendu" in p for p in pb) and any("M17" in p for p in pb))
-lignes, pb = lots.valider_partie(lot4, "| **M17** | menace | Moyenne | Élevé | Élevé | j |")
+lignes, pb = lots.valider_partie(lot4, "| **M17** | Moyenne | Élevé | j |")
 verifier("04 : identifiant en gras accepté", len(lignes) == 1 and pb == [])
 
 # --- préfixes que les modèles ajoutent devant les lignes (numéro, tiret, citation) ------------------------------------------------
@@ -108,7 +108,7 @@ verifier("consigne : fichier de partie, 6 colonnes, « - » pour l'ID, sources a
          "analyses/2026-01-01_x/parties/03-menaces.3.md" in c and "exactement 6 colonnes" in c and "« - »" in c and "STRIDE-S, STRIDE-T" in c)
 c4 = lots.consigne_lot(lot4, 3, "2026-01-01_x", "", ["élément non traité : M17"])
 verifier("consigne 04 : l'ID est repris tel quel ; reprise = partie réécrite en entier avec les manquants",
-         "EXACTEMENT l'identifiant" in c4 and "EN ENTIER" in c4 and "M17" in c4 and "Matrice" in c4)
+         "EXACTEMENT l'identifiant" in c4 and "EN ENTIER" in c4 and "M17" in c4 and "ne les écris pas" in c4)
 verifier("la consigne ne contient aucun contenu de document", "desc 17" not in c4 and "Actif 11" not in c)
 e = lots.contenu_entrees(lot3, 4, None, "")
 verifier("entrées : liste de contrôle obligatoire", "OBLIGATOIRE" in e and "A11" in e)
@@ -205,10 +205,19 @@ verifier("assemblage : 7 lignes (parties absentes ignorées)", n == 7)
 verifier("assemblage : titre, en-tête, séparateur", final.startswith("# Menaces (étape 3)") and "| ID | Actif concerné | Catégorie (grille) | Description | CVE si connue | Source |" in final and "|---|---|---|---|---|---|" in final)
 verifier("assemblage : identifiants posés par le code, dans l'ordre", "| M01 |" in final and "| M07 |" in final and "| M08 |" not in final)
 (D / "04-evaluation.md").unlink(missing_ok=True)
-lots.fichier_partie(D, plan4[2]).write_text("| M17 | menace | Moyenne | Élevé | Élevé | j |", encoding="utf-8")
+lots.fichier_partie(D, plan4[2]).write_text("| M17 | Moyenne | Élevé | Justification [E1] |", encoding="utf-8")
 lots.assembler(D, "04-evaluation.md", plan4)
 ev = (D / "04-evaluation.md").read_text(encoding="utf-8")
 verifier("04 assemblé : matrice rappelée, identifiant de la menace conservé", "Matrice probabilité" in ev and "| M17 |" in ev)
+verifier("04 : une menace absente de l'étape 3 est signalée, jamais inventée", "| M17 | (menace non retrouvée) | Moyenne | Élevé | Élevé |" in ev)
+lots.fichier_partie(D, plan4[0]).write_text("| M03 | Moyenne | Élevé | Justification [E1] |", encoding="utf-8")
+lots.assembler(D, "04-evaluation.md", plan4)
+ev2 = (D / "04-evaluation.md").read_text(encoding="utf-8")
+verifier("04 assemblé : la menace vient de l'étape 3 et le niveau est CALCULÉ (Moyenne × Élevé = Élevé)",
+         "| M03 | A03 Actif 3 (STRIDE-S) d [E1] | Moyenne | Élevé | Élevé | Justification [E1] |" in ev2)
+for p, i, n_attendu in (("Élevée", "Faible", "Moyen"), ("Haute", "Élevé", "Critique"), ("Moyenne", "Moyen", "Moyen"),
+                        ("Faible", "Élevé", "Moyen"), ("Basse", "Faible", "Faible"), ("???", "Moyen", "à déterminer")):
+    verifier(f"matrice : {p} × {i} = {n_attendu}", lots.niveau(p, i) == n_attendu)
 
 print("LOTS:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

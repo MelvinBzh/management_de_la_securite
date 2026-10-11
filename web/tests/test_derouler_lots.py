@@ -64,9 +64,9 @@ class Faux:
                 rows = [f"| - | {i} Actif | STRIDE-S | Menace réaliste [E1] | — | STRIDE-S |" for i in ids if i not in self.oublier] or \
                        ["| - | Frontière Internet → DMZ | STRIDE-S | Contournement [E1] | — | STRIDE-S |"]
             elif nom.startswith("04-evaluation"):
-                rows = [f"| {i} | menace {i} | Moyenne | Élevé | Élevé | j [E1] |" for i in ids]
+                rows = [f"| {i} | Moyenne | Élevé | j [E1] |" for i in ids]
             elif nom.startswith("05-traitement"):
-                rows = [f"| {i} | A01 menace {i} | Réduire | MFA | ISO27002-8.5 | Faible |" for i in ids]
+                rows = [f"| {i} | Réduire | MFA | ISO27002-8.5 | Faible |" for i in ids]
             chemin = lib.RACINE / f"analyses/{m_partie.group(0).split('/')[1]}/parties/{nom}"
             chemin = lib.DOSSIER_ANALYSES / m_partie.group(0).split("/")[1] / "parties" / nom
             chemin.parent.mkdir(exist_ok=True)
