@@ -257,7 +257,8 @@ def consigne_lot(lot: Lot, total: int, dossier_nom: str, sources: str = "", manq
     colonnes = colonnes_ecrites(lot.fichier)
     partie = f"analyses/{dossier_nom}/parties/{lot.fichier[:-3]}.{lot.index}.md"
     id_code = lot.fichier in PREFIXE_ID
-    exemple = "| " + " | ".join(("-" if (i == 0 and id_code) else f"<{c}>") for i, c in enumerate(colonnes)) + " |"
+    premier = "-" if id_code else (lot.attendus[0] if lot.attendus else "-")
+    exemple = "| " + " | ".join((premier if i == 0 else f"<{c}>") for i, c in enumerate(colonnes)) + " |"
     texte = (
         f"Étape — lot {lot.index}/{total} : {lot.theme}. Écris le fichier {partie} (outil write) qui contient UNIQUEMENT des "
         f"lignes de tableau Markdown : aucun titre, aucune phrase, aucune ligne d'en-tête ni de séparateur. Chaque ligne tient sur "
@@ -316,6 +317,9 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
     lignes, problemes = [], []
     brutes = [c for cellules in lignes_de_donnees(sans_cloture) for c in _normaliser_cellules(cellules, nb, lot.fichier)]
     for cellules in brutes:
+        if any(re.fullmatch(r"(?:<[^>]{1,60}>|&lt;[^&]{1,60}&gt;)", c.strip()) for c in cellules):
+            problemes.append("ligne d'exemple recopiée telle quelle (marqueur <…> non rempli)")
+            continue
         if len(cellules) == nb:
             if lot.attendus and lot.fichier not in PREFIXE_ID and _propre(cellules[0]) not in lot.attendus:
                 problemes.append(f"identifiant inattendu : {_propre(cellules[0])[:30]} (attendus : {', '.join(lot.attendus)[:80]})")

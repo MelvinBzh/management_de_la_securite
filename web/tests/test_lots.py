@@ -186,6 +186,13 @@ _os.utime(lots.fichier_partie(D, plan3[2]), (vieux, vieux))
 verifier("partie plus ancienne que son entrée : refaite", not lots.partie_reutilisable(D, plan3[2]))
 verifier("partie absente : à produire", not lots.partie_reutilisable(D, plan3[0]) or lots.fichier_partie(D, plan3[0]).is_file())
 
+# --- la ligne d'exemple n'est pas recopiée -----------------------------------------------------------------------------------------
+verifier("exemple des étapes 4 et 5 : un vrai identifiant du lot, pas un marqueur", "| M17 | <Probabilité> | <Impact> | <Justification> |" in c4)
+_, pb_ex = lots.valider_partie(lot4, "| <ID> | <Probabilité> | <Impact> | <Justification> |")
+verifier("ligne d'exemple recopiée telle quelle : refusée", any("exemple recopiée" in p for p in pb_ex))
+lignes_ok, _pb = lots.valider_partie(lot4, "| M17 | Moyenne | Élevé | Justification [E1] avec <b> dans le texte |")
+verifier("un chevron dans une phrase n'est pas un marqueur d'exemple", len(lignes_ok) == 1)
+
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")
 verifier("reprise : seuls les lots dont un identifiant est cité sont refaits", [l.index for l in cibles] == [1, 3])
