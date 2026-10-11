@@ -42,6 +42,8 @@ verifier("source ISO inconnue détectée", chaine.sources_inconnues("ISO27002-8.
 verifier("source ISO connue acceptée", chaine.sources_inconnues("ISO27002-5.15 STRIDE-S") == [])
 verifier("ANSSI inventé refusé", chaine.sources_inconnues("ANSSI-INVENTE") == ["ANSSI-INVENTE"])
 verifier("ANSSI-HYGIENE numéroté accepté", chaine.sources_inconnues("ANSSI-HYGIENE-3.2") == [])
+verifier("ANSSI-ReCyF (casse mixte) est la référence ANSSI-RECYF, pas « ANSSI-R »", chaine.sources_inconnues("[ANSSI-ReCyF 3.2] ANSSI-RECYF-8.2") == [])
+verifier("ANSSI-R12 : inexistant, lu en entier", chaine.sources_inconnues("ANSSI-R12") == ["ANSSI-R"])
 d = dossier_avec({"05-traitement.md": "# T\n" + TABLE + "ISO27002-8.1 " + "x" * 400})
 verifier("livrable à source inconnue refusé", chaine.livrables_manquants(d, ["05-traitement.md"]) == ["05-traitement.md"])
 d = dossier_avec({"registre-risques.md": "x", "03-menaces.md": "x"})
@@ -258,6 +260,13 @@ verifier("main refuse un nombre d'arguments inattendu", chaine.main(["chaine.py"
 if chaine.ids_connus():
     verifier("source inventée retirée, sources valides gardées", chaine.assainir_cellule("STRIDE-S, STRIDE-C, ANSSI-PSSI") == ("STRIDE-S, ANSSI-PSSI", 1))
     verifier("source valide : inchangée", chaine.assainir_cellule("STRIDE-T") == ("STRIDE-T", 0))
+if chaine.ids_connus():
+    verifier("casse mixte d'une référence connue : normalisée, rien retiré",
+             chaine.assainir_cellule("Journalisation [ANSSI-ReCyF 3.2], ANSSI-RECYF-8.2") == ("Journalisation [ANSSI-RECYF 3.2], ANSSI-RECYF-8.2", 0))
+    nettoye, n_retires = chaine.assainir_cellule("MFA (ANSSI-R12), journalisation [ANSSI-RECYF 3.2], ISO27002-8.15")
+    verifier("référence inexistante suivie d'un numéro : retirée en entière, les valides restent",
+             "ANSSI-R12" not in nettoye and "ANSSI-RECYF 3.2" in nettoye and "ISO27002-8.15" in nettoye and n_retires >= 1)
+    verifier("après assainissement, plus aucune source inexistante", chaine.sources_inconnues(nettoye) == [])
 verifier("CVE de remplissage remplacée par un tiret", chaine.assainir_cellule("CVE-2023-1234") == ("—", 1))
 
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")

@@ -149,8 +149,10 @@ RE_CVE_FACTICE = re.compile(r"CVE-\d{4}-(?:1234|12345|123456|0000|00000|1111|222
 CHEMIN_INDEX = lib.RACINE / "knowledge_base" / "README.md"
 RE_ID_INDEX = re.compile(r"`([A-Za-z][A-Za-z0-9&.*-]*)`")
 RE_ID_CITE = re.compile(
-    r"(?:ISO27002-\d+(?:\.?\d+)?|LINDDUN-[A-Za-z]+|STRIDE-[A-Z](?![A-Za-z])|ANSSI-[A-Z]+(?:-[A-Z]+)?)"
+    r"(?:ISO27002-\d+(?:\.?\d+)?|LINDDUN-[A-Za-z]+|STRIDE-[A-Z](?![A-Za-z])|ANSSI-[A-Z][A-Za-z]*(?:-[A-Z][A-Za-z]*)?)"
 )
+# une référence suivie de son numéro (« ANSSI-R12 », « ANSSI-RECYF 3.2 ») : retirée en entier si elle est inexistante
+RE_REFERENCE = re.compile("(" + RE_ID_CITE.pattern + r")(\d[\d.]*)?(?:\s\d+\.\d+)?")
 FICHIERS_A_SOURCES = ("03-menaces.md", "04-evaluation.md", "05-traitement.md", "registre-risques.md", "SYNTHESE.md")
 
 
@@ -170,11 +172,13 @@ def sources_inconnues(texte: str, connus: set[str] | None = None) -> list[str]:
     if not connus:
         return []
     inconnus: dict[str, None] = {}
+    majuscules = {i.upper() for i in connus}  # « ANSSI-ReCyF » est l'identifiant `ANSSI-RECYF` : la casse n'invente rien
     for cite in RE_ID_CITE.findall(texte):
         cite = cite.rstrip(".")
-        ok = (cite in connus
-              or any(cite.startswith(i + "-") for i in connus if not i.endswith("*"))
-              or any(i.endswith("-*") and i != "ANSSI-*" and cite.startswith(i[:-1]) for i in connus))
+        haut = cite.upper()
+        ok = (cite in connus or haut in majuscules
+              or any(haut.startswith(i + "-") for i in majuscules if not i.endswith("*"))
+              or any(i.endswith("-*") and i != "ANSSI-*" and haut.startswith(i[:-1]) for i in majuscules))
         if not ok:
             inconnus.setdefault(cite, None)
     return list(inconnus)
@@ -866,10 +870,18 @@ def assainir_cellule(texte: str) -> tuple[str, int]:
         texte, n = RE_CVE_FACTICE.subn("—", texte)
         retires += n
     if connus:
+        canoniques = {i.upper(): i for i in connus if "*" not in i}
+        texte = RE_ID_CITE.sub(lambda m: canoniques.get(m.group(0).upper(), m.group(0)), texte)  # ANSSI-ReCyF → ANSSI-RECYF
         for ident in sources_inconnues(texte, connus):
             texte, n = re.subn(r"\s*,?\s*(?<![A-Za-z0-9-])" + re.escape(ident) + r"(?![A-Za-z0-9-])", "", texte)
             retires += n
-        texte = re.sub(r"^\s*,\s*", "", texte).strip()
+        reste = set(sources_inconnues(texte, connus))
+        if reste:  # forme que le retrait exact ne voit pas (« ANSSI-R12 », « ANSSI-XYZ 3.2 ») : retirée avec son numéro
+            texte, n = RE_REFERENCE.subn(lambda m: "" if m.group(1).rstrip(".") in reste else m.group(0), texte)
+            retires += n
+            texte = re.sub(r"[\[(]\s*[,;]?\s*[\])]", "", texte)
+            texte = re.sub(r"\s{2,}", " ", texte)
+        texte = re.sub(r"^\s*[,;]\s*", "", texte).strip()
     return texte, retires
 
 
