@@ -48,7 +48,7 @@ if str(RACINE) not in sys.path:
 
 from tools.connaissance import citations, preuves, travail  # noqa: E402
 from tools.connaissance.index import Index  # noqa: E402
-from web import controles, lib, propagation  # noqa: E402
+from web import coherence, controles, lib, propagation  # noqa: E402
 
 # Relances par étape, durée maximale d'un appel opencode, taille minimale utile.
 ESSAIS = 3
@@ -929,6 +929,17 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
             if index_pret:
                 cites, doutes = controle_citations(dossier, fichiers)
                 faits = " ".join(x for x in (faits, cites) if x)
+            # cohérence interne (code) : identifiants non définis, actifs manquants, doublons, texte d'attente ; les nombres
+            # absents des documents vont à la relecture humaine (calculés ou inventés : le code ne sait pas)
+            try:
+                coh_corr, coh_alertes = coherence.controler(
+                    dossier, fichiers, base_index=travail.chemins(dossier)[1] if index_pret else None,
+                    corpus=base_d_origine(dossier), numero=numero)
+            except Exception as exc:  # noqa: BLE001 — un contrôle en échec ne doit jamais arrêter la chaîne
+                coh_corr, coh_alertes = "", []
+                _journal(f"[chaine] contrôle de cohérence indisponible ({type(exc).__name__}: {str(exc)[:100]})")
+            doutes += coh_alertes
+            faits = " ".join(x for x in (faits, coh_corr) if x)
             if faits:
                 conforme, corrections = False, faits
                 controles.enregistrer(dossier, numero, libelle, "contrôle déterministe (termes absents des intrants, citations)",

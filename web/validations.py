@@ -182,21 +182,27 @@ def _items_lignes(dossier: Path) -> list[dict]:
         etape = e.get("etape")
         fichiers = [n for n, num in ETAPE_DE_FICHIER.items() if str(num) == str(etape)] or list(FICHIERS_ORDRE)
         for brut in e.get("doutes", []):
-            kind = "non_soutenue" if brut.startswith("[non soutenue]") else "doute"
-            texte = re.sub(r"^\[(non soutenue|doute)\]\s*", "", brut)
+            m_kind = re.match(r"^\[(non soutenue|doute|nombre introuvable)(?::([^\]]*))?\]\s*", brut)
+            kind = {"non soutenue": "non_soutenue", "nombre introuvable": "nombre"}.get(m_kind.group(1) if m_kind else "", "doute")
+            valeur = (m_kind.group(2) or "") if m_kind else ""
+            texte = brut[m_kind.end():] if m_kind else brut
             place = trouver_ligne(dossier, texte, fichiers) or trouver_ligne(dossier, texte)
             if place is None:
                 continue  # la ligne a été corrigée depuis : plus rien à relire
             fichier, indice = place
             actuelle = _lignes(dossier, fichier)[indice]
-            pourquoi = ("Les deux vérificateurs indépendants estiment que la preuve citée ne soutient pas cette ligne."
-                        if kind == "non_soutenue" else "Les deux vérificateurs indépendants ne sont pas d'accord sur cette ligne.")
+            pourquoi = {
+                "non_soutenue": "Les deux vérificateurs indépendants estiment que la preuve citée ne soutient pas cette ligne.",
+                "nombre": f"Le nombre « {valeur} » ne figure dans aucun document fourni : il est soit calculé par l'analyse, soit inventé.",
+            }.get(kind, "Les deux vérificateurs indépendants ne sont pas d'accord sur cette ligne.")
             items.append(_item("ligne", f"{fichier}|{actuelle}", etape, f"{fichier} — {' '.join(RE_CITATION.sub('', actuelle).split())[:110]}",
                                pourquoi,
-                               "Comparer la partie de la ligne qui cite une preuve avec l'extrait exact ci-dessous ; "
-                               "les colonnes de jugement (probabilité, impact…) ne sont pas portées par l'extrait.",
+                               ("Retrouver ce nombre dans les documents ; s'il est calculé, vérifier le calcul ; sinon corriger la ligne."
+                                if kind == "nombre" else
+                                "Comparer la partie de la ligne qui cite une preuve avec l'extrait exact ci-dessous ; "
+                                "les colonnes de jugement (probabilité, impact…) ne sont pas portées par l'extrait."),
                                contexte_ligne(dossier, fichier, indice), preuves_de(dossier, actuelle), fichier, actuelle,
-                               {"gravite": 0 if kind == "non_soutenue" else 1}))
+                               {"gravite": {"non_soutenue": 0, "nombre": 1}.get(kind, 2)}))
     items.sort(key=lambda i: i["gravite"])
     return items[:MAX_LIGNES]
 
