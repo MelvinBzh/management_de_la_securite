@@ -76,9 +76,9 @@ verifier("élément attendu absent signalé (A12)", any("A12" in p for p in pb))
 _, pb = lots.valider_partie(lot3, "| - | A11 | STRIDE-S |")
 verifier("mauvais nombre de colonnes signalé", any("colonnes" in p for p in pb))
 lot_indicatif = liste1[0]
-lignes_i, pb_i = lots.valider_partie(lot_indicatif, "| - | A | Logiciel | desc | Interne | [E1] |" + NL + "| - | B | Logiciel | trop court |")
+lignes_i, pb_i = lots.valider_partie(lot_indicatif, "| - | A | Logiciel | desc | Interne | [E1] |" + NL + "| - | B | Logiciel |")
 verifier("lot indicatif : une ligne mal formée parmi des lignes valides n'invalide pas le lot", len(lignes_i) == 1 and pb_i == [])
-_, pb_i2 = lots.valider_partie(lot_indicatif, "| - | B | Logiciel | trop court |")
+_, pb_i2 = lots.valider_partie(lot_indicatif, "| - | B | Logiciel |")
 verifier("lot indicatif : aucune ligne valide = à refaire", pb_i2 and "aucune ligne" in pb_i2[0])
 _, pb = lots.valider_partie(lot3, "")
 verifier("partie vide : aucune ligne de tableau valide", pb and "aucune ligne" in pb[0])
@@ -142,6 +142,17 @@ verifier("16 à 22 lignes restent tolérées", lots.valider_partie(liste1[0], NL
 gros = [[f"A{n:03d}", f"Actif {n}", "Logiciel", "d"] for n in range(1, 116)]
 verifier("115 actifs : 12 lots au plus pour les menaces (taille adaptée)", len(lots._lots_menaces(gros)) <= lots.MAX_LOTS + 1)
 verifier("petits volumes : taille de lot inchangée (12 actifs = 5 + 5 + 2)", [len(l.attendus) for l in lots._lots_menaces(gros[:12])][:3] == [5, 5, 2])
+
+# --- lignes collées ou tronquées ---------------------------------------------------------------------------------------------------
+une_ligne = " ".join(f"| - | Actif {n} | Logiciel | desc [E1] | Interne | [E1] |" for n in range(1, 4)).replace("| | -", "| -")
+colle = "| - | Actif 1 | Logiciel | d1 | Interne | [E1] |" + "| - | Actif 2 | Logiciel | d2 | Sensible | [E2] |" + "| - | Actif 3 | Matériel | d3 | Critique | [E3] |"
+lignes_c, pb_c = lots.valider_partie(liste1[0], colle)
+verifier("plusieurs lignes collées bout à bout sur une seule : redécoupées en 3", len(lignes_c) == 3 and pb_c == [])
+tronquee = "| - | OPSITEL | Prestataire | Infogérance réseau et télémaintenance |"
+lignes_t, pb_t = lots.valider_partie(liste1[2], tronquee)
+verifier("ligne d'actif à 4 cellules : complétée « à préciser » avec preuve vide", len(lignes_t) == 1 and lignes_t[0][4] == "à préciser" and lignes_t[0][5] == "")
+inchangee = "| - | A | B | C |"
+verifier("hors inventaire des actifs, une ligne tronquée reste invalide", lots.valider_partie(lot3, inchangee)[0] == [])
 
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")

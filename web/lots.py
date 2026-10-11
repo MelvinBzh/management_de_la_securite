@@ -248,6 +248,30 @@ def consigne_lot(lot: Lot, total: int, dossier_nom: str, sources: str = "", manq
     return texte
 
 
+def _normaliser_cellules(cellules: list[str], nb: int, fichier: str) -> list[list[str]]:
+    """Ramène les cellules d'une ligne lue à des lignes de `nb` colonnes, quand c'est SANS ambiguïté :
+
+    - plusieurs lignes écrites bout à bout sur une seule (mesuré : « 111 colonnes ») : redécoupées tous les `nb` cellules
+      si chaque morceau commence par « - » (identifiant posé par le code) ;
+    - une ligne d'actif à 4 ou 5 cellules (ID, actif, type, description[, sensibilité]) : complétée par « à préciser » et
+      une preuve vide (le contrôle des citations la signalera). Les autres cas restent invalides."""
+    n = len(cellules)
+    if n == nb:
+        return [cellules]
+    if n > nb:
+        # lignes collées : chaque ligne commence par la cellule « - » (identifiant posé par le code) ; une cellule vide
+        # issue de « || » en fin de morceau est retirée. Accepté seulement si CHAQUE morceau a au moins 4 cellules.
+        debuts = [i for i, c in enumerate(cellules) if c.strip() == "-"]
+        if len(debuts) >= 2 and debuts[0] == 0:
+            morceaux = [cellules[a:b] for a, b in zip(debuts, debuts[1:] + [n])]
+            morceaux = [m[:-1] if m and not m[-1].strip() else m for m in morceaux]
+            if all(4 <= len(m) <= nb for m in morceaux):
+                return [x for m in morceaux for x in _normaliser_cellules(m, nb, fichier)]
+    if fichier == "01-actifs.md" and 4 <= n < nb:
+        return [cellules + ["à préciser", ""][: nb - n] + [""] * max(0, nb - n - 2)]
+    return [cellules]
+
+
 def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
     """`(lignes_valides, problèmes)` d'une partie écrite par l'agent.
 
@@ -255,7 +279,8 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
     sans_cloture = "\n".join(l for l in texte.splitlines() if not l.strip().startswith("```"))
     nb = len(ENTETES[lot.fichier][1])
     lignes, problemes = [], []
-    for cellules in lignes_de_donnees(sans_cloture):
+    brutes = [c for cellules in lignes_de_donnees(sans_cloture) for c in _normaliser_cellules(cellules, nb, lot.fichier)]
+    for cellules in brutes:
         if len(cellules) == nb:
             if lot.attendus and lot.fichier not in PREFIXE_ID and _propre(cellules[0]) not in lot.attendus:
                 problemes.append(f"identifiant inattendu : {_propre(cellules[0])[:30]} (attendus : {', '.join(lot.attendus)[:80]})")
@@ -285,7 +310,7 @@ def recuperer_depuis_sortie(lot: Lot, sortie: str) -> str:
     nb = len(ENTETES[lot.fichier][1])
     vues: set[str] = set()
     gardees: list[str] = []
-    for cellules in lignes_de_donnees(sortie):
+    for cellules in (c for brut in lignes_de_donnees(sortie) for c in _normaliser_cellules(brut, nb, lot.fichier)):
         if len(cellules) != nb:
             continue
         ligne = "| " + " | ".join(cellules) + " |"
