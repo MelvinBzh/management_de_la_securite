@@ -267,6 +267,19 @@ if chaine.ids_connus():
     verifier("référence inexistante suivie d'un numéro : retirée en entière, les valides restent",
              "ANSSI-R12" not in nettoye and "ANSSI-RECYF 3.2" in nettoye and "ISO27002-8.15" in nettoye and n_retires >= 1)
     verifier("après assainissement, plus aucune source inexistante", chaine.sources_inconnues(nettoye) == [])
+if chaine.ids_connus():
+    import tempfile
+    from pathlib import Path as _P
+    f_syn = _P(tempfile.mkdtemp(prefix="e21-assain-")) / "SYNTHESE.md"
+    NLX = chr(10)
+    f_syn.write_text(NLX.join(["# Synthèse", "", "  - Décision : ANSSI-HOMOLOGATION — ISO27002-5.1 : indépendance requise.",
+                               "| Risque | Source |", "|---|---|", "| R1 | STRIDE-S, STRIDE-C |", "| R2 | ISO27002-5.15 |", "Fin."]) + NLX, encoding="utf-8")
+    n_ret = chaine.assainir_fichier(f_syn)
+    lu = f_syn.read_text(encoding="utf-8")
+    verifier("synthèse écrite d'un seul tenant : source inexistante retirée, mise en forme conservée",
+             n_ret == 2 and "ISO27002-5.1 " not in lu and "STRIDE-C" not in lu and "STRIDE-S" in lu and "ISO27002-5.15" in lu
+             and "  - Décision : ANSSI-HOMOLOGATION" in lu and "| R2 | ISO27002-5.15 |" in lu and lu.endswith("Fin." + NLX))
+    verifier("fichier sans rien d'inexistant : octet pour octet identique", chaine.assainir_fichier(f_syn) == 0)
 verifier("CVE de remplissage remplacée par un tiret", chaine.assainir_cellule("CVE-2023-1234") == ("—", 1))
 
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")

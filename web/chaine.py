@@ -885,6 +885,34 @@ def assainir_cellule(texte: str) -> tuple[str, int]:
     return texte, retires
 
 
+def assainir_fichier(chemin: Path) -> int:
+    """`assainir_cellule` appliqué à un livrable écrit d'un seul tenant par l'agent (synthèse, registre) : cellule par
+    cellule dans les tableaux, ligne par ligne ailleurs, mise en forme conservée. Renvoie le nombre d'éléments retirés."""
+    try:
+        texte = Path(chemin).read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    total, sortie = 0, []
+    for ligne in texte.split("\n"):
+        if ligne.lstrip().startswith("|"):
+            cellules = ligne.split("|")
+            for i, cellule in enumerate(cellules):
+                propre, n = assainir_cellule(cellule)
+                if n:
+                    cellules[i] = " " + (propre or "—") + " "
+                    total += n
+            ligne = "|".join(cellules)
+        else:
+            propre, n = assainir_cellule(ligne)
+            if n:
+                ligne = ligne[:len(ligne) - len(ligne.lstrip())] + propre
+                total += n
+        sortie.append(ligne)
+    if total:
+        Path(chemin).write_text("\n".join(sortie), encoding="utf-8")
+    return total
+
+
 def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, numero: int, fichier: str, liste: list,
                       *, auto: bool, installes: set[str], defaut: str, modele_impose: str, corrections: str,
                       index_chemin: Path) -> int:
@@ -1074,6 +1102,11 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
                     code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f),
                                             pret=lambda: pret_depuis(dossier, simples, debut_appel))
                     rien_refait = False
+                    for f in simples:  # même règle que pour les lots : une source inexistante ou une CVE de remplissage se retire par le code
+                        if f in FICHIERS_A_SOURCES:
+                            n_retires = assainir_fichier(Path(dossier) / f)
+                            if n_retires:
+                                _journal(f"[chaine] {f} : {n_retires} identifiant(s) de source ou CVE inventé(s) retiré(s) par le programme")
                 for fichier_lot in par_lots:
                     n_refaits = produire_par_lots(cli, agent, dossier, dossier_nom, numero, fichier_lot, plans[fichier_lot],
                                                   auto=auto, installes=installes, defaut=defaut, modele_impose=modele,
@@ -1224,6 +1257,9 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
         )
         debut_appel = time.time() - 1
         _lancer_agent(cli, "e21-synthese", m, texte, pieces, pret=lambda: pret_depuis(dossier, ["SYNTHESE.md"], debut_appel))
+        n_retires = assainir_fichier(Path(dossier) / "SYNTHESE.md")
+        if n_retires:
+            _journal(f"[chaine] SYNTHESE.md : {n_retires} identifiant(s) de source ou CVE inventé(s) retiré(s) par le programme")
         manquants = livrables_manquants(dossier, ["SYNTHESE.md"])
         diagnostic = diagnostiquer(dossier, ["SYNTHESE.md"]) if manquants else ""
         if not manquants:
