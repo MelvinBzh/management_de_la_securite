@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS documents (
     nom TEXT PRIMARY KEY, empreinte TEXT NOT NULL, statut TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '',
     faits INTEGER NOT NULL DEFAULT 0, faits_verifies INTEGER NOT NULL DEFAULT 0,
     relations INTEGER NOT NULL DEFAULT 0, relations_verifiees INTEGER NOT NULL DEFAULT 0,
-    passages INTEGER NOT NULL DEFAULT 0, date TEXT NOT NULL DEFAULT ''
+    passages INTEGER NOT NULL DEFAULT 0, date TEXT NOT NULL DEFAULT '',
+    type_doc TEXT NOT NULL DEFAULT '', date_doc TEXT NOT NULL DEFAULT '', rang INTEGER NOT NULL DEFAULT 0
 );
 -- chaque apparition d'un nom d'entité dans un document (la fusion des alias se refait sur l'ensemble)
 CREATE TABLE IF NOT EXISTS mentions (doc TEXT NOT NULL, nom TEXT NOT NULL, type TEXT NOT NULL);
@@ -67,6 +68,11 @@ class Index:
             self.base.execute("ALTER TABLE elements ADD COLUMN origine TEXT NOT NULL DEFAULT 'document'")
         if "url" not in colonnes:
             self.base.execute("ALTER TABLE elements ADD COLUMN url TEXT")
+        colonnes_doc = {ligne[1] for ligne in self.base.execute("PRAGMA table_info(documents)")}
+        for colonne, definition in (("type_doc", "TEXT NOT NULL DEFAULT ''"), ("date_doc", "TEXT NOT NULL DEFAULT ''"),
+                                    ("rang", "INTEGER NOT NULL DEFAULT 0")):
+            if colonnes_doc and colonne not in colonnes_doc:
+                self.base.execute(f"ALTER TABLE documents ADD COLUMN {colonne} {definition}")
         colonnes = {ligne[1] for ligne in self.base.execute("PRAGMA table_info(contradictions)")}
         if "confirmations" not in colonnes:
             self.base.execute("ALTER TABLE contradictions ADD COLUMN confirmations INTEGER NOT NULL DEFAULT 0")
@@ -98,16 +104,19 @@ class Index:
     def documents(self) -> dict[str, dict]:
         """Documents connus de l'index, par nom : empreinte, statut (`ok` ou `erreur`) et comptes."""
         cles = ("nom", "empreinte", "statut", "detail", "faits", "faits_verifies", "relations",
-                "relations_verifiees", "passages", "date")
+                "relations_verifiees", "passages", "date", "type_doc", "date_doc", "rang")
         lignes = self.base.execute("SELECT " + ", ".join(cles) + " FROM documents").fetchall()
         return {ligne[0]: dict(zip(cles, ligne)) for ligne in lignes}
 
-    def enregistrer_document(self, nom: str, empreinte: str, statut: str = "ok", detail: str = "", **comptes: int) -> None:
+    def enregistrer_document(self, nom: str, empreinte: str, statut: str = "ok", detail: str = "", type_doc: str = "",
+                             date_doc: str = "", rang: int = 0, **comptes: int) -> None:
         v = {c: int(comptes.get(c, 0)) for c in ("faits", "faits_verifies", "relations", "relations_verifiees", "passages")}
         self.base.execute(
-            "INSERT OR REPLACE INTO documents VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'))",
+            "INSERT OR REPLACE INTO documents (nom, empreinte, statut, detail, faits, faits_verifies, relations, "
+            "relations_verifiees, passages, date, type_doc, date_doc, rang) "
+            "VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'),?,?,?)",
             (nom, empreinte, statut, detail, v["faits"], v["faits_verifies"], v["relations"],
-             v["relations_verifiees"], v["passages"]))
+             v["relations_verifiees"], v["passages"], type_doc, date_doc, int(rang)))
 
     def supprimer_document(self, nom: str) -> None:
         """Retire TOUT ce qui vient d'un document (preuves, mentions, contradictions qui le citent)."""

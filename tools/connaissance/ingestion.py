@@ -22,7 +22,7 @@ import os
 import time
 from dataclasses import dataclass, field
 
-from . import alias, contradictions, couverture, externe, fiches, ollama, passages, relations, texte
+from . import alias, contradictions, couverture, externe, fiches, identite, ollama, passages, relations, texte
 from .index import Index
 
 TAILLE_MIN_DOC = 300  # en dessous, un « document » n'est que du bruit (page vide, en-tête seul)
@@ -84,8 +84,10 @@ def traiter_document(index: Index, nom: str, contenu: str, moteurs: Moteurs) -> 
     for r in rels_ok:
         index.ajouter_mention(nom, r.sujet, "autre")
         index.ajouter_mention(nom, r.objet, "autre")
-    index.enregistrer_document(nom, sceau, "ok", "", faits=len(faits), faits_verifies=len(sûrs), relations=len(rels),
-                               relations_verifiees=len(rels_ok), passages=len(morceaux))
+    carte = identite.carte(nom, contenu)
+    index.enregistrer_document(nom, sceau, "ok", "", carte["type"], carte["date"], carte["rang"], faits=len(faits),
+                               faits_verifies=len(sûrs), relations=len(rels), relations_verifiees=len(rels_ok),
+                               passages=len(morceaux))
     index.base.commit()  # un plantage plus tard ne perd pas ce document
     return {"nom": nom, "statut": "ok", "faits": len(faits), "faits_verifies": len(sûrs),
             "relations": len(rels), "relations_verifiees": len(rels_ok), "passages": len(morceaux)}

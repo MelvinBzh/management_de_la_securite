@@ -219,19 +219,33 @@ def _items_contradictions_questions(dossier: Path) -> list[dict]:
     if index is None:
         return []
     try:
-        contradictions = [c for c in index.contradictions() if c["confirmations"] >= 1][:MAX_CONTRADICTIONS]
+        from tools.connaissance import identite, preuves
+        confirmes = [c for c in index.contradictions() if c["confirmations"] >= 1]
+        # les écarts CHIFFRÉS d'abord (chiffre d'affaires, effectif, quantités) : ce sont ceux qu'un livrable recopie
+        confirmes.sort(key=lambda c: (not (any(x.isdigit() for x in c["extrait_a"]) and any(x.isdigit() for x in c["extrait_b"])),
+                                      -c["confirmations"]))
+        contradictions = confirmes[:MAX_CONTRADICTIONS]
+        cartes = preuves.cartes_des_documents(index)
         couvertures = index.couvertures()
     finally:
         index.fermer()
     items = []
     for c in contradictions:
-        contexte = (f"**{c['doc_a']}** : « {c['extrait_a']} »\n\n**{c['doc_b']}** : « {c['extrait_b']} »")
+        ca, cb = preuves.carte_de(cartes, c["doc_a"]), preuves.carte_de(cartes, c["doc_b"])
+        cote, raison = identite.proposer(ca, cb)
+        contexte = (f"**{c['doc_a']}** ({ca['type']}{', ' + ca['date'] if ca['date'] else ''}) : « {c['extrait_a']} »\n\n"
+                    f"**{c['doc_b']}** ({cb['type']}{', ' + cb['date'] if cb['date'] else ''}) : « {c['extrait_b']} »")
+        proposition = (f" Proposition : garder la valeur de {c['doc_a' if cote == 'a' else 'doc_b'][:40]} — {raison}."
+                       if cote else f" Aucune proposition : {raison}.")
         item = _item("contradiction", c["extrait_a"] + c["extrait_b"], "-", f"{c['doc_a'][:34]} ≠ {c['doc_b'][:34]}",
-                     c["explication"] or "Deux documents semblent dire des choses incompatibles (confirmé par un second modèle).",
+                     (c["explication"] or "Deux documents semblent dire des choses incompatibles (confirmé par un second modèle).")
+                     + proposition,
                      "Lequel garder ? Le plus récent, ou celui qui fait foi (une règle écrite peut différer de la pratique constatée) ; "
                      "les deux peuvent aussi convenir, ou la valeur peut être à changer.", contexte, [], "", "")
         # les choix NOMMENT les documents : « garder celui-ci », pas « la première source »
-        item["choix"] = [("source_a", f"Garder la valeur de : {c['doc_a'][:48]}"), ("source_b", f"Garder la valeur de : {c['doc_b'][:48]}"),
+        marque_a, marque_b = ((" (proposé)", "") if cote == "a" else ("", " (proposé)")) if cote else ("", "")
+        item["choix"] = [("source_a", f"Garder la valeur de : {c['doc_a'][:48]}{marque_a}"),
+                         ("source_b", f"Garder la valeur de : {c['doc_b'][:48]}{marque_b}"),
                          ("deux", "Les deux conviennent (cas ou périmètres différents)"),
                          ("autre", "Je change la valeur (indiquer la bonne valeur en commentaire)")]
         items.append(item)
