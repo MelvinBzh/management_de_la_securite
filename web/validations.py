@@ -155,7 +155,10 @@ def _items_risques(dossier: Path) -> list[dict]:
                            "Le risque est-il réaliste pour cette entreprise ? Probabilité et impact vous semblent-ils justes ? "
                            "La mesure proposée est-elle applicable ?", contexte,
                            preuves_de(dossier, contexte), "registre-risques.md", "",
-                           {"etat_actuel": etat if any(m in etat for m in ("accepté", "REFUSÉ")) else ""}))
+                           {"etat_actuel": etat if any(m in etat for m in ("accepté", "REFUSÉ")) else "",
+                            "niveau": str(r.get("Niveau", "")).strip(), "id_risque": rid, "actif": str(r.get("Actif", "")),
+                            "menace": str(r.get("Menace", "")), "traitement": str(r.get("Traitement", "")),
+                            "residuel": str(r.get("Risque résiduel", ""))}))
     return items
 
 

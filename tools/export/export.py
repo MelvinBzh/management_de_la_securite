@@ -243,6 +243,13 @@ def exporter(dossier: str, format: str = "pdf", out: Optional[str] = None) -> Pa
         raise ValueError(f"Format non supporté : {format}")
 
 
+def _titre_registre(registre_md: str) -> str:
+    """Titre de la section du registre, avec le NOMBRE RÉEL de risques (lignes dont la 1re cellule est un identifiant)."""
+    import re as _re
+    n = len(_re.findall(r"^\|\s*[MR]-?\d{1,4}\s*\|", registre_md, _re.M))
+    return f"Registre des risques ({n} risque{'s' if n > 1 else ''})" if n else "Registre des risques"
+
+
 def _export_md(synthese_path: Path, registre_md_path: Path, out_path: Path) -> Path:
     """Génère le rapport exécutif au format Markdown."""
     synthese = synthese_path.read_text(encoding='utf-8')
@@ -252,7 +259,7 @@ def _export_md(synthese_path: Path, registre_md_path: Path, out_path: Path) -> P
     lines = []
     lines.append(synthese.rstrip())
     lines.append('')
-    lines.append('## Registre des risques (14 risques)')
+    lines.append('## ' + _titre_registre(registre_md))
     lines.append('')
     lines.append(registre_md.rstrip())
     lines.append('')
@@ -295,7 +302,7 @@ def _export_html(synthese_path: Path, registre_md_path: Path, out_path: Path) ->
     md_parts = []
     md_parts.append(synthese.rstrip())
     md_parts.append('')
-    md_parts.append('## Registre des risques (14 risques)')
+    md_parts.append('## ' + _titre_registre(registre_md))
     md_parts.append('')
     md_parts.append(registre_md.rstrip())
     md_parts.append('')
@@ -449,7 +456,7 @@ def _export_pdf(synthese_path: Path, registre_md_path: Path, out_path: Path, dos
     md_parts = []
     md_parts.append(synthese.rstrip())
     md_parts.append('')
-    md_parts.append('## Registre des risques (14 risques)')
+    md_parts.append('## ' + _titre_registre(registre_md))
     md_parts.append('')
     md_parts.append(registre_md.rstrip())
     md_parts.append('')

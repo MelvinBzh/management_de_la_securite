@@ -70,6 +70,7 @@ test-chaine:
 	$(PYTHON) web/tests/test_validations.py
 	$(PYTHON) web/tests/test_coherence.py
 	$(PYTHON) web/tests/test_lots.py
+	$(PYTHON) web/tests/test_registre.py
 	$(PYTHON) web/tests/test_derouler_lots.py
 
 ## Tests hermétiques du dossier de connaissance (faits, relations, index, contradictions, couverture).

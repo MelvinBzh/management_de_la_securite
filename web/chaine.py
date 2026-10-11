@@ -48,7 +48,7 @@ if str(RACINE) not in sys.path:
 
 from tools.connaissance import citations, preuves, travail  # noqa: E402
 from tools.connaissance.index import Index  # noqa: E402
-from web import coherence, controles, lib, lots, propagation  # noqa: E402
+from web import coherence, controles, lib, lots, propagation, registre  # noqa: E402
 
 # Relances par étape, durée maximale d'un appel opencode, taille minimale utile.
 ESSAIS = 3
@@ -730,15 +730,18 @@ def consigne_relecture(dossier_nom: str) -> str:
 
 def relecture_finale(cli: str, dossier: Path, dossier_nom: str, juges: list[str], auto: bool = False) -> tuple[bool | None, str, str]:
     """Dernière revue : un agent compare registre + synthèse aux informations d'origine."""
-    candidats = [dossier / "registre-risques.md", dossier / "SYNTHESE.md"]
+    # La synthèse passe en premier. Le registre (une ligne par risque : plus de cent lignes) ne tient plus dans le budget : il est
+    # joint seulement s'il y tient, et il ne doit JAMAIS chasser les intrants, qui sont la référence du contrôle.
+    candidats = [dossier / "SYNTHESE.md", dossier / "registre-risques.md"]
     candidats += sorted((dossier / lib.DOSSIER_INTRANTS).glob("*.md"))
     pieces, total = [], 0
     for chemin in candidats:
         if not chemin.is_file() or chemin.name.startswith("chaine-"):
             continue
-        total += chemin.stat().st_size
-        if total > BUDGET_CONTROLE and pieces:
-            break
+        taille = chemin.stat().st_size
+        if total + taille > BUDGET_CONTROLE and pieces:
+            continue  # ne tient pas : on passe au suivant (un intrant plus petit peut encore tenir)
+        total += taille
         pieces.append(str(chemin.relative_to(lib.RACINE)) if chemin.is_relative_to(lib.RACINE) else str(chemin))
     return obtenir_verdict(
         lambda m, texte, p: lancer_controle(cli, auto, m, texte, p),
@@ -913,6 +916,75 @@ def assainir_fichier(chemin: Path) -> int:
     return total
 
 
+def lecture_par_le_modele(cli: str, dossier: Path, dossier_nom: str, *, auto: bool, installes: set[str], defaut: str,
+                          modele: str) -> str:
+    """Court texte de lecture de la synthèse : rédigé par le modèle à partir des SEULS chiffres calculés par le code, puis
+    vérifié par le code (aucun nombre hors des chiffres fournis, ni source, ni preuve). chaîne vide si rien d'exploitable : la
+    synthèse reste complète sans lui."""
+    risques = registre.risques_du_registre(dossier)
+    if not risques:
+        return ""
+    faits = registre.faits_pour_le_modele(registre.chiffres(dossier, risques))
+    parties = Path(dossier) / "parties"
+    parties.mkdir(exist_ok=True)
+    f_faits, cible = parties / "07-chiffres.md", parties / "07-lecture.md"
+    try:  # mêmes chiffres qu'au dernier passage et lecture déjà valide : on la garde (pas de nouvel appel au modèle)
+        if f_faits.read_text(encoding="utf-8") == faits and registre.lecture_valide(cible.read_text(encoding="utf-8"), faits)[0]:
+            _journal("[chaine] lecture de la synthèse : chiffres inchangés, texte précédent conservé")
+            return cible.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    f_faits.write_text(faits, encoding="utf-8")
+    for essai in range(1, ESSAIS + 1):
+        cible.unlink(missing_ok=True)
+        m = choisir_modele("e21-synthese", essai, installes, defaut) if auto else modele
+        _journal(f"[chaine] e21-synthese · lecture de la synthèse · modèle {m} · essai {essai}/{ESSAIS}")
+        debut = time.time() - 1
+        texte = ("Rédige la LECTURE d'une synthèse de risques pour une direction non technique, à partir UNIQUEMENT du fichier joint "
+                 "(chiffres calculés par le programme). 6 à 10 lignes de texte courant, en français : les trois messages à retenir "
+                 "(où se concentre le risque, ce qui est urgent, ce qu'il reste à décider). N'utilise aucun nombre qui ne figure pas "
+                 "dans le fichier joint ; ne cite aucune source ni aucune preuve ; n'écris ni titre ni tableau. Écris le texte avec "
+                 f"l'outil write dans analyses/{dossier_nom}/parties/07-lecture.md (un seul appel write), puis arrête-toi.")
+        _lancer_agent(cli, "e21-synthese", m, texte, [_relatif(f_faits)],
+                      pret=lambda: cible.is_file() and cible.stat().st_mtime >= debut and cible.stat().st_size > 150)
+        try:
+            lu = cible.read_text(encoding="utf-8")
+        except OSError:
+            _journal("[chaine] lecture de la synthèse : le fichier n'a pas été écrit")
+            continue
+        ok, motif = registre.lecture_valide(lu, faits)
+        if ok:
+            return lu.strip()
+        _journal(f"[chaine] lecture de la synthèse refusée par le programme : {motif}")
+    _journal("[chaine] lecture de la synthèse : aucun texte exploitable — la synthèse reste celle du programme (chiffres seuls)")
+    return ""
+
+
+def produire_etape_par_code(cli: str, dossier: Path, dossier_nom: str, numero: int, *, auto: bool, installes: set[str], defaut: str,
+                            modele: str) -> list[str]:
+    """Étapes 6 (registre + validation) et 7 (synthèse) : livrables ÉTABLIS PAR LE CODE depuis les étapes précédentes.
+
+    Mesuré le 2026-10-11 : un agent qui relit 151 lignes à la main en reprend 9 et déclenche trois résumés automatiques.
+    Renvoie les problèmes relevés par le code (liste vide = conforme)."""
+    if numero == 6:
+        n, problemes = registre.ecrire_registre_et_validation(dossier)
+        if n:
+            _journal(f"[chaine] registre-risques.md : {n} risques repris ligne à ligne des étapes 3, 4 et 5 ; "
+                     "06-validation.md et registre_risques.json établis par le programme")
+        return problemes + (registre.verifier_registre(dossier) if n else [])
+    n, problemes = registre.ecrire_synthese(dossier)
+    if not n:
+        return problemes
+    lecture = lecture_par_le_modele(cli, dossier, dossier_nom, auto=auto, installes=installes, defaut=defaut, modele=modele) if auto else ""
+    if lecture:
+        registre.ecrire_synthese(dossier, lecture=lecture)
+    retires = assainir_fichier(Path(dossier) / "SYNTHESE.md")
+    if retires:
+        _journal(f"[chaine] SYNTHESE.md : {retires} identifiant(s) de source ou CVE inventé(s) retiré(s) par le programme")
+    _journal(f"[chaine] SYNTHESE.md : {n} risques, chiffres calculés par le programme" + (" + lecture du modèle vérifiée" if lecture else ""))
+    return registre.verifier_synthese(dossier)
+
+
 def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, numero: int, fichier: str, liste: list,
                       *, auto: bool, installes: set[str], defaut: str, modele_impose: str, corrections: str,
                       index_chemin: Path) -> int:
@@ -1055,12 +1127,31 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
     reussies, reserves = 0, []
     index_pret = preparer_connaissance(dossier, auto)
     for numero, (agent, libelle, fichiers) in enumerate(ETAPES, start=1):
-        if reprendre and etape_deja_faite(dossier, numero, fichiers):
+        if reprendre and numero not in registre.ETAPES_PAR_CODE and etape_deja_faite(dossier, numero, fichiers):
             dernier_c = [e for e in controles.lire(dossier) if str(e.get("etape")) == str(numero)][-1]
             reussies += 1
             if dernier_c.get("verdict") != "conforme":
                 reserves.append(numero)
             _journal(f"[chaine] === {libelle} : déjà faite et contrôlée — conservée (non refaite) ===")
+            continue
+        if numero in registre.ETAPES_PAR_CODE:
+            _journal(f"[chaine] === {libelle} (établi par le programme à partir des étapes précédentes) ===")
+            problemes = produire_etape_par_code(cli, dossier, dossier_nom, numero, auto=auto, installes=installes, defaut=defaut,
+                                                modele=modele)
+            apres = controles.texte_des_livrables(dossier, fichiers)
+            signature = travail.signature_documents(dossier) if index_pret else ""
+            reussies += 1
+            if problemes:
+                corr = " ".join(problemes)
+                controles.enregistrer(dossier, numero, libelle, "contrôle par le programme (reprise ligne à ligne des étapes 3 à 5)",
+                                      "non_conforme", corr, None, apres, signature=signature)
+                controles.marquer_humaine(dossier, numero, *controles.pourquoi_et_quoi("reste_non_conforme", corr, fichiers))
+                reserves.append(numero)
+                _journal(f"[chaine] étape {numero} : NÉCESSITE UNE VALIDATION HUMAINE ({corr[:200]}).")
+            else:
+                controles.enregistrer(dossier, numero, libelle, "contrôle par le programme (reprise ligne à ligne des étapes 3 à 5)",
+                                      "conforme", "", None, apres, signature=signature)
+                _journal(f"[chaine] étape {numero} : livrables établis par le programme et contrôlés.")
             continue
         _journal(f"[chaine] === {libelle} ({agent}) ===")
         preuves_f = fichier_de_preuves(dossier, numero) if index_pret else None
@@ -1241,31 +1332,14 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
                     index.fermer()
         else:
             _journal("[chaine] propagation : profil sans Ollama — les lignes liées ne sont pas réécrites (à ajuster à la main).")
-    pieces = pieces_controle(dossier, ["06-validation.md", "registre-risques.md", "05-traitement.md", propagation.NOM_TRACE])
-    _journal("[chaine] === Synthèse mise à jour après validation humaine ===")
-    manquants: list[str] | None = None
-    diagnostic = ""
-    for essai in range(1, ESSAIS + 1):
-        m = choisir_modele("e21-synthese", essai, installes, MODELE_DEFAUT) if auto else modele
-        _journal(f"[chaine] e21-synthese · modèle {m} · essai {essai}/{ESSAIS}")
-        texte = consigne("e21-synthese", dossier_nom, ["SYNTHESE.md"], manquants, diagnostic) + (
-            " MISE À JOUR APRÈS VALIDATION HUMAINE : tiens compte des décisions de l'analyste consignées "
-            "dans 06-validation.md et dans la colonne valide_par du registre. Un risque REFUSÉ n'est plus "
-            "présenté comme un risque retenu (mentionne-le comme écarté, avec le motif de l'analyste) ; un "
-            "risque accepté avec modification suit le commentaire de l'analyste ; les risques sans décision "
-            "restent signalés « À valider ». N'invente aucun fait absent des pièces jointes."
-        )
-        debut_appel = time.time() - 1
-        _lancer_agent(cli, "e21-synthese", m, texte, pieces, pret=lambda: pret_depuis(dossier, ["SYNTHESE.md"], debut_appel))
-        n_retires = assainir_fichier(Path(dossier) / "SYNTHESE.md")
-        if n_retires:
-            _journal(f"[chaine] SYNTHESE.md : {n_retires} identifiant(s) de source ou CVE inventé(s) retiré(s) par le programme")
-        manquants = livrables_manquants(dossier, ["SYNTHESE.md"])
-        diagnostic = diagnostiquer(dossier, ["SYNTHESE.md"]) if manquants else ""
-        if not manquants:
-            _journal("[chaine] synthèse mise à jour avec les décisions de l'analyste.")
-            return 0
-    _journal("[chaine] ÉCHEC : la synthèse n'a pas pu être mise à jour (l'ancienne reste dans SYNTHESE.avant-validation.md).")
+    _journal("[chaine] === Synthèse mise à jour après validation humaine (chiffres et décisions repris du registre par le programme) ===")
+    problemes = produire_etape_par_code(cli, dossier, dossier_nom, 7, auto=auto, installes=installes,
+                                        defaut=MODELE_DEFAUT, modele=modele)
+    if not problemes:
+        _journal("[chaine] synthèse mise à jour avec les décisions de l'analyste.")
+        return 0
+    _journal("[chaine] ÉCHEC : la synthèse n'a pas pu être mise à jour (" + " ".join(problemes)[:200]
+             + ") — l'ancienne reste dans SYNTHESE.avant-validation.md.")
     return 1
 
 

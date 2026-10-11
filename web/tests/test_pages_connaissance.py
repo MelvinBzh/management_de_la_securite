@@ -7,6 +7,7 @@ et l'affichage des citations. Aucun modèle, aucun réseau : l'index est constru
 """
 from __future__ import annotations
 
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -121,6 +122,34 @@ with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
 verifier("④ : aucune exception après enregistrement", not app.exception)
 registre_apres = (d / "registre-risques.md").read_text(encoding="utf-8")
 verifier("④ : la décision est écrite dans le registre au nom de l'analyste", "Marie" in registre_apres and "accepté" in registre_apres)
+
+# --- 3 bis. ④ un registre de plus de cent risques : regroupé par niveau, jamais une carte par risque ----------------------------
+lignes_reg = ["# Registre", "", "| ID | Actif | Menace | Niveau | Traitement | Risque résiduel | valide_par |", "|---|---|---|---|---|---|---|"]
+for i in range(1, 26):
+    lignes_reg.append(f"| M{i:03d} | A{i:02d} — actif {i} | menace numéro {i} | {'Critique' if i <= 12 else 'Moyen'} | Réduire | Faible | |")
+(d / "registre-risques.md").write_text(NL.join(lignes_reg) + NL, encoding="utf-8")
+app = ouvrir(racine, "④ Validation")
+verifier("④ registre de 25 risques : aucune exception", not app.exception)
+cles = [str(r.key) for r in app.radio]
+verifier("④ un choix de mode par niveau (Critique, Moyen)", "valid_mode_Critique" in cles and "valid_mode_Moyen" in cles)
+cartes_risque = [r for r in app.radio if str(r.key).startswith("vdec_") and "Accepté tel quel" in [str(o) for o in r.options]]
+verifier("④ 12 risques critiques : 10 cartes à la fois (page 1), les 13 moyens attendent (« Plus tard »)", len(cartes_risque) == 10)
+verifier("④ un tableau compact par niveau", len(app.dataframe) >= 2)
+mode_moyen = next(r for r in app.radio if str(r.key) == "valid_mode_Moyen")
+verifier("④ les risques moyens sont à « Plus tard » par défaut (plus de dix)", mode_moyen.value == "plus_tard" or "Plus tard" in str(mode_moyen.value))
+mode_moyen.set_value("Tous les accepter tels quels")
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app.run()
+app.text_input(key="valid_analyste").set_value("Marie")
+bouton = next(b for b in app.button if b.label == "Enregistrer mes décisions")
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    bouton.click().run()
+verifier("④ « tous tels quels » : aucune exception", not app.exception)
+reg_apres = (d / "registre-risques.md").read_text(encoding="utf-8")
+decides_moyens = [l for l in reg_apres.splitlines() if re.match(r"\| M0(1[3-9]|2[0-5]) \|", l) and "Marie" in l and "accepté" in l]
+decides_critiques = [l for l in reg_apres.splitlines() if re.match(r"\| M0(0[1-9]|1[0-2]) \|", l) and "Marie" in l]
+verifier("④ les 13 risques moyens sont acceptés au nom de l'analyste", len(decides_moyens) == 13)
+verifier("④ les risques critiques non décidés ne sont pas touchés", decides_critiques == [])
 
 # --- 4. ③ Résultats : citations lisibles, aucun HTML venu du livrable ---------------------------------------------------------
 index = Index(travail.chemins(d)[1])

@@ -31,6 +31,25 @@ NL = chr(10)
 
 
 def livrable(nom: str, variante: str = "a") -> str:
+    """Faux livrable valide. Les étapes 3, 4 et 5 portent de vraies lignes de risque (M001…) : le registre et la synthèse
+    sont ÉTABLIS PAR LE CODE depuis elles (étapes 6 et 7)."""
+    niveaux = ["Critique", "Élevé", "Moyen", "Faible"]
+    entetes = {
+        "01-actifs.md": ("| ID | Actif | Type |", [f"| A{i:02d} | composant {i} {variante} du système d'information, décrit dans les documents | logiciel |"
+                                     for i in range(1, 9)]),
+        "03-menaces.md": ("| ID | Actif concerné | Catégorie (grille) | Description | CVE si connue | Source |",
+                          [f"| M{i:03d} | A{i:02d} — composant {i} | STRIDE-S | description de la menace numéro {i} {variante} | — | STRIDE-S |"
+                           for i in range(1, 9)]),
+        "04-evaluation.md": ("| ID | Menace | Probabilité | Impact | Niveau | Justification |",
+                             [f"| M{i:03d} | menace {i} | Moyen | Élevé | {niveaux[i % 4]} | justification {i} {variante} |"
+                              for i in range(1, 9)]),
+        "05-traitement.md": ("| ID | Actif et menace | Traitement | Contre-mesures | Sources | Risque résiduel estimé |",
+                             [f"| M{i:03d} | menace {i} | Réduire | mesure numéro {i} {variante} | STRIDE-S | Faible |" for i in range(1, 9)]),
+    }
+    if nom in entetes:
+        entete, lignes_t = entetes[nom]
+        n_col = entete.count("|") - 1
+        return NL.join([f"# {nom}", "", entete, "|" + "---|" * n_col] + lignes_t) + NL
     lignes = [f"# {nom}", "", "| Élément | Détail | Variante |", "|---|---|---|"]
     lignes += [f"| ligne {i} | description du composant numéro {i} du système | {variante} |" for i in range(1, 9)]
     return NL.join(lignes) + NL
@@ -49,7 +68,7 @@ class Scenario:
         if agent != "e21-controle":
             self.messages_etapes.append((agent, message))
             for chemin in re.findall(r"analyses/[^ ,.]+/([\w.\-]+\.md)", message):
-                if chemin in ("06-validation.md", "registre-risques.md", "SYNTHESE.md") or chemin[:2].isdigit():
+                if chemin[:2].isdigit() and chemin != "06-validation.md":
                     self.versions[chemin] = self.versions.get(chemin, 0) + 1
                     (self.dossier / chemin).write_text(livrable(chemin, f"v{self.versions[chemin]}"), encoding="utf-8")
             return 0, ""
@@ -76,12 +95,24 @@ def derouler(scenario: Scenario) -> tuple[int, Path]:
 
 
 # --- 1. tout est conforme ---------------------------------------------------------------------------------------
-code, d = derouler(Scenario())
+s1 = Scenario()
+code, d = derouler(s1)
+verifier("aucun agent d'étape 6 ni 7 n'a été lancé", not any(a in ("e21-validation-suivi", "e21-synthese") for a, _m in s1.messages_etapes))
 entrees = controles.lire(d)
 verifier("tout conforme : code de sortie 0", code == 0)
 verifier("8 contrôles numérotés 1 à 8 (7 étapes + relecture finale)", [e["numero"] for e in entrees] == list(range(1, 9)))
 verifier("tous conformes, rien à valider", all(e["verdict"] == "conforme" for e in entrees) and controles.a_valider(d) == [])
 verifier("le rapport lisible existe et nomme chaque étape", all(f"Étape {n}" in (d / "RAPPORT-CONTROLE.md").read_text(encoding="utf-8") for n in range(1, 8)))
+
+code1, d1 = code, d
+verifier("étape 6 : registre établi par le programme (aucun agent de validation lancé)", True)
+registre_lu = (d1 / "registre-risques.md").read_text(encoding="utf-8")
+verifier("registre : 8 risques repris des étapes 3 à 5, valide_par vide",
+         len(re.findall(r"^\| M\d{3} \|", registre_lu, re.M)) == 8 and "À valider par l'analyste" in registre_lu)
+verifier("06-validation.md et registre_risques.json établis", (d1 / "06-validation.md").is_file() and (d1 / lib.NOM_JSON_REGISTRE).is_file())
+verifier("synthèse établie par le programme, chiffres du registre", "| Risques au registre | 8 |" in (d1 / "SYNTHESE.md").read_text(encoding="utf-8"))
+e6 = [e for e in controles.lire(d1) if str(e["etape"]) == "6"]
+verifier("étape 6 : contrôlée par le programme, conforme", len(e6) == 1 and e6[0]["verdict"] == "conforme" and "programme" in e6[0]["controleur"])
 
 # --- 2. non conforme puis reprise avec corrections, puis conforme ------------------------------------------------------
 s2 = Scenario({3: ["RESULTAT-CONTROLE: NON CONFORME" + NL + "1. la ligne 4 cite un composant absent des intrants"]})

@@ -1241,6 +1241,20 @@ elif page == PAGE_VALIDATION:
         "contexte exact et la preuve citée. **Vous décidez** ; une correction est ensuite appliquée aux lignes concernées "
         "(et seulement à celles-là), et ce qui en dépend plus loin vous revient comme « impact à revoir »."
     )
+    with st.expander("Comment décider ? (à lire une fois)"):
+        st.markdown(
+            "1. **Commencez par les risques Critique et Élevé.** Chaque carte dit pourquoi le programme propose ce risque, "
+            "montre la preuve citée et la mesure prévue. *Accepté tel quel* : le risque est réaliste et la mesure applicable. "
+            "*Accepté avec modification* : un chiffre ou une mesure est à corriger (écrivez laquelle). *Refusé* : le risque "
+            "ne concerne pas cette entreprise.\n"
+            "2. **Les risques Moyen et Faible** peuvent être acceptés d'un coup, une fois le tableau relu "
+            "(« Tous les accepter tels quels »).\n"
+            "3. **Contradictions et questions** : dites quel document fait foi, ou ce qu'il faut demander à l'entreprise. "
+            "« Non documenté » ne veut pas dire « n'existe pas ».\n"
+            "4. **Lignes à relire** : la machine n'a pas pu confirmer la preuve citée ; comparez, puis dites si la ligne est correcte.\n"
+            "5. Pour finir : **Enregistrer mes décisions**, puis, en bas de page, **Appliquer mes décisions et mettre à jour la "
+            "synthèse**. Rien n'est modifié sans votre décision, et tout est tracé (qui, quand, pourquoi)."
+        )
     if not projet:
         st.info("Aucun projet sélectionné : créez-en un dans le menu de gauche (« Projet en cours » → « ＋ Créer un nouveau projet »).")
         st.stop()
@@ -1283,43 +1297,100 @@ elif page == PAGE_VALIDATION:
         "question": "Le dossier ignore ou conteste ces informations. « Non documenté » ne prouve pas que la mesure n'existe pas.",
         "aval": "Ces lignes citent la même preuve qu'une ligne que vous avez modifiée : vérifiez qu'elles restent vraies.",
     }
+    RISQUES_PAR_PAGE = 10
+    NIVEAUX_ORDRE = ("Critique", "Élevé", "Moyen", "Faible")
+    MODES_RISQUE = {"un": "Les décider un par un", "tous": "Tous les accepter tels quels", "plus_tard": "Plus tard"}
+
+    def carte_de_point(point, type_):
+        """Une carte de décision (pourquoi, quoi vérifier, contexte, preuves, choix, commentaire) ; renvoie la saisie."""
+        with st.container(border=True):
+            st.markdown(f"#### {point['titre']}")
+            if point["decision"]:
+                libelle_d = dict(point["choix"]).get(point["decision"], point["decision"])
+                st.caption(f"Décision enregistrée : **{libelle_d}**" + (f" — {point['analyste']}" if point.get("analyste") else "")
+                           + (f" · « {point['commentaire']} »" if point.get("commentaire") else ""))
+            st.markdown(f"**Pourquoi** : {point['pourquoi']}")
+            st.markdown(f"**Quoi vérifier** : {point['quoi']}")
+            if point["contexte"]:
+                with st.expander("Voir le contexte (section, tableau, ligne concernée)", expanded=type_ in ("ligne", "aval", "contradiction")):
+                    st.markdown(point["contexte"])
+            if point["preuves"]:
+                with st.expander(f"Preuves citées ({len(point['preuves'])})"):
+                    for preuve in point["preuves"]:
+                        st.markdown(f"- `[E{preuve['id']}]` ({preuve['doc'][:40]}) : « {preuve['extrait'][:400]} »")
+            codes = [""] + [c for c, _l in point["choix"]]
+            libelles = {"": "À décider", **dict(point["choix"])}
+            decision = st.radio(
+                "Votre décision", codes, key=f"vdec_{point['id']}",
+                index=codes.index(point["decision"]) if point["decision"] in codes else 0,
+                format_func=lambda v, libelles=libelles: libelles[v],
+            )
+            commentaire = st.text_area(
+                "Commentaire (obligatoire pour une correction, une modification ou une réponse)",
+                value=point["commentaire"], key=f"vcom_{point['id']}", height=70,
+            )
+        return {"decision": decision, "commentaire": commentaire}
+
+    # --- risques : regroupés par niveau (un registre peut en compter plus de cent : jamais cent cartes d'un coup) -------------
+    risques_v = [i for i in visibles if i["type"] == "risque"]
+    groupes_r: dict[str, list] = {}
+    for point in risques_v:
+        groupes_r.setdefault(point.get("niveau") or "Non évalué", []).append(point)
+    ordre_r = [n for n in NIVEAUX_ORDRE if n in groupes_r] + [n for n in groupes_r if n not in NIVEAUX_ORDRE]
+    modes_r: dict[str, str] = {}
+    pages_r: dict[str, int] = {}
+    if risques_v:
+        st.subheader(f"{validations.TYPES['risque']} ({len(risques_v)})")
+        st.caption(EXPLICATIONS["risque"] + " Ils sont regroupés par niveau : commencez par les niveaux Critique et Élevé.")
+        for niveau in ordre_r:
+            lot_n = groupes_r[niveau]
+            with st.container(border=True):
+                st.markdown(f"##### Niveau {niveau} — {len(lot_n)} risque(s) à décider")
+                st.dataframe(
+                    [{"ID": p.get("id_risque", ""), "Actif": p.get("actif", ""), "Menace": p.get("menace", "")[:110],
+                      "Traitement": p.get("traitement", ""), "Risque résiduel": p.get("residuel", "")} for p in lot_n],
+                    use_container_width=True, hide_index=True, height=min(38 + 35 * len(lot_n), 300),
+                )
+                modes_r[niveau] = st.radio(
+                    "Comment les traiter ?", list(MODES_RISQUE), key=f"valid_mode_{niveau}", horizontal=True,
+                    index=0 if (niveau in ("Critique", "Élevé") or len(lot_n) <= RISQUES_PAR_PAGE) else 2,
+                    format_func=lambda m: MODES_RISQUE[m],
+                    help="« Tous les accepter tels quels » enregistre une décision « accepté tel quel » pour chacun des risques "
+                         "du tableau ci-dessus, lors de l'enregistrement. À réserver aux risques que vous avez relus.",
+                )
+                if modes_r[niveau] == "un" and len(lot_n) > RISQUES_PAR_PAGE:
+                    total_pages = -(-len(lot_n) // RISQUES_PAR_PAGE)
+                    pages_r[niveau] = st.selectbox(
+                        "Page", list(range(1, total_pages + 1)), key=f"valid_page_{niveau}",
+                        format_func=lambda p, t=total_pages: f"{p} sur {t} ({RISQUES_PAR_PAGE} risques par page)",
+                    )
     with st.form("form_validation"):
         saisies = {}
+        for niveau in ordre_r:
+            if modes_r.get(niveau) != "un":
+                continue
+            lot_n = groupes_r[niveau]
+            page_n = pages_r.get(niveau, 1)
+            for point in lot_n[(page_n - 1) * RISQUES_PAR_PAGE: page_n * RISQUES_PAR_PAGE]:
+                saisies[point["id"]] = carte_de_point(point, "risque")
         for type_ in validations.TYPES:
+            if type_ == "risque":
+                continue
             lot = [i for i in visibles if i["type"] == type_]
             if not lot:
                 continue
             st.subheader(f"{validations.TYPES[type_]} ({len(lot)})")
             st.caption(EXPLICATIONS[type_])
             for point in lot:
-                with st.container(border=True):
-                    st.markdown(f"#### {point['titre']}")
-                    if point["decision"]:
-                        libelle_d = dict(point["choix"]).get(point["decision"], point["decision"])
-                        st.caption(f"Décision enregistrée : **{libelle_d}**" + (f" — {point['analyste']}" if point.get("analyste") else "")
-                                   + (f" · « {point['commentaire']} »" if point.get("commentaire") else ""))
-                    st.markdown(f"**Pourquoi** : {point['pourquoi']}")
-                    st.markdown(f"**Quoi vérifier** : {point['quoi']}")
-                    if point["contexte"]:
-                        with st.expander("Voir le contexte (section, tableau, ligne concernée)", expanded=type_ in ("ligne", "aval", "contradiction")):
-                            st.markdown(point["contexte"])
-                    if point["preuves"]:
-                        with st.expander(f"Preuves citées ({len(point['preuves'])})"):
-                            for preuve in point["preuves"]:
-                                st.markdown(f"- `[E{preuve['id']}]` ({preuve['doc'][:40]}) : « {preuve['extrait'][:400]} »")
-                    codes = [""] + [c for c, _l in point["choix"]]
-                    libelles = {"": "À décider", **dict(point["choix"])}
-                    decision = st.radio(
-                        "Votre décision", codes, key=f"vdec_{point['id']}",
-                        index=codes.index(point["decision"]) if point["decision"] in codes else 0,
-                        format_func=lambda v, libelles=libelles: libelles[v],
-                    )
-                    commentaire = st.text_area(
-                        "Commentaire (obligatoire pour une correction, une modification ou une réponse)",
-                        value=point["commentaire"], key=f"vcom_{point['id']}", height=70,
-                    )
-                    saisies[point["id"]] = {"decision": decision, "commentaire": commentaire}
+                saisies[point["id"]] = carte_de_point(point, type_)
         envoyer = st.form_submit_button("Enregistrer mes décisions", type="primary")
+        if envoyer:  # « tous tels quels » : une décision par risque du tableau, sans commentaire à saisir
+            for niveau, mode in modes_r.items():
+                if mode == "tous":
+                    for point in groupes_r[niveau]:
+                        saisies.setdefault(point["id"], {
+                            "decision": "accepte",
+                            "commentaire": f"Accepté en bloc (niveau {niveau}) après relecture du tableau."})
     if envoyer:
         try:
             resultat = validations.enregistrer(dossier, analyste, saisies, tous_les_points)
