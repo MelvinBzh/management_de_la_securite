@@ -146,5 +146,29 @@ n3 = chaine.produire_par_lots("opencode", "e21-menaces", dossier, "2026-01-01_te
                               index_chemin=travail.chemins(dossier)[1])
 verifier("corrections sans identifiant : aucun lot refait (confié à l'analyste)", n3 == 0)
 
+
+# --- l'agent écrit le tableau dans sa réponse au lieu d'appeler write : le pilote le récupère -------------------------------------------
+class Bavard(Faux):
+    def lancer(self, cli, agent, modele, message, pieces=None, pret=None):
+        m_partie = re.search(r"analyses/[^ ]+/parties/([\w.-]+\.md)", message)
+        if m_partie and agent != "e21-controle":
+            self.par_lot.append(m_partie.group(1))
+            return 0, ("<tool_call>" + NL + "| - | Actif récupéré 1 | Logiciel / Service | desc [E1] | Interne | [E1] |" + NL +
+                       "| - | Actif récupéré 2 | Matériel | desc [E1] | Sensible | [E1] |" + NL + "</tool_call>")
+        return super().lancer(cli, agent, modele, message, pieces, pret)
+
+
+bavard = Bavard()
+bavard.dossier = dossier
+chaine._lancer_agent = bavard.lancer
+for p in (dossier / "parties").glob("01-actifs.*.md"):
+    p.unlink()
+liste1 = lots.plan_etape(dossier, 1, Index(travail.chemins(dossier)[1]))["01-actifs.md"]
+chaine.produire_par_lots("opencode", "e21-analyse-existant", dossier, "2026-01-01_test", 1, "01-actifs.md", liste1, auto=False, installes=set(),
+                         defaut="ollama/x", modele_impose="ollama/x", corrections="", index_chemin=travail.chemins(dossier)[1])
+verifier("tableau imprimé dans la réponse : récupéré sans appeler write, un seul essai par lot",
+         len(bavard.par_lot) == len(liste1) and len(lots.lire_lignes(dossier, "01-actifs.md")) >= 2
+         and (dossier / "parties" / "01-actifs.1.md").is_file())
+
 print("DEROULER-LOTS:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

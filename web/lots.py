@@ -270,6 +270,23 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
     return lignes, problemes
 
 
+def recuperer_depuis_sortie(lot: Lot, sortie: str) -> str:
+    """Lignes de tableau valides trouvées dans la RÉPONSE de l'agent, quand il les a écrites dans son message au lieu
+    d'appeler l'outil d'écriture (mesuré le 2026-10-11 : qwen3.5 imprime un appel `<tool_call>` mal formé que opencode
+    n'exécute pas, le fichier n'existe donc pas alors que le tableau est complet). Renvoie le texte de la partie, ou « »."""
+    nb = len(ENTETES[lot.fichier][1])
+    vues: set[str] = set()
+    gardees: list[str] = []
+    for cellules in lignes_de_donnees(sortie):
+        if len(cellules) != nb:
+            continue
+        ligne = "| " + " | ".join(cellules) + " |"
+        if ligne not in vues:
+            vues.add(ligne)
+            gardees.append(ligne)
+    return "\n".join(gardees) + "\n" if gardees else ""
+
+
 def manquants_de(problemes: list[str]) -> list[str]:
     return [p for p in problemes]
 

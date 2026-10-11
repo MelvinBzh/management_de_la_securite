@@ -123,6 +123,17 @@ fusion, n_f = lots.fusionner_doublons(dup)
 verifier("même actif décrit par deux lots : une seule ligne, la première description gardée", n_f == 1 and len(fusion) == 2 and fusion[0][3] == "Télématique [E1]")
 verifier("les preuves des deux descriptions sont réunies sans doublon", fusion[0][-1] == "[E1] [E9]")
 
+# --- tableau imprimé dans la réponse au lieu d'être écrit (appel d'outil mal formé) -------------------------------------------------
+sortie_agent = NL.join(["Je vais écrire le fichier.", "<tool_call>", "<parameter=content>",
+                        "| - | A11 Actif 11 | STRIDE-S | Description [E1] | — | STRIDE-S |",
+                        "| - | A12 Actif 12 | STRIDE-T | Description [E2] | — | STRIDE-T |",
+                        "| - | A12 Actif 12 | STRIDE-T | Description [E2] | — | STRIDE-T |",
+                        "| trop | court |", "</parameter>", "</tool_call>"])
+recup = lots.recuperer_depuis_sortie(lot3, sortie_agent)
+verifier("récupération : lignes valides de la réponse, doublons exacts et lignes mal formées écartés", recup.count(NL) == 2 and "A12" in recup)
+verifier("récupération : le texte récupéré passe la validation", lots.valider_partie(lot3, recup)[1] == [])
+verifier("récupération : rien de tabulaire = rien récupéré", lots.recuperer_depuis_sortie(lot3, "Je ne sais pas.") == "")
+
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")
 verifier("reprise : seuls les lots dont un identifiant est cité sont refaits", [l.index for l in cibles] == [1, 3])

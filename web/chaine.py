@@ -913,12 +913,22 @@ def produire_par_lots(cli: str, agent: str, dossier: Path, dossier_nom: str, num
                     except OSError:
                         return False
 
-                _lancer_agent(cli, agent, m, consigne_texte, pieces, pret=partie_prete)
+                _code_lot, sortie_lot = _lancer_agent(cli, agent, m, consigne_texte, pieces, pret=partie_prete)
+                ecrite, valide = False, False
                 try:
                     ecrite = partie.stat().st_mtime >= debut
-                    problemes = lots.valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[1] if ecrite else \
-                        ["la partie n'a pas été écrite : appelle l'outil write sur le fichier demandé"]
+                    valide = ecrite and not lots.valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[1]
                 except OSError:
+                    pass
+                if not valide:
+                    recup = lots.recuperer_depuis_sortie(lot, sortie_lot)
+                    if recup:  # tableau écrit dans la réponse au lieu de l'outil write : on le récupère, mêmes contrôles
+                        partie.write_text(recup, encoding="utf-8")
+                        ecrite = True
+                        _journal(f"[chaine] lot {lot.index}/{total} : tableau récupéré dans la réponse de l'agent (write non exécuté)")
+                if ecrite:
+                    problemes = lots.valider_partie(lot, partie.read_text(encoding="utf-8", errors="replace"))[1]
+                else:
                     problemes = ["la partie n'a pas été écrite : appelle l'outil write sur le fichier demandé"]
                 if not problemes:
                     break
