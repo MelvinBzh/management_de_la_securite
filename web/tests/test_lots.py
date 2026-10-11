@@ -155,6 +155,13 @@ verifier("ligne d'actif à 4 cellules : complétée « à préciser » avec preu
 inchangee = "| - | A | B | C |"
 verifier("hors inventaire des actifs, une ligne tronquée reste invalide", lots.valider_partie(lot3, inchangee)[0] == [])
 
+# --- l'identifiant d'actif séparé de son nom par une barre : fusionné -----------------------------------------------------------------
+sept = "| - | A11 | Actif 11 | STRIDE-S | Description [E1] | — | STRIDE-S |"
+lignes_s, pb_s = lots.valider_partie(lot3, sept)
+verifier("« - | A11 | Actif 11 | … » (7 cellules) : l'ID et le nom sont fusionnés en une cellule", len(lignes_s) == 1 and lignes_s[0][1] == "A11 Actif 11" and pb_s == ["élément non traité : A12"])
+verifier("la liste de contrôle n'a plus de barres verticales à recopier", all("|" not in e for l in plan3 for e in l.entrees))
+verifier("04 : idem", all("|" not in e for l in plan4 for e in l.entrees))
+
 # --- ciblage d'une reprise ---------------------------------------------------------------------------------------------------------
 cibles = lots.lots_concernes(plan3, "A02 : composant inventé. A12 : source inconnue.")
 verifier("reprise : seuls les lots dont un identifiant est cité sont refaits", [l.index for l in cibles] == [1, 3])

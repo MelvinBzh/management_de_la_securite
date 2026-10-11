@@ -159,7 +159,7 @@ def _lots_menaces(actifs: list[list[str]]) -> list[Lot]:
     reels = [r for r in actifs if r and r[0] and "hors périmètre" not in " ".join(r).lower()]
     lots = []
     for i, groupe in enumerate(_decouper(reels, TAILLE_LOT["03-menaces.md"]), start=1):
-        entrees = tuple(" | ".join(_propre(c) for c in r[:4]) for r in groupe)
+        entrees = tuple(" — ".join(_propre(c) for c in r[:4]) for r in groupe)
         attendus = tuple(_propre(r[0]) for r in groupe)
         requetes = tuple(f"{_propre(r[1]) if len(r) > 1 else ''} {_propre(r[2]) if len(r) > 2 else ''} : exposition, vulnérabilités, accès, incidents"
                          for r in groupe)
@@ -178,7 +178,7 @@ def _lots_depuis_lignes(fichier: str, lignes: list[list[str]], libelle: str) -> 
     lots = []
     reels = [r for r in lignes if r and re.match(r"^[A-Za-z]{1,3}-?\d{1,3}$", _propre(r[0]))]
     for i, groupe in enumerate(_decouper(reels, TAILLE_LOT[fichier]), start=1):
-        entrees = tuple(" | ".join(_propre(c) for c in r) for r in groupe)
+        entrees = tuple(" — ".join(_propre(c) for c in r) for r in groupe)
         attendus = tuple(_propre(r[0]) for r in groupe)
         requetes = tuple(" ".join(_propre(c) for c in r[1:4]) for r in groupe)
         lots.append(Lot(f"{fichier[:-3]}:{i}", fichier, i, f"{libelle} {attendus[0]} à {attendus[-1]}", entrees, attendus, requetes))
@@ -259,6 +259,10 @@ def _normaliser_cellules(cellules: list[str], nb: int, fichier: str) -> list[lis
     n = len(cellules)
     if n == nb:
         return [cellules]
+    if n == nb + 1 and len(cellules) > 2 and re.fullmatch(r"[A-Za-z]{1,3}-?\d{1,3}", _propre(cellules[1])) \
+            and not re.fullmatch(r"[A-Za-z]{1,3}-?\d{1,3}", _propre(cellules[2])):
+        # « - | A16 | Baie onduleurs | … » : l'identifiant de l'actif a été séparé de son nom par une barre de la liste
+        return [[cellules[0], cellules[1] + " " + cellules[2]] + cellules[3:]]
     if n > nb:
         # lignes collées : chaque ligne commence par la cellule « - » (identifiant posé par le code) ; une cellule vide
         # issue de « || » en fin de morceau est retirée. Accepté seulement si CHAQUE morceau a au moins 4 cellules.
