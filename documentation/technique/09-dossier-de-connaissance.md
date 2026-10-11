@@ -95,6 +95,31 @@ La revue a comparé, point par point, ce que Melvin a demandé à ce qui est éc
 
 **Limites connues.** Le croisement incrémental ne reconfronte pas un fait inchangé à un document ajouté (bouton « Tout refaire »). La recherche externe demande un moteur SearXNG configuré. La compaction d'opencode (`reserved`) reste à mesurer sur le serveur. La sécurité du site (authentification, SSH, Ollama exposé) est toujours reportée.
 
+### 4 quater. Refonte après le run réel Nordval (2026-10-10 / 11)
+
+Le premier run complet (22 documents, qwen3.5:9b) a montré que les « erreurs » des livrables venaient surtout du dossier
+de preuves lui-même (faits de base absents, lignes de tableau sans en-tête, réponse de couverture fausse injectée) et d'écarts
+réels entre documents jamais signalés. Corrections, avec le défaut qu'elles traitent :
+
+| Défaut constaté | Réponse en place | Où |
+|---|---|---|
+| Dossier de preuves incomplet ou faux | Passages d'origine (titre + en-tête de colonnes), étape 1 jusqu'à 38 Ko, plus de « réponses » de couverture injectées | `preuves.py` |
+| Fait de tableau lu sans son en-tête (95 k€ lu comme 95 postes) | Le libellé des faits porte section et en-tête de colonnes | `ingestion.py` |
+| Écarts entre documents non signalés | Écarts confirmés rappelés (chiffrés d'abord), type et date des sources, valeur PROPOSÉE (fiabilité puis date) avec la raison, décision de l'analyste prioritaire | `identite.py`, `preuves.py`, `validations.py` |
+| Un agent écrit 15 000 caractères d'un coup, oublie, dérive | Production PAR LOTS (01, 03, 04, 05) : liste de contrôle, dossier de preuves taillé par lot, parties vérifiées, livrable ASSEMBLÉ par le code, reprise ciblée sur les lots concernés | `lots.py`, `chaine.py` |
+| Identifiants non définis, actifs absents, doublons, texte d'attente, nombres sans source | Contrôles de cohérence par le code AVANT tout modèle (blocants ou alertes) | `coherence.py` |
+| Contrôleur qui lit des fichiers, résumé automatique, verdict illisible, point conforme listé | Contrôle direct par Ollama, types INVENTÉ / ÉCART / MAL LU / OMIS, liste non coupée | `chaine.py` |
+| « Non documenté » alors que l'extraction a raté | Garde-fou lexical : des passages qui parlent du sujet transforment l'inconnu en « à relire » | `couverture.py` |
+| Livrables produits sur d'anciens documents | Signature des documents enregistrée avec chaque contrôle ; « Reprendre » refait les étapes périmées | `travail.py`, `controles.py` |
+| Tout refaire par erreur | « Reprendre » (garde ce qui est fait et contrôlé) / « Tout refaire » (archive) | `chaine.py`, `app.py` |
+| 112 points à valider sans contexte | Boîte de validation unique : contexte, preuves, choix nommés, propagation sur ligne, impacts en aval | `validations.py`, `propagation.py` |
+
+**Reste ouvert (à mesurer sur un run réel)** : taille du contexte des agents (13 résumés automatiques observés avant les lots ; les
+lots devraient les supprimer) et refus de lecture par permission ; temps total ; précision du contrôleur sur un jeu d'étalonnage.
+
+**Recette en trois niveaux** (pour ne pas relancer la chaîne en boucle) : (0) contrôles par le code sur les livrables existants ;
+(1) jeu d'étalonnage d'affirmations vraies et fausses issu du run réel ; (2) un seul run complet, avec des seuils fixés à l'avance.
+
 ## 5. Règles de conception à ne pas casser
 
 - **Absence d'information ≠ absence de mesure.** Le dossier dit « non documenté », jamais « n'existe pas ».
