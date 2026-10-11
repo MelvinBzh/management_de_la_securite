@@ -75,6 +75,11 @@ _, pb = lots.valider_partie(lot3, bonne.split(NL)[0])
 verifier("élément attendu absent signalé (A12)", any("A12" in p for p in pb))
 _, pb = lots.valider_partie(lot3, "| - | A11 | STRIDE-S |")
 verifier("mauvais nombre de colonnes signalé", any("colonnes" in p for p in pb))
+lot_indicatif = liste1[0]
+lignes_i, pb_i = lots.valider_partie(lot_indicatif, "| - | A | Logiciel | desc | Interne | [E1] |" + NL + "| - | B | Logiciel | trop court |")
+verifier("lot indicatif : une ligne mal formée parmi des lignes valides n'invalide pas le lot", len(lignes_i) == 1 and pb_i == [])
+_, pb_i2 = lots.valider_partie(lot_indicatif, "| - | B | Logiciel | trop court |")
+verifier("lot indicatif : aucune ligne valide = à refaire", pb_i2 and "aucune ligne" in pb_i2[0])
 _, pb = lots.valider_partie(lot3, "")
 verifier("partie vide : aucune ligne de tableau valide", pb and "aucune ligne" in pb[0])
 entete_et_cloture = "```markdown" + NL + "| ID | Actif concerné | Catégorie (grille) | Description | CVE si connue | Source |" + NL + "|---|---|---|---|---|---|" + NL + bonne + NL + "```"
@@ -97,6 +102,8 @@ verifier("ligne sans barre finale : lue", len(lignes) == 2 and pb == [])
 
 # --- consigne, entrées ----------------------------------------------------------------------------------------------------------
 c = lots.consigne_lot(lot3, 4, "2026-01-01_x", "STRIDE-S, STRIDE-T")
+verifier("consigne : un exemple de ligne valide est donné",
+         "EXEMPLE de ligne valide" in c and "| - | <Actif concerné> | <Catégorie (grille)> |" in c)
 verifier("consigne : fichier de partie, 6 colonnes, « - » pour l'ID, sources autorisées",
          "analyses/2026-01-01_x/parties/03-menaces.3.md" in c and "exactement 6 colonnes" in c and "« - »" in c and "STRIDE-S, STRIDE-T" in c)
 c4 = lots.consigne_lot(lot4, 3, "2026-01-01_x", "", ["élément non traité : M17"])

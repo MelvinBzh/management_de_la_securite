@@ -59,7 +59,7 @@ class Faux:
             rows = []
             if nom.startswith("01-actifs"):
                 noms = re.findall(r"^- (.+?) \(cité par", texte, re.M) or [f"Actif {nom} {k}" for k in range(1, 4)]
-                rows = [f"| - | {n} | Logiciel / Service | desc [E1] | Haute | Interne | [E1] |" for n in noms]
+                rows = [f"| - | {n} | Logiciel / Service | desc [E1] | Interne | [E1] |" for n in noms]
             elif nom.startswith("03-menaces"):
                 rows = [f"| - | {i} Actif | STRIDE-S | Menace réaliste [E1] | — | STRIDE-S |" for i in ids if i not in self.oublier] or \
                        ["| - | Frontière Internet → DMZ | STRIDE-S | Contournement [E1] | — | STRIDE-S |"]

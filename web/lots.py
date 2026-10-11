@@ -25,7 +25,7 @@ BUDGET_PREUVES_LOT = 14000
 
 ENTETES: dict[str, tuple[str, list[str]]] = {
     "01-actifs.md": ("# Inventaire des actifs (étape 1)",
-                     ["ID", "Actif", "Type", "Description et périmètre", "Valeur estimée", "Sensibilité", "Preuve source"]),
+                     ["ID", "Actif", "Type", "Description, périmètre et valeur", "Sensibilité", "Preuve source"]),
     "03-menaces.md": ("# Menaces (étape 3)",
                       ["ID", "Actif concerné", "Catégorie (grille)", "Description", "CVE si connue", "Source"]),
     "04-evaluation.md": ("# Évaluation des risques (étape 4)",
@@ -42,9 +42,10 @@ PREFIXE_ID = {"01-actifs.md": "A", "03-menaces.md": "M"}   # identifiants posés
 REGLES = {
     "01-actifs.md": (
         "Écris une ligne par ACTIF réel du système (logiciel, service, donnée, matériel, site, prestataire, rôle). Type ∈ "
-        "{Logiciel / Service, Donnée, Matériel, Site, Prestataire, Rôle / Organisation}. « Valeur estimée » : l'enjeu concret "
-        "(disponibilité, confidentialité, coût) en une phrase d'après les preuves, ou « non documentée ». Sensibilité ∈ {Publique, "
-        "Interne, Sensible, Critique}. « Preuve source » : les [E…] qui établissent l'actif. Les éléments de la liste « À examiner » "
+        "{Logiciel / Service, Donnée, Matériel, Site, Prestataire, Rôle / Organisation}. « Description, périmètre et valeur » : ce "
+        "qu'est l'actif, puis son enjeu concret (disponibilité, confidentialité, coût) d'après les preuves, ou « valeur non "
+        "documentée » : tout dans UNE cellule, sans barre verticale. Sensibilité ∈ {Publique, Interne, Sensible, Critique}. « Preuve "
+        "source » : les [E…] qui établissent l'actif. Les éléments de la liste « À examiner » "
         "sont des CANDIDATS issus de l'index : ignore ceux qui ne sont pas des actifs (personne, norme, date, nom de l'entreprise) ; "
         "ajoute tout actif important que les preuves montrent et que la liste ne contient pas."),
     "03-menaces.md": (
@@ -219,10 +220,12 @@ def consigne_lot(lot: Lot, total: int, dossier_nom: str, sources: str = "", manq
     titre, colonnes = ENTETES[lot.fichier]
     partie = f"analyses/{dossier_nom}/parties/{lot.fichier[:-3]}.{lot.index}.md"
     id_code = lot.fichier in PREFIXE_ID
+    exemple = "| " + " | ".join(("-" if (i == 0 and id_code) else f"<{c}>") for i, c in enumerate(colonnes)) + " |"
     texte = (
         f"Étape — lot {lot.index}/{total} : {lot.theme}. Écris le fichier {partie} (outil write) qui contient UNIQUEMENT des "
-        f"lignes de tableau Markdown : aucun titre, aucune phrase, aucune ligne d'en-tête ni de séparateur. Chaque ligne a "
-        f"exactement {len(colonnes)} colonnes séparées par « | », dans cet ordre : {' | '.join(colonnes)}. "
+        f"lignes de tableau Markdown : aucun titre, aucune phrase, aucune ligne d'en-tête ni de séparateur. Chaque ligne tient sur "
+        f"UNE seule ligne, commence et finit par « | » et a exactement {len(colonnes)} colonnes séparées par « | », dans cet "
+        f"ordre : {' | '.join(colonnes)}. EXEMPLE de ligne valide (remplace chaque <…> par le contenu) : {exemple} "
         + ("Mets « - » dans la colonne ID : le programme attribue les identifiants. " if id_code else
            "La colonne ID reprend EXACTEMENT l'identifiant de l'élément traité. ")
         + "Pièces jointes : la liste du lot et le dossier de preuves taillé pour ce lot ; n'ouvre aucun autre fichier. "
@@ -256,6 +259,10 @@ def valider_partie(lot: Lot, texte: str) -> tuple[list[list[str]], list[str]]:
             problemes.append(f"ligne à {len(cellules)} colonnes au lieu de {nb} : {' | '.join(cellules)[:80]}")
     if not lignes:
         problemes.insert(0, "aucune ligne de tableau valide")
+    elif not lot.attendus:
+        # lot indicatif (inventaire des actifs) : quelques lignes mal formées ne justifient pas de tout refaire, les
+        # lignes valides sont gardées ; le contrôle d'ensemble signale les actifs qui manqueraient
+        problemes = [p for p in problemes if not p.startswith("ligne à ")]
     corps = " ".join(" ".join(l) for l in lignes)
     for a in lot.attendus:
         if not re.search(r"(?<![A-Za-z0-9])" + re.escape(a) + r"(?![A-Za-z0-9])", corps):
