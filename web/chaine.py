@@ -1204,7 +1204,7 @@ def main(argv: list[str]) -> int:
         print("usage : python -m web.chaine <cas> <dossier-analyse> <modele|auto> [--synthese|--reprendre]", file=sys.stderr)
         return 2
     signal.signal(signal.SIGTERM, _arret)
-    cas, dossier_nom, modele = argv[1:]
+    cas, dossier_nom, modele = argv[1:4]   # les options (--synthese, --reprendre) viennent après
     lib.nom_cas_sur(cas)
     if "/" in dossier_nom or ".." in dossier_nom or not (lib.DOSSIER_ANALYSES / dossier_nom).is_dir():
         print("dossier d'analyse invalide", file=sys.stderr)

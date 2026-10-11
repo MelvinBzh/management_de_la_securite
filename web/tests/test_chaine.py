@@ -245,5 +245,14 @@ verifier("preuves : pas de réduction du budget (40 Ko), livrables récents d'ab
          and sum((Path(p)).stat().st_size for p in pjp) <= chaine.BUDGET_PIECES and pjp[1].endswith("02-methodes.md"))
 verifier("une seule reprise demandée au contrôle", chaine.ROUNDS_CONTROLE == 1)
 
+# --- la ligne de commande accepte les options (--reprendre et --synthese plantaient : trop de valeurs à dépaqueter) ----------------
+for option in ("--reprendre", "--synthese"):
+    try:
+        code_main = chaine.main(["chaine.py", "cas-inconnu", "dossier-inexistant", "auto", option])
+        verifier(f"main accepte {option} (dossier invalide : code 2, pas d'exception)", code_main == 2)
+    except ValueError as exc:
+        verifier(f"main accepte {option}", False)
+verifier("main refuse un nombre d'arguments inattendu", chaine.main(["chaine.py", "a", "b"]) == 2)
+
 print("RESULTAT", "OK" if not ECHECS else f"{len(ECHECS)} ÉCHEC(S)")
 sys.exit(1 if ECHECS else 0)
