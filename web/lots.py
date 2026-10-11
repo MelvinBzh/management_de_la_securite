@@ -32,11 +32,9 @@ ENTETES: dict[str, tuple[str, list[str]]] = {
     "03-menaces.md": ("# Menaces (étape 3)",
                       ["ID", "Actif concerné", "Catégorie (grille)", "Description", "CVE si connue", "Source"]),
     "04-evaluation.md": ("# Évaluation des risques (étape 4)",
-                         ["ID", "Menace", "Probabilité", "Justification probabilité", "Impact", "Justification impact", "Niveau",
-                          "Justification globale"]),
+                         ["ID", "Menace", "Probabilité", "Impact", "Niveau", "Justification"]),
     "05-traitement.md": ("# Traitement des risques (étape 5)",
-                         ["ID", "Actif", "Menace/Catégorie", "Proba·Impact·Niveau", "Traitement", "Contre-mesures", "Sources",
-                          "Risque résiduel estimé"]),
+                         ["ID", "Actif et menace", "Traitement", "Contre-mesures", "Sources", "Risque résiduel estimé"]),
 }
 MATRICE = ("Matrice probabilité × impact — Élevée : Faible→Moyen, Moyen→Élevé, Élevé→Critique ; Moyenne : Faible→Faible, "
            "Moyen→Moyen, Élevé→Élevé ; Faible : Faible→Faible, Moyen→Faible, Élevé→Moyen.")
@@ -60,13 +58,14 @@ REGLES = {
         "préfixée par la grille (STRIDE-S, LINDDUN-L…). « Description » : qui attaque, comment, pour quel objectif, en citant les "
         "[E…] qui montrent l'exposition. « CVE si connue » : « — » si aucune. « Source » : un identifiant de grille autorisé."),
     "04-evaluation.md": (
-        "Écris UNE ligne par menace de la liste de contrôle, avec exactement son ID en première colonne. Probabilité et Impact ∈ "
-        "{Faible, Moyen, Élevé}. Niveau selon la matrice : " + MATRICE + " Justifie chaque note en une phrase appuyée sur les [E…] "
+        "Écris UNE ligne par menace de la liste de contrôle, avec exactement son ID en première colonne, puis le nom de la menace "
+        "en une cellule SANS barre verticale. Probabilité et Impact ∈ {Faible, Moyen, Élevé}. Niveau selon la matrice : " + MATRICE +
+        " « Justification » : UNE cellule qui justifie la probabilité et l'impact en une ou deux phrases appuyées sur les [E…] "
         "(exposition, mesures existantes) ; si l'information manque, écris-le au lieu de deviner."),
     "05-traitement.md": (
-        "Écris UNE ligne par risque de la liste de contrôle, avec exactement son ID en première colonne. « Proba·Impact·Niveau » "
-        "reprend l'évaluation donnée. Traitement ∈ {Réduire, Transférer, Éviter, Accepter}. « Contre-mesures » concrètes, chacune "
-        "avec un identifiant de source autorisé. « Risque résiduel estimé » : jamais nul."),
+        "Écris UNE ligne par risque de la liste de contrôle, avec exactement son ID en première colonne. « Actif et menace » : une "
+        "cellule qui reprend l'actif et la menace. Traitement ∈ {Réduire, Transférer, Éviter, Accepter}. « Contre-mesures » concrètes. "
+        "« Sources » : les identifiants de source autorisés des contre-mesures. « Risque résiduel estimé » : jamais nul."),
 }
 RE_SEPARATEUR = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
 

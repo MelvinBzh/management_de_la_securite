@@ -86,9 +86,9 @@ entete_et_cloture = "```markdown" + NL + "| ID | Actif concerné | Catégorie (g
 lignes, pb = lots.valider_partie(lot3, entete_et_cloture)
 verifier("clôture de code et en-tête recopiés par le modèle : ignorés", len(lignes) == 2 and pb == [])
 lot4 = plan4[2]   # attendu M17
-_, pb = lots.valider_partie(lot4, "| M99 | x | Faible | j | Faible | j | Faible | j |")
+_, pb = lots.valider_partie(lot4, "| M99 | x | Faible | Faible | Faible | j |")
 verifier("04 : un identifiant inattendu n'est pas une ligne valide", any("inattendu" in p for p in pb) and any("M17" in p for p in pb))
-lignes, pb = lots.valider_partie(lot4, "| **M17** | menace | Moyenne | j | Élevé | j | Élevé | j |")
+lignes, pb = lots.valider_partie(lot4, "| **M17** | menace | Moyenne | Élevé | Élevé | j |")
 verifier("04 : identifiant en gras accepté", len(lignes) == 1 and pb == [])
 
 # --- préfixes que les modèles ajoutent devant les lignes (numéro, tiret, citation) ------------------------------------------------
@@ -205,7 +205,7 @@ verifier("assemblage : 7 lignes (parties absentes ignorées)", n == 7)
 verifier("assemblage : titre, en-tête, séparateur", final.startswith("# Menaces (étape 3)") and "| ID | Actif concerné | Catégorie (grille) | Description | CVE si connue | Source |" in final and "|---|---|---|---|---|---|" in final)
 verifier("assemblage : identifiants posés par le code, dans l'ordre", "| M01 |" in final and "| M07 |" in final and "| M08 |" not in final)
 (D / "04-evaluation.md").unlink(missing_ok=True)
-lots.fichier_partie(D, plan4[2]).write_text("| M17 | menace | Moyenne | j | Élevé | j | Élevé | j |", encoding="utf-8")
+lots.fichier_partie(D, plan4[2]).write_text("| M17 | menace | Moyenne | Élevé | Élevé | j |", encoding="utf-8")
 lots.assembler(D, "04-evaluation.md", plan4)
 ev = (D / "04-evaluation.md").read_text(encoding="utf-8")
 verifier("04 assemblé : matrice rappelée, identifiant de la menace conservé", "Matrice probabilité" in ev and "| M17 |" in ev)
