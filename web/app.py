@@ -34,7 +34,11 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
+
+try:  # ancienne API d'incrustation HTML : absente des versions récentes de Streamlit (voir `afficher_markdown`)
+    import streamlit.components.v1 as components
+except Exception:  # noqa: BLE001
+    components = None
 
 RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
@@ -379,7 +383,14 @@ def afficher_markdown(dossier: Path, texte: str, cle: str = "md") -> None:
             code = _re.sub(r"^```[ \t]*mermaid[ \t]*\n|```\s*$", "", morceau, flags=_re.I)
             code, corrections = schemas_mermaid.reparer_mermaid(code)
             hauteur = min(900, 160 + 24 * len(code.splitlines()))
-            components.html(MERMAID_HTML.replace("__CODE__", _html.escape(code)), height=hauteur, scrolling=True)
+            page = MERMAID_HTML.replace("__CODE__", _html.escape(code))
+            try:  # `st.iframe` (versions récentes) ; sinon l'ancienne API ; sinon le code reste lisible dans le volet ci-dessous
+                if hasattr(st, "iframe"):
+                    st.iframe(page, height=hauteur)
+                else:
+                    components.html(page, height=hauteur, scrolling=True)
+            except Exception:  # noqa: BLE001 — l'affichage d'un schéma ne doit jamais faire échouer la page
+                st.caption("Le schéma n'a pas pu être dessiné ici : son code est consultable ci-dessous.")
             with st.expander("Code du schéma" + (f" ({len(corrections)} correction(s) automatique(s))" if corrections else "")):
                 st.code(code, language="text")
         elif morceau.strip():

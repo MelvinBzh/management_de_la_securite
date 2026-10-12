@@ -84,5 +84,17 @@ textes = " ".join(str(m.value) for m in app2.markdown)
 verifier("page ③ : le texte autour du schéma est affiché, sans le bloc mermaid brut", "Texte avant." in textes and "Texte après." in textes
          and "```mermaid" not in textes)
 
+# l'incrustation HTML peut disparaître d'une version de Streamlit à l'autre : la page ne doit jamais échouer pour autant
+import streamlit as st_module  # noqa: E402
+
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine), \
+        mock.patch.object(st_module, "iframe", side_effect=RuntimeError("API retirée"), create=True):
+    app3 = AppTest.from_file(str(APP), default_timeout=120)
+    app3.session_state["projet_courant"] = NOM
+    app3.session_state["nav"] = "③ Résultats"
+    app3.run()
+verifier("page ③ : si l'incrustation du schéma échoue, la page reste affichée avec le code réparé",
+         not app3.exception and any("Core_Net -.-> API_Gateway" in str(c.value) for c in app3.code))
+
 print("PAGE-EXPORT:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)
