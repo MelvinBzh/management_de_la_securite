@@ -1308,12 +1308,12 @@ elif page == PAGE_VALIDATION:
         "question": "Le dossier ignore ou conteste ces informations. « Non documenté » ne prouve pas que la mesure n'existe pas.",
         "aval": "Ces lignes citent la même preuve qu'une ligne que vous avez modifiée : vérifiez qu'elles restent vraies.",
     }
-    RISQUES_PAR_PAGE = 10
+    PAR_PAGE = 10
     NIVEAUX_ORDRE = ("Critique", "Élevé", "Moyen", "Faible")
-    MODES_RISQUE = {"un": "Les décider un par un", "tous": "Tous les accepter tels quels", "plus_tard": "Plus tard"}
+    DECISION_COURTE = {"accepte": "Accepté", "modifie": "Accepté avec modification", "refuse": "Refusé"}
 
     def carte_de_point(point, type_):
-        """Une carte de décision (pourquoi, quoi vérifier, contexte, preuves, choix, commentaire) ; renvoie la saisie."""
+        """Une carte de décision (pourquoi, quoi vérifier, contexte, preuves, choix, motif) ; renvoie la saisie."""
         with st.container(border=True):
             st.markdown(f"#### {point['titre']}")
             if point["decision"]:
@@ -1337,93 +1337,101 @@ elif page == PAGE_VALIDATION:
                 format_func=lambda v, libelles=libelles: libelles[v],
             )
             commentaire = st.text_area(
-                "Commentaire (obligatoire pour une correction, une modification ou une réponse)",
+                "Motif (obligatoire si vous modifiez ou refusez)" if type_ == "risque"
+                else "Commentaire (obligatoire pour une correction, une modification ou une réponse)",
                 value=point["commentaire"], key=f"vcom_{point['id']}", height=70,
             )
         return {"decision": decision, "commentaire": commentaire}
 
-    # --- risques : regroupés par niveau (un registre peut en compter plus de cent : jamais cent cartes d'un coup) -------------
-    risques_v = [i for i in visibles if i["type"] == "risque"]
-    groupes_r: dict[str, list] = {}
-    for point in risques_v:
-        groupes_r.setdefault(point.get("niveau") or "Non évalué", []).append(point)
-    ordre_r = [n for n in NIVEAUX_ORDRE if n in groupes_r] + [n for n in groupes_r if n not in NIVEAUX_ORDRE]
-    modes_r: dict[str, str] = {}
-    pages_r: dict[str, int] = {}
-    if risques_v:
-        st.subheader(f"{validations.TYPES['risque']} ({len(risques_v)})")
-        st.caption(EXPLICATIONS["risque"] + " Ils sont regroupés par niveau : commencez par les niveaux Critique et Élevé.")
-        for niveau in ordre_r:
-            lot_n = groupes_r[niveau]
-            with st.container(border=True):
-                st.markdown(f"##### Niveau {niveau} — {len(lot_n)} risque(s) à décider")
-                st.dataframe(
-                    [{"ID": p.get("id_risque", ""), "Actif": p.get("actif", ""), "Menace": p.get("menace", "")[:110],
-                      "Traitement": p.get("traitement", ""), "Risque résiduel": p.get("residuel", "")} for p in lot_n],
-                    use_container_width=True, hide_index=True, height=min(38 + 35 * len(lot_n), 300),
-                )
-                modes_r[niveau] = st.radio(
-                    "Comment les traiter ?", list(MODES_RISQUE), key=f"valid_mode_{niveau}", horizontal=True,
-                    index=0 if (niveau in ("Critique", "Élevé") or len(lot_n) <= RISQUES_PAR_PAGE) else 2,
-                    format_func=lambda m: MODES_RISQUE[m],
-                    help="« Tous les accepter tels quels » enregistre une décision « accepté tel quel » pour chacun des risques "
-                         "du tableau ci-dessus, lors de l'enregistrement. À réserver aux risques que vous avez relus.",
-                )
-                if modes_r[niveau] == "un" and len(lot_n) > RISQUES_PAR_PAGE:
-                    total_pages = -(-len(lot_n) // RISQUES_PAR_PAGE)
-                    pages_r[niveau] = st.selectbox(
-                        "Page", list(range(1, total_pages + 1)), key=f"valid_page_{niveau}",
-                        format_func=lambda p, t=total_pages: f"{p} sur {t} ({RISQUES_PAR_PAGE} risques par page)",
-                    )
-    # autres types : toujours TOUS les points (jamais un plafond muet), affichés par pages de dix quand ils sont nombreux
-    pages_t: dict[str, int] = {}
-    for type_ in validations.TYPES:
-        n_t = sum(1 for i in visibles if i["type"] == type_)
-        if type_ != "risque" and n_t > RISQUES_PAR_PAGE:
-            total_pages_t = -(-n_t // RISQUES_PAR_PAGE)
-            pages_t[type_] = st.selectbox(
-                f"{validations.TYPES[type_]} : {n_t} points — page", list(range(1, total_pages_t + 1)), key=f"valid_page_{type_}",
-                format_func=lambda p, t=total_pages_t: f"{p} sur {t} ({RISQUES_PAR_PAGE} points par page)",
-            )
-    with st.form("form_validation"):
-        saisies = {}
-        for niveau in ordre_r:
-            if modes_r.get(niveau) != "un":
-                continue
-            lot_n = groupes_r[niveau]
-            page_n = pages_r.get(niveau, 1)
-            for point in lot_n[(page_n - 1) * RISQUES_PAR_PAGE: page_n * RISQUES_PAR_PAGE]:
-                saisies[point["id"]] = carte_de_point(point, "risque")
-        for type_ in validations.TYPES:
-            if type_ == "risque":
-                continue
-            lot = [i for i in visibles if i["type"] == type_]
-            if not lot:
-                continue
-            page_t = pages_t.get(type_, 1)
-            st.subheader(f"{validations.TYPES[type_]} ({len(lot)})")
-            st.caption(EXPLICATIONS[type_])
-            for point in lot[(page_t - 1) * RISQUES_PAR_PAGE: page_t * RISQUES_PAR_PAGE]:
-                saisies[point["id"]] = carte_de_point(point, type_)
-        envoyer = st.form_submit_button("Enregistrer mes décisions", type="primary")
-        if envoyer:  # « tous tels quels » : une décision par risque du tableau, sans commentaire à saisir
-            for niveau, mode in modes_r.items():
-                if mode == "tous":
-                    for point in groupes_r[niveau]:
-                        saisies.setdefault(point["id"], {
-                            "decision": "accepte",
-                            "commentaire": f"Accepté en bloc (niveau {niveau}) après relecture du tableau."})
-    if envoyer:
+    def enregistrer_bloc(saisies_bloc):
+        """Enregistre les décisions d'UN bloc ; en cas d'erreur (nom manquant, motif manquant…) le dit, sinon recharge la page."""
         try:
-            resultat = validations.enregistrer(dossier, analyste, saisies, tous_les_points)
-            st.session_state["_flash_valid"] = [(
-                "ok",
-                f"{resultat['enregistres']} décision(s) enregistrée(s). Pour appliquer vos corrections aux lignes concernées "
-                "et mettre à jour la synthèse, utilisez « Appliquer mes décisions » en bas de page.",
-            )]
-            st.rerun()
+            resultat = validations.enregistrer(dossier, analyste, saisies_bloc, tous_les_points)
         except ValueError as exc:
             st.error(str(exc))
+            return
+        st.session_state["_flash_valid"] = [(
+            "ok",
+            f"{resultat['enregistres']} décision(s) enregistrée(s). Les points suivants prennent leur place. Pour appliquer vos "
+            "corrections aux lignes concernées et mettre à jour la synthèse, utilisez « Appliquer mes décisions » en bas de page.",
+        )]
+        st.rerun()
+
+    # --- un seul groupe à l'écran à la fois : un niveau de risque, ou un type de point ------------------------------------------
+    groupes_all: dict[str, list] = {}
+    for point in tous_les_points:
+        if point["type"] not in types_choisis:
+            continue
+        cle_g = f"r:{point.get('niveau') or 'Non évalué'}" if point["type"] == "risque" else f"t:{point['type']}"
+        groupes_all.setdefault(cle_g, []).append(point)
+    cles_r = [f"r:{n}" for n in NIVEAUX_ORDRE if f"r:{n}" in groupes_all]
+    cles_r += sorted(k for k in groupes_all if k.startswith("r:") and k not in cles_r)
+    ordre_g = cles_r + [f"t:{t}" for t in validations.TYPES if t != "risque" and f"t:{t}" in groupes_all]
+
+    def etiquette(cle_g: str) -> str:
+        pts = groupes_all[cle_g]
+        reste = sum(1 for p in pts if not p["decision"])
+        nom = f"Risques {cle_g[2:]}" if cle_g.startswith("r:") else validations.TYPES[cle_g[2:]]
+        return f"{nom} — {reste} à décider sur {len(pts)}"
+
+    if not ordre_g:
+        st.info("Aucun point dans les types choisis.")
+    else:
+        if st.session_state.get("valid_vue") not in ordre_g:
+            st.session_state.pop("valid_vue", None)
+        premier = next((i for i, k in enumerate(ordre_g) if any(not p["decision"] for p in groupes_all[k])), 0)
+        vue = st.radio("Que voulez-vous traiter ?", ordre_g, index=premier, key="valid_vue", horizontal=True, format_func=etiquette)
+        points_tous = groupes_all[vue]
+        points = [p for p in points_tous if affichage == "Tous" or not p["decision"]]
+        type_vue = "risque" if vue.startswith("r:") else vue[2:]
+        with st.container(border=True):
+            if type_vue == "risque":
+                niveau = vue[2:]
+                st.subheader(f"Risques de niveau {niveau} ({len(points_tous)})")
+                st.caption(EXPLICATIONS["risque"] + " Le tableau montre tous les risques de ce niveau et leur décision ; "
+                           "les cartes en dessous sont ceux qu'il reste à décider.")
+                st.dataframe(
+                    [{"ID": p.get("id_risque", ""), "Actif": p.get("actif", ""), "Menace": p.get("menace", "")[:110],
+                      "Traitement": p.get("traitement", ""), "Risque résiduel": p.get("residuel", ""),
+                      "Décision": DECISION_COURTE.get(p["decision"], "À décider")} for p in points_tous],
+                    use_container_width=True, hide_index=True, height=min(38 + 35 * len(points_tous), 300),
+                )
+            else:
+                st.subheader(f"{validations.TYPES[type_vue]} ({len(points_tous)})")
+                st.caption(EXPLICATIONS[type_vue])
+            page = 1
+            if len(points) > PAR_PAGE:
+                total_pages = -(-len(points) // PAR_PAGE)
+                if affichage == "Tous":
+                    page = st.selectbox("Page", list(range(1, total_pages + 1)), key=f"valid_page_{vue}",
+                                        format_func=lambda p, t=total_pages: f"{p} sur {t} ({PAR_PAGE} points par page)")
+                else:
+                    st.caption(f"{len(points)} points restent à décider : les {PAR_PAGE} premiers sont affichés ; "
+                               "dès que vous les enregistrez, les suivants prennent leur place.")
+            lot = points[(page - 1) * PAR_PAGE: page * PAR_PAGE]
+            if not lot:
+                st.success("Rien à décider ici : tout est décidé.")
+            else:
+                if not analyste.strip():
+                    st.warning("Indiquez votre nom en haut de la page : il est inscrit avec chaque décision.")
+                with st.form(f"form_{vue}"):
+                    saisies_bloc = {p["id"]: carte_de_point(p, type_vue) for p in lot}
+                    envoyer = st.form_submit_button(
+                        "Enregistrer cette décision" if len(lot) == 1 else f"Enregistrer ces {len(lot)} décisions", type="primary")
+                if envoyer:
+                    enregistrer_bloc(saisies_bloc)
+            if type_vue == "risque":
+                restants = [p for p in points_tous if not p["decision"]]
+                if restants:
+                    with st.expander(f"Accepter d'un coup les {len(restants)} risques de ce niveau encore à décider"):
+                        st.caption("À réserver aux risques que vous avez relus dans le tableau ci-dessus : chacun reçoit la décision "
+                                   "« accepté tel quel », au nom indiqué en haut de page.")
+                        sur = st.checkbox("J'ai relu le tableau : je les accepte tels quels.", key=f"valid_bulk_ok_{niveau}")
+                        if st.button(f"Accepter les {len(restants)} risques {niveau} tels quels", key=f"valid_bulk_{niveau}",
+                                     disabled=not sur):
+                            enregistrer_bloc({p["id"]: {"decision": "accepte",
+                                                        "commentaire": f"Accepté en bloc (niveau {niveau}) après relecture du tableau."}
+                                              for p in restants})
     en_attente_v = propagation.en_attente(dossier)
     fichier_validation = dossier / "06-validation.md"
     a_appliquer = len(en_attente_v)

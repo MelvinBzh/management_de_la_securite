@@ -94,7 +94,7 @@ verifier("l'état du travail est affiché (À jour)", "À jour" in textes(app))
 verifier("le « non documenté » est expliqué comme une question, pas comme une absence", "n'en parlent pas" in textes(app) or "PAS une preuve" in textes(app))
 verifier("page en lecture seule : aucun champ de saisie de contenu", not app.text_area)
 
-# --- 3. étape ④ : « nécessite une validation humaine » avec pourquoi et quoi vérifier ------------------------------------
+# --- 3. étape ④ : un groupe à l'écran à la fois, avec pourquoi / quoi vérifier et le choix juste dessous ------------------------
 d = racine / NOM
 (d / "registre-risques.md").write_text(NL.join(["# Registre", "", "| ID | Actif | Menace | valide_par |", "|---|---|---|---|",
                                                "| R-01 | Site | Vol de comptes | *À valider par l'analyste* |"]), encoding="utf-8")
@@ -102,49 +102,73 @@ controles.enregistrer(d, 4, "Étape 4 · Évaluation", "gemma4:12b", "non_confor
                       humaine=controles.pourquoi_et_quoi("illisible", "", ["04-evaluation.md"]), doutes=["| Site | PHP 8 [E1] |"])
 app = ouvrir(racine, "④ Validation")
 verifier("④ : aucune exception", not app.exception)
+vue = next(r for r in app.radio if str(r.key) == "valid_vue")
+options_vue = [str(o) for o in vue.options]
+verifier("④ : une vue par groupe (risques, étapes à valider…) avec le nombre restant à décider",
+         any(o.startswith("Risques") and "à décider sur" in o for o in options_vue) and any("Étapes à valider" in o for o in options_vue))
 tout = textes(app) + " " + " ".join(str(e.value) for e in app.subheader)
-verifier("④ : les sections par type sont présentes (risques, étapes à valider)", "Risques du registre" in tout and "Étapes à valider" in tout)
-verifier("④ : pourquoi et quoi vérifier affichés pour chaque point", "Pourquoi" in tout and "Quoi vérifier" in tout and "04-evaluation.md" in tout)
+verifier("④ : le risque est devant l'analyste, avec pourquoi et quoi vérifier", "Pourquoi" in tout and "Quoi vérifier" in tout and "Risques de niveau" in tout)
 verifier("④ : le contexte est consultable", any("contexte" in str(e.label).lower() for e in app.expander))
-verifier("④ : un choix de décision par point, avec « À décider » par défaut", len(app.radio) >= 3 and all(r.value == "" for r in app.radio if str(r.key).startswith("vdec_")))
-verifier("④ : un commentaire par point", len([t for t in app.text_area if str(t.key).startswith("vcom_")]) >= 2)
+cartes = [r for r in app.radio if str(r.key).startswith("vdec_")]
+verifier("④ : un choix par point, « À décider » par défaut, avec les trois décisions sur un risque",
+         len(cartes) == 1 and cartes[0].value == "" and "Accepté tel quel" in [str(o) for o in cartes[0].options])
+verifier("④ : un motif par point", len([t for t in app.text_area if str(t.key).startswith("vcom_")]) == 1
+         and any("Motif" in str(t.label) for t in app.text_area))
 verifier("④ : avancement visible", any("décidé" in str(e.value) for e in app.progress) if hasattr(app, "progress") else True)
 verifier("④ : jamais le mot « indéterminé »", "indéterminé" not in tout.lower())
-# une décision depuis l'interface : le risque est enregistré, le commentaire obligatoire est exigé
+# la vue « étapes à valider » : pourquoi / quoi vérifier de l'étape
+vue.set_value(next(o for o in options_vue if "Étapes à valider" in o))
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app.run()
+tout_e = textes(app) + " " + " ".join(str(e.value) for e in app.subheader)
+verifier("④ : la vue des étapes montre pourquoi, quoi vérifier et le fichier à relire", "Pourquoi" in tout_e and "04-evaluation.md" in tout_e)
+# retour aux risques ; une décision depuis l'interface : le risque est enregistré au nom de l'analyste
+vue = next(r for r in app.radio if str(r.key) == "valid_vue")
+vue.set_value(next(str(o) for o in vue.options if str(o).startswith("Risques")))
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app.run()
 app.text_input(key="valid_analyste").set_value("Marie")
 for r in app.radio:
     if str(r.key).startswith("vdec_") and "Accepté tel quel" in [str(o) for o in r.options]:
         r.set_value("Accepté tel quel")  # AppTest expose les LIBELLÉS affichés
         break
-bouton = next(b for b in app.button if b.label == "Enregistrer mes décisions")
+bouton = next(b for b in app.button if str(b.label).startswith("Enregistrer"))
 with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
     bouton.click().run()
 verifier("④ : aucune exception après enregistrement", not app.exception)
 registre_apres = (d / "registre-risques.md").read_text(encoding="utf-8")
 verifier("④ : la décision est écrite dans le registre au nom de l'analyste", "Marie" in registre_apres and "accepté" in registre_apres)
 
-# --- 3 bis. ④ un registre de plus de cent risques : regroupé par niveau, jamais une carte par risque ----------------------------
+# --- 3 bis. ④ un registre de plus de cent risques : un niveau à la fois, les dix premiers, « accepter d'un coup » confirmé -----
 lignes_reg = ["# Registre", "", "| ID | Actif | Menace | Niveau | Traitement | Risque résiduel | valide_par |", "|---|---|---|---|---|---|---|"]
 for i in range(1, 26):
     lignes_reg.append(f"| M{i:03d} | A{i:02d} — actif {i} | menace numéro {i} | {'Critique' if i <= 12 else 'Moyen'} | Réduire | Faible | |")
 (d / "registre-risques.md").write_text(NL.join(lignes_reg) + NL, encoding="utf-8")
 app = ouvrir(racine, "④ Validation")
 verifier("④ registre de 25 risques : aucune exception", not app.exception)
-cles = [str(r.key) for r in app.radio]
-verifier("④ un choix de mode par niveau (Critique, Moyen)", "valid_mode_Critique" in cles and "valid_mode_Moyen" in cles)
+vue = next(r for r in app.radio if str(r.key) == "valid_vue")
+options_vue = [str(o) for o in vue.options]
+verifier("④ une vue par niveau : Critique (12) et Moyen (13)",
+         any("Risques Critique" in o and "12 à décider sur 12" in o for o in options_vue)
+         and any("Risques Moyen" in o and "13 à décider sur 13" in o for o in options_vue))
 cartes_risque = [r for r in app.radio if str(r.key).startswith("vdec_") and "Accepté tel quel" in [str(o) for o in r.options]]
-verifier("④ 12 risques critiques : 10 cartes à la fois (page 1), les 13 moyens attendent (« Plus tard »)", len(cartes_risque) == 10)
-verifier("④ un tableau compact par niveau", len(app.dataframe) >= 2)
-mode_moyen = next(r for r in app.radio if str(r.key) == "valid_mode_Moyen")
-verifier("④ les risques moyens sont à « Plus tard » par défaut (plus de dix)", mode_moyen.value == "plus_tard" or "Plus tard" in str(mode_moyen.value))
-mode_moyen.set_value("Tous les accepter tels quels")
+verifier("④ le niveau Critique est devant l'analyste : 10 cartes à la fois, enregistrables juste dessous", len(cartes_risque) == 10
+         and any(str(b.label) == "Enregistrer ces 10 décisions" for b in app.button))
+verifier("④ le tableau du niveau montre ses 12 risques et leur décision",
+         any(len(df.value) == 12 and "Décision" in list(df.value.columns) for df in app.dataframe))
+vue.set_value(next(o for o in options_vue if "Risques Moyen" in o))
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app.run()
+bouton_bloc = next((b for b in app.button if str(b.key) == "valid_bulk_Moyen"), None)
+verifier("④ « accepter d'un coup » est refusé tant que le tableau n'est pas confirmé", bouton_bloc is not None and bouton_bloc.disabled)
+next(c for c in app.checkbox if str(c.key) == "valid_bulk_ok_Moyen").set_value(True)
 with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
     app.run()
 app.text_input(key="valid_analyste").set_value("Marie")
-bouton = next(b for b in app.button if b.label == "Enregistrer mes décisions")
+bouton_bloc = next(b for b in app.button if str(b.key) == "valid_bulk_Moyen")
 with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
-    bouton.click().run()
-verifier("④ « tous tels quels » : aucune exception", not app.exception)
+    bouton_bloc.click().run()
+verifier("④ « accepter d'un coup » : aucune exception", not app.exception)
 reg_apres = (d / "registre-risques.md").read_text(encoding="utf-8")
 decides_moyens = [l for l in reg_apres.splitlines() if re.match(r"\| M0(1[3-9]|2[0-5]) \|", l) and "Marie" in l and "accepté" in l]
 decides_critiques = [l for l in reg_apres.splitlines() if re.match(r"\| M0(0[1-9]|1[0-2]) \|", l) and "Marie" in l]
