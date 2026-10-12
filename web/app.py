@@ -885,6 +885,39 @@ elif page == PAGES[2]:
                     key=f"dl_export_{fmt}", use_container_width=True,
                 )
 
+    st.divider()
+    st.subheader("Exporter le dossier d'analyse complet")
+    st.caption(
+        "Tous les livrables, reliés entre eux : chaque actif (A05) et chaque risque (M012) renvoie à sa ligne et à sa fiche de "
+        "traçabilité, chaque preuve [E123] renvoie au document d'origine et à l'extrait exact, et l'historique de vos décisions "
+        "est joint. Les documents d'origine ne sont pas inclus, seulement les extraits cités."
+    )
+    formats_dossier = {"HTML (liens cliquables)": "dossier-html", "PDF": "dossier-pdf", "ZIP (tout)": "dossier-zip"}
+    for colonne, (etiquette, fmt) in zip(st.columns(3), formats_dossier.items()):
+        with colonne:
+            if st.button(f"Préparer {etiquette}", key=f"export_{fmt}", use_container_width=True):
+                exports = dict(st.session_state.get("exports", {}))
+                try:
+                    with st.spinner("Préparation du dossier complet… (le PDF peut prendre une minute)"):
+                        with tempfile.TemporaryDirectory() as tmp:
+                            sortie = export_tool.exporter(str(dossier), fmt, out=tmp)
+                            exports[fmt] = (sortie.read_bytes(), sortie.name)
+                    st.session_state["exports"] = exports
+                except Exception as exc:
+                    exports.pop(fmt, None)
+                    st.session_state["exports"] = exports
+                    st.error(f"Export impossible : {exc}")
+    exports = st.session_state.get("exports", {})
+    mimes = {"dossier-html": "text/html", "dossier-pdf": "application/pdf", "dossier-zip": "application/zip"}
+    for colonne, (etiquette, fmt) in zip(st.columns(3), formats_dossier.items()):
+        with colonne:
+            if fmt in exports:
+                contenu, nom_fichier = exports[fmt]
+                st.download_button(
+                    f"Télécharger {etiquette}", contenu, file_name=nom_fichier, mime=mimes[fmt],
+                    key=f"dl_export_{fmt}", use_container_width=True,
+                )
+
 # ------------------------------------------------------------- page 4 : chaîne E21
 elif page == PAGES[3]:
     st.title("② Lancer l'analyse")

@@ -213,6 +213,16 @@ def exporter(dossier: str, format: str = "pdf", out: Optional[str] = None) -> Pa
     if not dossier_path.exists() or not dossier_path.is_dir():
         raise ValueError(f"Le dossier d'analyse n'existe pas : {dossier}")
     
+    # Dossier d'analyse COMPLET (tous les livrables reliés, avec leurs preuves) : voir tools/export/dossier.py
+    formats_dossier = {"dossier-html": "html", "dossier-pdf": "pdf", "dossier-zip": "zip"}
+    if format.lower() in formats_dossier:
+        try:
+            from tools.export import dossier as dossier_complet
+        except ImportError:  # lancé comme script : le module voisin
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import dossier as dossier_complet
+        return dossier_complet.exporter_dossier(str(dossier_path), formats_dossier[format.lower()], out)
+
     # Fichiers requis
     synthese_path = dossier_path / "SYNTHESE.md"
     registre_md_path = dossier_path / "registre-risques.md"
@@ -564,7 +574,8 @@ def _export_json(dossier_path: Path, out_path: Path) -> Path:
 def main():
     parser = argparse.ArgumentParser(description='Export des rapports d\'analyse')
     parser.add_argument('dossier_analyse', help='Dossier contenant les fichiers d\'analyse')
-    parser.add_argument('--format', choices=['md', 'html', 'pdf', 'json'], default='pdf',
+    parser.add_argument('--format', choices=['md', 'html', 'pdf', 'json', 'dossier-html', 'dossier-pdf', 'dossier-zip'],
+                        default='pdf',
                         help='Format d\'export (défaut: pdf)')
     parser.add_argument('--out', help='Dossier de sortie (défaut: dossier d\'analyse)')
     
