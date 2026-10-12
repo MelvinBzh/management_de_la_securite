@@ -140,24 +140,58 @@ def _texte_fait(f: dict) -> str:
 
 
 # --------------------------------------------------------------------------------------------------------------- plan
-def candidats_nouveaux(dossier: Path, index, docs_changes: set[str], actifs: list[dict]) -> list[dict]:
-    """Entités (système, matériel, prestataire, donnée, site) citées par les documents changés et absentes de 01-actifs.md."""
+# mots qui décrivent le genre de chose sans la nommer : « serveurs physiques », « prestataire externe », « salle serveurs »
+GENERIQUES = frozenset((
+    "serveur serveurs service services systeme système systèmes plateforme plateformes application applications portail portails "
+    "passerelle passerelles base bases donnees données reseau réseau réseaux infrastructure infrastructures parc poste postes "
+    "solution solutions outil outils module modules logiciel logiciels site sites salle salles clinique cliniques siege siège "
+    "prestataire prestataires fournisseur fournisseurs externe externes interne internes physique physiques virtuel virtuels "
+    "virtuelle virtuelles local locale locaux central centrale principal principale equipement équipement équipements "
+    "dispositif dispositifs composant composants machine machines environnement environnements groupe societe société "
+    "avec sans pour dans sous vers chez entre selon les des une aux ses leur leurs cette ces"
+).split())
+
+
+def jetons_distinctifs(nom: str) -> set[str]:
+    """Mots qui NOMMENT la chose (marque, produit, sigle, version) ; vide si le nom ne dit que le genre (« prestataire externe »)."""
+    return {m for m in _cle(nom).split() if len(m) >= 3 and m not in GENERIQUES}
+
+
+def _deja_inventorie(nom: str, textes_actifs: list[set[str]]) -> bool:
+    """Tous les mots distinctifs du nom figurent dans UN même actif (nom ou description) : ce n'est pas un nouvel actif."""
+    jetons = jetons_distinctifs(nom)
+    return bool(jetons) and any(jetons <= t for t in textes_actifs)
+
+
+def candidats_nouveaux(dossier: Path, index, docs_changes: set[str], actifs: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Entités (système, matériel, prestataire, donnée, site) citées par les documents changés et absentes de 01-actifs.md.
+
+    Renvoie `(candidats, écartés)` : un terme générique (« salle serveurs ») n'est pas un actif et n'est pas proposé ;
+    un nom dont tous les mots distinctifs figurent déjà dans un actif (« passerelle VPN FortiGate » / « Portail VPN
+    FortiGate ») est déjà inventorié."""
     present = " " + " ".join(a["cle"] for a in actifs) + " "
+    textes_actifs = [set(_cle(RE_CITE.sub("", " ".join(a["cellules"]))).split()) for a in actifs]
     groupes: dict[str, dict] = {}
     for nom, canonique, type_, docs in index.base.execute("SELECT nom, canonique, type, docs FROM entites").fetchall():
         g = groupes.setdefault(canonique, {"noms": set(), "types": set(), "docs": set()})
         g["noms"].add(nom)
         g["types"].add(type_)
         g["docs"].update(json.loads(docs or "[]"))
-    sortie = []
+    sortie, ecartes = [], []
     for canonique, g in groupes.items():
         if not (g["types"] & set(coherence.TYPES_ACTIFS)) or len(canonique) < 3 or not (g["docs"] & docs_changes):
             continue
-        if any((" " + _cle(n) + " ") in present for n in g["noms"] | {canonique} if len(_cle(n)) >= 3):
+        noms = g["noms"] | {canonique}
+        if any((" " + _cle(n) + " ") in present for n in noms if len(_cle(n)) >= 3):
+            continue
+        if any(_deja_inventorie(n, textes_actifs) for n in noms):
+            continue
+        if not any(jetons_distinctifs(n) for n in noms):
+            ecartes.append({"nom": canonique, "motif": "terme générique : il dit le genre de chose, pas laquelle"})
             continue
         type_ = sorted(g["types"] & set(coherence.TYPES_ACTIFS))[0]
         sortie.append({"nom": canonique, "type_entite": type_, "docs": sorted(g["docs"]), "documents_changes": sorted(g["docs"] & docs_changes)})
-    return sorted(sortie, key=lambda c: (-len(c["docs"]), c["nom"]))
+    return sorted(sortie, key=lambda c: (-len(c["docs"]), c["nom"])), sorted(ecartes, key=lambda c: c["nom"])
 
 
 def format_ancien(dossier: Path) -> str:
@@ -188,17 +222,27 @@ def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool]
     # faits qui comptent pour les livrables : nouveaux, ou devenus différents (modifiés) — pas les « confirmés »
     pertinents = list(delta.nouveaux) + [m["apres"] for m in delta.modifies]
     pertes = list(delta.perdus) + [m["avant"] for m in delta.modifies]
-    nouveaux_actifs = candidats_nouveaux(dossier, index, delta.documents_changes, actifs)
+    nouveaux_actifs, ecartes = candidats_nouveaux(dossier, index, delta.documents_changes, actifs)
     cles_nouveaux = {_cle(c["nom"]) for c in nouveaux_actifs}
+    base = delta_mod.lire_baseline(dossier)
+    # preuves déjà prises en compte un jour par les livrables (cumul) ; sans état de référence : on ne sait pas, tout est conséquence
+    connus = {int(i) for i in base.get("vus", base["elements"])} if base else None
 
     for c in nouveaux_actifs:
         mentions = [f for f in pertinents if _mentionne(_texte_fait(f), {_cle(c["nom"])})]
-        defaut = len(c["docs"]) >= 2 or len(mentions) >= 2
+        # coché seulement si le sujet est APPORTÉ par les documents changés (aucun ancien document n'en parlait) : ce qui était
+        # déjà cité avant sans avoir été retenu comme actif reste proposé, mais c'est à l'analyste de le demander
+        nouveau_sujet = set(c["docs"]) <= set(c["documents_changes"])
+        defaut = nouveau_sujet and c["type_entite"] != "site" and len(mentions) >= 1
         ident = "creer:" + _cle(c["nom"])
+        raison = (f"Cité par {len(c['docs'])} document(s) ({', '.join(c['documents_changes'])} apporte(nt) le sujet) "
+                  f"et absent de l'inventaire ; {len(mentions)} nouveau(x) fait(s) le concernent.")
+        if not nouveau_sujet:
+            raison += " Déjà cité par les documents d'origine sans avoir été retenu comme actif : à vous de décider."
+        elif c["type_entite"] == "site":
+            raison += " C'est un lieu : à cocher seulement si c'est un site à analyser."
         items.append({"id": ident, "type": "creer_actif", "etape": 1, "cible": c["nom"],
-                      "titre": f"Créer l'actif « {c['nom']} »",
-                      "raison": f"Cité par {len(c['docs'])} document(s) ({', '.join(c['documents_changes'])} apporte(nt) le sujet) "
-                                f"et absent de l'inventaire ; {len(mentions)} nouveau(x) fait(s) le concernent.",
+                      "titre": f"Créer l'actif « {c['nom']} »", "raison": raison,
                       "coche": choix.get(ident, defaut), "donnees": {"nom": c["nom"], "type_entite": c["type_entite"],
                                                                       "docs": c["docs"], "faits": [m["id"] for m in mentions]}})
 
@@ -233,8 +277,10 @@ def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool]
     revises_avec_faits = {i["cible"] for i in items if i["type"] == "reviser_actif" and i["donnees"]["faits"]}
     for a in actifs:
         # toutes ses preuves ont disparu SANS fait qui les remplace ni nouveau fait qui le concerne : retrait proposé
+        # (et au moins une de ces preuves avait été prise en compte : un actif dont les citations n'ont jamais existé n'a pas
+        # « perdu » ses preuves à cause des documents changés)
         if (a["preuves"] and not (a["preuves"] & existants) and a["id"] not in revises_avec_faits
-                and not any(i in remplacement for i in a["preuves"])):
+                and not any(i in remplacement for i in a["preuves"]) and (connus is None or a["preuves"] & connus)):
             a_retirer.add(a["id"])
             ident = "retirer:" + a["id"]
             items.append({"id": ident, "type": "retirer_actif", "etape": 1, "cible": a["id"],
@@ -255,15 +301,26 @@ def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool]
             touchees = sorted(cites - existants)
             if not touchees:
                 continue
+            # deux causes très différentes : (1) une preuve que les livrables avaient prise en compte a changé ou disparu —
+            # conséquence de CETTE mise à jour ; (2) une citation qui ne correspond à aucune preuve du dossier et n'a jamais
+            # été prise en compte (identifiant inexistant, ou document retiré avant le suivi) — antérieure, sans rapport
+            # avec les documents changés : proposée, jamais cochée d'office
+            causes = [i for i in touchees if connus is None or i in connus or i in remplacement]
+            anciennes = [i for i in touchees if i not in causes]
             ident = f"revoir:{fichier}:{lid}"
             detail = []
-            for i in touchees[:3]:
-                detail.append(f"[E{i}] a changé : « {remplacement[i]['extrait'][:80]} »" if i in remplacement else f"[E{i}] n'existe plus")
+            for i in (causes or anciennes)[:3]:
+                detail.append(f"[E{i}] a changé : « {remplacement[i]['extrait'][:80]} »" if i in remplacement
+                              else f"[E{i}] n'existe plus" if causes else f"[E{i}] ne correspond à aucune preuve du dossier")
+            raison = "; ".join(detail)
+            if not causes:
+                raison += " (déjà le cas avant cette mise à jour)"
             items.append({"id": ident, "type": "revoir_ligne",
                           "etape": {"01-actifs.md": 1, "03-menaces.md": 3, "04-evaluation.md": 4, "05-traitement.md": 5}[fichier],
-                          "cible": lid, "titre": f"Revoir la ligne {lid} de {fichier}", "raison": "; ".join(detail),
-                          "coche": choix.get(ident, True),
+                          "cible": lid, "titre": f"Revoir la ligne {lid} de {fichier}", "raison": raison,
+                          "coche": choix.get(ident, bool(causes)),
                           "donnees": {"fichier": fichier, "ligne_id": lid, "preuves": touchees,
+                                      "origine": "changement" if causes else "ancienne",
                                       "remplacements": {str(i): remplacement[i]["id"] for i in touchees if i in remplacement}}})
     return {
         "date": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -272,6 +329,7 @@ def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool]
         "contradictions": [{"doc_a": c["doc_a"], "doc_b": c["doc_b"], "explication": c.get("explication", "")[:200]}
                            for c in delta.contradictions[:20]],
         "items": items,
+        "ecartes": ecartes,
         "applique": False,
         "format_ancien": format_ancien(dossier),
     }

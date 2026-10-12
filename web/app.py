@@ -1019,15 +1019,32 @@ elif page == PAGES[3]:
                 for _i in _liste:
                     _coches[_i["id"]] = st.checkbox(_i["titre"], value=bool(_i["coche"]), key=f"maj_{_i['id']}", help=_i["raison"])
                     st.caption(_i["raison"])
-            _revoir = [i for i in _plan_maj["items"] if i["type"] == "revoir_ligne"]
-            if _revoir:
-                _tous = st.checkbox(f"Revoir les {len(_revoir)} ligne(s) dont une preuve a changé ou disparu",
-                                    value=all(i["coche"] for i in _revoir), key="maj_revoir")
+            _revoir_tous = [i for i in _plan_maj["items"] if i["type"] == "revoir_ligne"]
+            # deux causes : une preuve prise en compte par les livrables a changé ou disparu (conséquence de cette mise à jour,
+            # cochée) / une citation qui ne correspond à aucune preuve du dossier depuis avant (jamais cochée d'office)
+            _groupes_revoir = (
+                ("maj_revoir", [i for i in _revoir_tous if i["donnees"].get("origine", "changement") == "changement"],
+                 "Revoir les {n} ligne(s) dont une preuve a changé ou disparu", "Voir ces lignes"),
+                ("maj_revoir_anciennes", [i for i in _revoir_tous if i["donnees"].get("origine") == "ancienne"],
+                 "Revoir aussi les {n} ligne(s) qui citent une preuve inexistante dans le dossier",
+                 "Voir ces lignes (citations antérieures à cette mise à jour)"),
+            )
+            for _cle_g, _revoir, _libelle_g, _voir in _groupes_revoir:
+                if not _revoir:
+                    continue
+                _tous = st.checkbox(_libelle_g.format(n=len(_revoir)), value=all(i["coche"] for i in _revoir), key=_cle_g)
+                if _cle_g == "maj_revoir_anciennes":
+                    st.caption("Ces lignes ne sont pas concernées par les documents changés : leur citation était déjà sans preuve "
+                               "avant. Les revoir les rattache aux preuves actuelles, mais refait leur évaluation et leur "
+                               "traitement : à faire en connaissance de cause (cela peut être long).")
                 for _i in _revoir:
                     _coches[_i["id"]] = _tous
-                with st.expander("Voir ces lignes"):
+                with st.expander(_voir):
                     for _i in _revoir[:60]:
                         st.markdown(f"- `{_i['donnees']['fichier']}` {_i['cible']} — {_i['raison']}")
+            if _plan_maj.get("ecartes"):
+                st.caption(f"{len(_plan_maj['ecartes'])} terme(s) trop général(aux) non proposé(s) comme actif : "
+                           + ", ".join(e["nom"] for e in _plan_maj["ecartes"][:8]) + ".")
             if _plan_maj.get("contradictions"):
                 st.caption(f"{len(_plan_maj['contradictions'])} contradiction(s) nouvelle(s) à décider en ④ (aucune ligne n'est "
                            "modifiée avant votre décision).")

@@ -232,6 +232,69 @@ verifier("retrait confirmé : l'actif et ses 2 menaces disparaissent des 4 livra
 verifier("un identifiant retiré n'est jamais réattribué", miseajour.reserver_ids(D, "A", ["A01", "A02"], 1) == ["A04"]
          and miseajour.reserver_ids(D, "M", ["M001", "M002"], 1) == ["M005"])
 
+# --- ce que le test RÉEL a montré : un plan ne doit pas se noyer dans les défauts antérieurs ------------------------------------------------
+# (1) une citation qui ne correspond à aucune preuve depuis avant n'est PAS une conséquence des documents changés : proposée, jamais cochée ;
+# (2) un terme générique n'est pas un actif ; un nom déjà inventorié (mots distinctifs dans un actif) n'est pas un nouvel actif ;
+# (3) un sujet déjà cité par les documents d'origine sans avoir été retenu reste proposé, mais décoché.
+E = Path(tempfile.mkdtemp(prefix="e21-maj-plan-"))
+(E / "intrants").mkdir()
+chemin_e = travail.chemins(E)[1]
+chemin_e.parent.mkdir(parents=True, exist_ok=True)
+idx2 = Index(chemin_e)
+ingestion.traiter_document(idx2, "x.md", document("X", "Fait : le serveur Alpha est hébergé à Lyon",
+                                                  "Fait : les machines tournent sous Hyper-V"), M)
+idx2.ajouter_entite("Alpha", "Alpha", "systeme", ["x.md"])
+idx2.ajouter_entite("Hyper-V", "Hyper-V", "systeme", ["x.md"])
+idx2.base.commit()
+alpha = idx2.base.execute("SELECT id FROM elements WHERE doc = 'x.md' AND extrait LIKE '%Alpha%'").fetchone()[0]
+
+
+def tableau_dans(dossier: Path, fichier: str, lignes: list[str]) -> None:
+    titre, colonnes = lots.ENTETES[fichier]
+    (dossier / fichier).write_text(NL.join([titre, "", "| " + " | ".join(colonnes) + " |", "|" + "|".join("---" for _ in colonnes) + "|"]
+                                           + lignes) + NL, encoding="utf-8")
+
+
+tableau_dans(E, "01-actifs.md", [f"| A01 | Alpha | Logiciel / Service | Serveur Alpha, accessible par passerelle VPN [E{alpha}] | Critique | [E{alpha}] |",
+                                 "| A02 | Legacy | Logiciel / Service | Ancien outil documenté nulle part [E999] | Interne | [E999] |"])
+tableau_dans(E, "03-menaces.md", [f"| M001 | A01 — Alpha | STRIDE-S | Usurpation [E{alpha}] | — | STRIDE-S |",
+                                  "| M002 | A02 — Legacy | STRIDE-T | Altération [E999] | — | STRIDE-T |"])
+tableau_dans(E, "04-evaluation.md", [f"| M001 | A01 Alpha (STRIDE-S) | Moyen | Élevé | Élevé | Exposé [E{alpha}] |",
+                                     "| M002 | A02 Legacy (STRIDE-T) | Moyen | Moyen | Moyen | Inconnu [E999] |"])
+tableau_dans(E, "05-traitement.md", [f"| M001 | A01 Alpha (STRIDE-S) | Réduire | MFA [E{alpha}] | ISO27002-5.15 | Moyen |",
+                                     "| M002 | A02 Legacy (STRIDE-T) | Réduire | Revue [E999] | ISO27002-5.15 | Faible |"])
+delta.ecrire_baseline(E, idx2, signature="s0")
+ingestion.traiter_document(idx2, "y.md", document("Y", "Fait : le serveur Veeam sauvegarde chaque semaine vers un NAS",
+                                                  "Fait : la salle serveurs du siège est partagée avec le prestataire externe",
+                                                  "Fait : les machines Hyper-V sont gérées par la passerelle Alpha"), M)
+idx2.ajouter_entite("Veeam", "Veeam", "materiel", ["y.md"])
+idx2.ajouter_entite("salle serveurs", "salle serveurs", "site", ["y.md"])
+idx2.ajouter_entite("prestataire externe", "prestataire externe", "prestataire", ["y.md"])
+idx2.ajouter_entite("passerelle Alpha", "passerelle Alpha", "materiel", ["y.md"])
+idx2.ajouter_entite("Hyper-V", "Hyper-V", "systeme", ["x.md", "y.md"])  # cité par l'ancien document ET par le nouveau
+idx2.base.commit()
+plan_e = miseajour.preparer_plan(E, idx2)
+ids_e = {i["id"]: i for i in plan_e["items"]}
+verifier("plan : un sujet apporté par le seul document ajouté est proposé ET coché (Veeam)",
+         "creer:veeam" in ids_e and ids_e["creer:veeam"]["coche"])
+verifier("plan : un sujet déjà cité par un ancien document reste proposé mais décoché (Hyper-V)",
+         "creer:hyper v" in ids_e and not ids_e["creer:hyper v"]["coche"] and "origine" in ids_e["creer:hyper v"]["raison"])
+verifier("plan : un terme générique n'est pas proposé comme actif (salle serveurs, prestataire externe)",
+         not any(k in ids_e for k in ("creer:salle serveurs", "creer:prestataire externe"))
+         and {"salle serveurs", "prestataire externe"} <= {e["nom"] for e in plan_e["ecartes"]})
+verifier("plan : un nom déjà inventorié n'est pas un nouvel actif (passerelle Alpha ⊂ A01)", "creer:passerelle alpha" not in ids_e
+         and "passerelle Alpha" not in {e["nom"] for e in plan_e["ecartes"]})
+anciennes = [i for i in plan_e["items"] if i["type"] == "revoir_ligne"]
+verifier("plan : les lignes qui citent une preuve inexistante depuis avant sont proposées mais JAMAIS cochées",
+         {i["cible"] for i in anciennes} == {"A02", "M002"} and all(i["donnees"]["origine"] == "ancienne" and not i["coche"] for i in anciennes))
+verifier("plan : aucune ligne de l'actif sain (A01, M001) n'est à revoir", not any(i["cible"] in ("A01", "M001") for i in anciennes))
+verifier("plan : un actif dont les citations n'ont jamais existé n'est pas proposé au retrait", not any(i["type"] == "retirer_actif" for i in plan_e["items"]))
+# un choix de l'analyste est conservé d'un calcul à l'autre
+ids_e["revoir:01-actifs.md:A02"]["coche"] = True
+miseajour.ecrire_plan(E, plan_e)
+verifier("plan : la case cochée par l'analyste est conservée au recalcul",
+         next(i for i in miseajour.preparer_plan(E, idx2)["items"] if i["id"] == "revoir:01-actifs.md:A02")["coche"])
+
 # --- livrables d'une ancienne version (autres colonnes) : mise à jour refusée avec un message clair ------------------------------------
 ancien = Path(tempfile.mkdtemp(prefix="e21-maj-ancien-"))
 for f in ("01-actifs.md", "03-menaces.md", "04-evaluation.md", "05-traitement.md"):

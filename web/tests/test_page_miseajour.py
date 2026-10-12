@@ -93,8 +93,14 @@ for f in ("03-menaces.md", "04-evaluation.md", "05-traitement.md"):   # tableaux
 for f in ("02-methodes.md", "06-validation.md", "registre-risques.md", "SYNTHESE.md", "00-description.md"):
     if not (D / f).is_file():
         (D / f).write_text(f"# {f}\n" + "x " * 60 + NL, encoding="utf-8")
+# une ligne dont la citation ne correspond à aucune preuve depuis avant (jamais prise en compte) : proposée, jamais cochée d'office
+with open(D / "01-actifs.md", "a", encoding="utf-8") as f_actifs:
+    f_actifs.write("| A02 | Ancien outil | Logiciel / Service | Outil sans preuve dans le dossier [E9999] | Interne | [E9999] |" + NL)
 app = ouvrir()
 verifier("page ② : aucune exception", not app.exception)
+anciennes = [c for c in app.checkbox if str(c.key) == "maj_revoir_anciennes"]
+verifier("page ② : les lignes à citation sans preuve forment un groupe à part, décoché par défaut",
+         len(anciennes) == 1 and anciennes[0].value is False and not [c for c in app.checkbox if str(c.key) == "maj_revoir"])
 textes = " ".join(str(e.value) for e in list(app.markdown) + list(app.caption) + list(app.subheader) + list(app.info) + list(app.warning))
 verifier("page ② : « Mise à jour proposée » affichée avec ce qui va changer", "Mise à jour proposée" in textes and "ajouté(s)" in textes)
 cases = [c for c in app.checkbox if str(c.key).startswith("maj_creer")]

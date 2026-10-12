@@ -80,7 +80,11 @@ def ecrire_baseline(dossier: str | Path, index, signature: str = "") -> Path:
     chemin = chemin_baseline(dossier)
     chemin.parent.mkdir(parents=True, exist_ok=True)
     donnees = instantane(index)
-    donnees.update({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "signature": signature})
+    # `vus` : TOUTES les preuves déjà prises en compte un jour par les livrables (cumul, jamais réduit). Une citation absente de
+    # l'index est une conséquence d'un changement de documents si elle figure ici ; sinon elle était déjà sans preuve avant.
+    precedent = lire_baseline(dossier) or {}
+    vus = {int(i) for i in precedent.get("vus", precedent.get("elements", {}))} | {int(i) for i in donnees["elements"]}
+    donnees.update({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "signature": signature, "vus": sorted(vus)})
     temporaire = chemin.with_suffix(".tmp")
     temporaire.write_text(json.dumps(donnees, ensure_ascii=False), encoding="utf-8")
     temporaire.replace(chemin)

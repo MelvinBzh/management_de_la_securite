@@ -94,6 +94,10 @@ verifier("le fait retiré qui existe encore ailleurs (c.md) est aussi perdu pour
 # --- nouvelle baseline : de nouveau rien à signaler ----------------------------------------------------------------------------------
 delta.ecrire_baseline(D, idx, signature="s2")
 verifier("après application : delta vide", delta.calculer(idx, delta.lire_baseline(D)).vide())
+base2 = delta.lire_baseline(D)
+verifier("preuves « vues » : cumul jamais réduit (une preuve retirée reste connue des livrables qui la citent)",
+         set(base["elements"]) <= {str(i) for i in base2["vus"]} and set(base["elements"]) - set(base2["elements"])
+         and 999999 not in base2["vus"])
 
 # --- l'état appliqué est amorcé AVANT de lire de nouveaux documents (projet analysé avant ce suivi) -----------------------------------
 from tools.connaissance import travail  # noqa: E402
