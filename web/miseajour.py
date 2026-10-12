@@ -1058,6 +1058,89 @@ def ecrire_rapport(dossier: Path, plan: dict, ctx: Contexte) -> Path:
     return chemin
 
 
+TITRE_COMPLEMENT = "## Compléments depuis l'analyse initiale"
+
+
+def _section_complement(dossier: Path, journal: list) -> str:
+    """Section « Compléments » : documents ajoutés/modifiés/retirés et actifs créés depuis l'analyse initiale (journal des
+    mises à jour + 01-actifs.md). Aucun modèle : tout vient du journal et des livrables, donc vérifiable."""
+    actifs = {a["id"]: a for a in actifs_du_livrable(dossier)}
+    docs: list[str] = []
+    crees: list[tuple[str, str]] = []
+    retires: list[tuple[str, str, str]] = []
+    for entree in journal:
+        if not isinstance(entree, dict):
+            continue
+        jour = str(entree.get("date", ""))[:10]
+        d = entree.get("documents", {}) or {}
+        for cle, verbe in (("ajoutes", "ajouté"), ("modifies", "modifié"), ("retires", "retiré")):
+            for nom in d.get(cle, []) or []:
+                ligne = f"- {jour} — {verbe} : `{nom}`"
+                if ligne not in docs:
+                    docs.append(ligne)
+        r = entree.get("resultat", {}) or {}
+        for c in r.get("crees", []) or []:
+            if isinstance(c, dict) and c.get("id"):
+                crees.append((str(c["id"]), jour))
+        for x in r.get("retires", []) or []:
+            if isinstance(x, dict) and x.get("id"):
+                retires.append((str(x["id"]), str(x.get("nom", "")), jour))
+    ids_retires = {i for i, _n, _j in retires}
+    lignes_actifs = []
+    for ident, jour in crees:
+        a = actifs.get(ident)
+        if not a or ident in ids_retires:
+            continue
+        c = a["cellules"]
+        type_ = _propre(c[2]) if len(c) > 2 else ""
+        description = " ".join(_propre(c[3]).split())[:260] if len(c) > 3 else ""
+        lignes_actifs.append(f"- **{ident} — {a['nom']}**" + (f" ({type_})" if type_ else "") + f", ajouté le {jour}"
+                             + (f" : {description}" if description else ""))
+    if not (docs or lignes_actifs or retires):
+        return ""
+    sortie = [TITRE_COMPLEMENT, "",
+              "*Section tenue à jour par le programme à chaque mise à jour : elle liste ce que les documents ajoutés, modifiés ou "
+              "retirés ont apporté depuis l'analyse initiale. La description ci-dessus n'est pas réécrite ; le détail ligne par ligne "
+              "est dans `MISE-A-JOUR.md`.*"]
+    if docs:
+        sortie += ["", "### Documents ajoutés, modifiés ou retirés"] + docs
+    if lignes_actifs:
+        sortie += ["", "### Actifs ajoutés"] + lignes_actifs
+    if retires:
+        sortie += ["", "### Actifs retirés (retrait confirmé par l'analyste)"] + [f"- **{i} — {n}**, retiré le {j}" for i, n, j in retires]
+    return "\n".join(sortie)
+
+
+def completer_description(dossier: Path) -> bool:
+    """Ajoute ou met à jour, EN FIN de `00-description.md`, la section « Compléments depuis l'analyse initiale ».
+
+    Le texte d'origine n'est pas réécrit (un essai réel a montré qu'une régénération complète refait 80 % du texte et peut
+    ignorer le nouveau document). Vrai si le fichier a été écrit ; rien n'est écrit si la section est déjà à jour."""
+    chemin = Path(dossier) / "00-description.md"
+    try:
+        texte = chemin.read_text(encoding="utf-8")
+        journal = json.loads((Path(dossier) / NOM_JOURNAL).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(journal, list):
+        return False
+    section = _section_complement(Path(dossier), journal)
+    if not section:
+        return False
+    if texte.startswith(TITRE_COMPLEMENT):
+        base = ""
+    else:
+        debut = texte.rfind("\n" + TITRE_COMPLEMENT)
+        base = texte[:debut].rstrip("\n") if debut >= 0 else texte.rstrip("\n")
+    nouveau = (base + "\n\n" if base else "") + section + "\n"
+    if nouveau == texte:
+        return False
+    temporaire = chemin.with_suffix(".tmp")
+    temporaire.write_text(nouveau, encoding="utf-8")
+    temporaire.replace(chemin)
+    return True
+
+
 # ------------------------------------------------------------------------------------------------------ orchestration
 def executer(dossier: Path, *, index=None, generer=None, preuves=None, termes=None, assainir=None, sources: str = "",
              base_texte: str = "", journal=print, verifier_citations=None, avec_lecture: bool = True,
@@ -1133,6 +1216,11 @@ def executer(dossier: Path, *, index=None, generer=None, preuves=None, termes=No
         _controler(ctx, dossier, verifier_citations)
         _clore_controles(ctx, dossier, signature)
         ecrire_rapport(dossier, plan, ctx)
+        try:
+            if completer_description(dossier):
+                journal("[maj] 00-description.md : section « Compléments » mise à jour (le texte d'origine n'est pas réécrit)")
+        except Exception as exc:  # noqa: BLE001 — un confort : jamais un motif d'échec de la mise à jour
+            journal(f"[maj] compléments de la description non écrits ({type(exc).__name__})")
         delta_mod.ecrire_baseline(dossier, index, signature)
         plan["applique"] = True
         plan["refus"] = sorted({i["id"] for i in plan["items"] if not i.get("coche") and i["type"] in ("creer_actif", "reviser_actif")})

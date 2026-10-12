@@ -373,6 +373,7 @@ ROUTAGE = {
 JUGES = {"qwen": ["gemma4:12b"], "gemma": ["qwen3.5:9b"]}
 MODELE_DEFAUT = "ollama/qwen3.5:9b"
 ROUNDS_CONTROLE = 1           # reprises demandées par le contrôle avant « validation humaine »
+REGENERER_DESCRIPTION = False  # mise à jour : réécrire 00-description.md par un modèle (False : section « Compléments » par le code)
 # Mesuré le 2026-10-10 (Nordval, 22 documents, qwen3.5:9b) : avec 2 reprises, les 8 points signalés restaient 8 d'une
 # version à l'autre sur les 7 étapes, pour ~10 minutes de plus par reprise (2 h au total). Une reprise suffit à
 # corriger l'évident ; le reste va à l'analyste, avec les points relevés en contexte.
@@ -754,7 +755,9 @@ def archiver_precedent(dossier: Path) -> Path | None:
     Sans cela, un relancement affichait « ✓ » pour des étapes pas encore refaites (l'interface
     déduit l'avancement des fichiers présents) et écrasait le travail précédent sans trace.
     """
-    noms = [n for _a, _l, fs in ETAPES for n in fs] + ["RAPPORT-CONTROLE.md", controles.NOM_JSON, lib.NOM_JSON_REGISTRE]
+    # le suivi des mises à jour appartient à l'analyse qu'on archive : la nouvelle analyse part d'un historique vide
+    noms = [n for _a, _l, fs in ETAPES for n in fs] + ["RAPPORT-CONTROLE.md", controles.NOM_JSON, lib.NOM_JSON_REGISTRE,
+                                                        "MISE-A-JOUR.md", "mise-a-jour-journal.json"]
     presents = [Path(dossier) / n for n in noms if (Path(dossier) / n).is_file()]
     if not presents:
         return None
@@ -1415,7 +1418,9 @@ def mise_a_jour(dossier_nom: str, modele: str, cli: str) -> int:
         return 1
     compte = miseajour.executer(dossier, journal=_journal, verifier_citations=miseajour._citations_changees, modele=modele_ollama)
     statut = compte.get("statut")
-    if statut == "ok":
+    # Essai réel (projet santé) : la régénération refait 80 % du texte et n'a pas repris le document ajouté. Par défaut, la
+    # description d'origine est conservée et `miseajour.completer_description` y ajoute une section « Compléments » (par le code).
+    if statut == "ok" and REGENERER_DESCRIPTION:
         try:
             plan = miseajour.lire_plan(dossier) or {}
             docs = plan.get("documents", {})

@@ -144,8 +144,19 @@ proposée » de la page ②). Le chemin de la première analyse n'est pas modifi
 Cas couverts : nouvel actif (création de l'actif, de ses menaces, évaluations et traitements) ; document qui complète un actif
 (révision ciblée et nouvelles menaces permises) ; fait modifié (« 126 » devient « 132 ») ; fait confirmé (aucun changement) ;
 document retiré (lignes à revoir, retrait d'actif proposé) ; document illisible (ni créé ni retiré) ; format de livrables d'une
-version antérieure (refusé avec un message : « Tout refaire » une fois). `00-description.md` est régénérée (l'ancienne est
-restaurée si la nouvelle est invalide) ; `02-methodes.md` est conservée.
+version antérieure (refusé avec un message : « Tout refaire » une fois). `00-description.md` est conservée telle quelle et une
+section « Compléments depuis l'analyse initiale » (documents ajoutés, modifiés ou retirés ; actifs ajoutés ou retirés) est tenue à
+jour **par le code** en fin de fichier ; `02-methodes.md` est conservée. La régénération de la description par un modèle existe
+encore (`chaine.REGENERER_DESCRIPTION`, désactivée) : l'essai réel l'a écartée, elle refaisait 80 % du texte sans reprendre le
+document ajouté.
+
+**Ce que le premier essai réel a corrigé** (projet santé, un document ajouté, vrai modèle) : 125 lignes étaient proposées « à revoir »
+parce qu'elles citaient des preuves qui n'ont jamais existé dans le dossier (citations inventées ou antérieures au suivi) — elles
+forment maintenant un groupe à part, **jamais coché d'office** (l'état appliqué garde le cumul des preuves déjà prises en compte,
+`vus`) ; 9 actifs étaient créés pour un document court — les termes génériques (« salle serveurs »), les noms déjà inventoriés
+(« passerelle VPN FortiGate » dans « Portail VPN FortiGate ») sont écartés et un sujet déjà cité par les documents d'origine est
+proposé mais décoché. Résultat : 13 minutes au lieu de 32, 3 actifs créés avec leurs 9 risques, 39 actifs et 135 menaces,
+évaluations et traitements identiques à l'octet près.
 
 **Limites.** Les révisions dépendent du modèle (contrôlées par le code, pas parfaites) ; après plusieurs mises à jour de petites
 dérives sont possibles, « Tout refaire » reste la sortie de secours ; la détection d'un actif nouveau repose sur les entités de

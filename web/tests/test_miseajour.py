@@ -96,6 +96,8 @@ points = validations.construire(D)
 risque = {p["titre"].split(" — ")[0]: p for p in points if p["type"] == "risque"}
 validations.enregistrer(D, "Marie", {risque["M001"]["id"]: {"decision": "accepte", "commentaire": ""},
                                      risque["M002"]["id"]: {"decision": "accepte", "commentaire": ""}}, points)
+DESCRIPTION = NL.join(["# Description du système", "", "ERP de transport NordTMS hébergé à Lesquin ; parc de portables Dell."]) + NL
+(D / "00-description.md").write_text(DESCRIPTION, encoding="utf-8")
 delta.ecrire_baseline(D, idx, signature="s0")
 avant = {f: (D / f).read_text(encoding="utf-8") for f in ("01-actifs.md", "03-menaces.md", "04-evaluation.md", "05-traitement.md")}
 ligne = lambda fichier, ident, source=None: next(l for l in (source or {fichier: (D / fichier).read_text(encoding="utf-8")})[fichier].splitlines()  # noqa: E731
@@ -180,6 +182,14 @@ verifier("03 : M002 corrigée, M003 et M004 créées pour A03", "132" in ligne("
 verifier("04 : niveau calculé par le programme (Élevé × Élevé = Critique)", "| Critique |" in ligne("04-evaluation.md", "M003", apres))
 verifier("05 : traitement des nouveaux risques", "MFA et revue des accès" in ligne("05-traitement.md", "M004", apres))
 
+# --- description : le texte d'origine est conservé, une section « Compléments » est tenue par le code --------------------------------------
+desc = (D / "00-description.md").read_text(encoding="utf-8")
+verifier("description : texte d'origine conservé tel quel, section « Compléments » ajoutée à la fin",
+         desc.startswith(DESCRIPTION.rstrip(NL)) and desc.count(miseajour.TITRE_COMPLEMENT) == 1
+         and "A03 — Yooz" in desc and "`c.md`" in desc and "modifié : `b.md`" in desc)
+verifier("description : compléments recalculés sans doublon (idempotent)", not miseajour.completer_description(D)
+         and (D / "00-description.md").read_text(encoding="utf-8") == desc)
+
 # --- le registre et les décisions -----------------------------------------------------------------------------------------------------
 _c, lignes_reg = lib.lire_registre(D)
 statuts = {r["ID"]: r["Statut"] for r in lignes_reg}
@@ -229,6 +239,10 @@ verifier("retrait confirmé : l'actif et ses 2 menaces disparaissent des 4 livra
          and r3["resultat"]["retires"][0]["id"] == "A03" and "| A03 |" not in (D / "01-actifs.md").read_text(encoding="utf-8")
          and "| M003 |" not in (D / "03-menaces.md").read_text(encoding="utf-8")
          and "| M004 |" not in (D / "05-traitement.md").read_text(encoding="utf-8"))
+desc3 = (D / "00-description.md").read_text(encoding="utf-8")
+verifier("description : le retrait confirmé apparaît, l'actif retiré n'est plus listé comme ajouté",
+         desc3.count(miseajour.TITRE_COMPLEMENT) == 1 and "Actifs retirés" in desc3 and "A03 — Yooz**, retiré" in desc3
+         and "### Actifs ajoutés" not in desc3 and desc3.startswith(DESCRIPTION.rstrip(NL)))
 verifier("un identifiant retiré n'est jamais réattribué", miseajour.reserver_ids(D, "A", ["A01", "A02"], 1) == ["A04"]
          and miseajour.reserver_ids(D, "M", ["M001", "M002"], 1) == ["M005"])
 
