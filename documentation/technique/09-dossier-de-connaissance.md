@@ -184,3 +184,13 @@ l'index (une entité mal typée peut être proposée ou manquer).
 `qwen3.5:9b` extrait et rédige · `gemma4:12b` juge et vérifie · `bespoke-minicheck` second avis ·
 `nomic-embed-text` vecteurs. Écartés après mesure : `granite4:7b-a1b-h` (a décrit un seul document),
 `qwen3:14b` (trop lent, déborde du GPU), `llama3.1`, `mistral`, `qwen3-vl` (4 appels d'outils sur 6).
+
+## 8. Statut de validation par l'analyste
+
+| Élément | Statut | Date |
+|---|---|---|
+| Page ④ « Validation » (boîte unique de validation humaine : risques regroupés par niveau, contradictions et questions en premier, enregistrement par bloc, décisions conservées) | **Validée par Melvin** : elle permet de valider, rien à redire | 2026-10-12 |
+
+Ce que cette validation couvre : le parcours de décision (accepter, modifier, rejeter, garder A ou B, répondre à une question) et la
+conservation des décisions lors d'une reconstruction ou d'une mise à jour incrémentale. Elle ne couvre pas la qualité du contenu
+produit par les modèles (voir § 6).
