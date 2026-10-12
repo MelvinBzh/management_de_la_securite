@@ -930,6 +930,24 @@ def _controler(ctx: Contexte, dossier: Path, verifier_citations) -> None:
                               controles.texte_des_livrables(dossier, [fichier]), humaine=humaine, doutes=doutes, signature=signature)
 
 
+def _clore_controles(ctx: Contexte, dossier: Path, signature: str) -> None:
+    """Étapes 6 et 7 (établies par le code) : contrôle enregistré ; étapes non touchées : actualisées avec les documents actuels,
+    pour que le site ne les déclare plus « produites sur d'autres documents »."""
+    from web import controles, registre
+    for etape, libelle, fichiers, problemes in (
+            (6, "Étape 6 · Registre à valider", ["registre-risques.md", "06-validation.md"], registre.verifier_registre(dossier)),
+            (7, "Étape 7 · Synthèse", ["SYNTHESE.md"], registre.verifier_synthese(dossier))):
+        corrections = " ".join(problemes)
+        controles.enregistrer(dossier, etape, libelle, "mise à jour incrémentale (reprise ligne à ligne des étapes 3 à 5)",
+                              "non_conforme" if problemes else "conforme", corrections, None,
+                              controles.texte_des_livrables(dossier, fichiers),
+                              humaine=controles.pourquoi_et_quoi("reste_non_conforme", corrections, fichiers) if problemes else None,
+                              signature=signature)
+    etape_de = {"01-actifs.md": "1", "03-menaces.md": "3", "04-evaluation.md": "4", "05-traitement.md": "5"}
+    touchees = {etape_de[c["fichier"]] for c in ctx.changements if c["fichier"] in etape_de}
+    controles.actualiser_signature(dossier, signature, [e for e in ("1", "2", "3", "4", "5") if e not in touchees])
+
+
 def _citations_changees(texte: str, index) -> list[str]:
     """Lignes changées dont la preuve citée n'est pas établie (vérificateurs du site) : à relire."""
     from tools.connaissance import citations
@@ -1050,12 +1068,13 @@ def executer(dossier: Path, *, index=None, generer=None, preuves=None, termes=No
         lecture = lecture_directe(ctx, dossier) if (avec_lecture and ctx.changements) else ""
         registre.ecrire_synthese(dossier, lecture=lecture)
         _enregistrer_aval(dossier, ctx.a_revoir)
-        _controler(ctx, dossier, verifier_citations)
-        ecrire_rapport(dossier, plan, ctx)
         try:
             signature = travail.signature_documents(dossier)
         except Exception:  # noqa: BLE001
             signature = ""
+        _controler(ctx, dossier, verifier_citations)
+        _clore_controles(ctx, dossier, signature)
+        ecrire_rapport(dossier, plan, ctx)
         delta_mod.ecrire_baseline(dossier, index, signature)
         plan["applique"] = True
         plan["refus"] = sorted({i["id"] for i in plan["items"] if not i.get("coche") and i["type"] in ("creer_actif", "reviser_actif")})

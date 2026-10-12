@@ -168,5 +168,29 @@ verifier("décision ancienne : adoptée AVANT la modification, donc la ligne mod
 _c, lignes = lib.lire_registre(D)
 verifier("décision ancienne : le registre dit « à confirmer »", lignes[0]["Statut"] == registre.STATUT_A_CONFIRMER)
 
+# ===================================================================================================================================
+# C. après la mise à jour, aucune étape n'est déclarée « produite sur d'autres documents »
+# ===================================================================================================================================
+from web import controles  # noqa: E402
+
+D, idx, a1 = projet("e21-maj-signature-")
+for etape in (1, 2, 3, 4, 5):
+    controles.enregistrer(D, etape, f"Étape {etape}", "g", "conforme", "", None, "x", signature="ancienne-signature")
+ingestion.traiter_document(idx, "c.md", document("C", "Fait : la plateforme Yooz dématérialise les factures fournisseurs",
+                                                 "Fait : Yooz est hébergée chez l'éditeur en mode SaaS"), M)
+idx.ajouter_entite("Yooz", "Yooz", "systeme", ["c.md"])
+idx.base.commit()
+c1 = idx.base.execute("SELECT id FROM elements WHERE doc = 'c.md' AND genre = 'fait' ORDER BY id").fetchone()[0]
+etat["coupure"] = False
+miseajour.executer(D, index=idx, generer=generer, **parametres)
+signature_courante = travail.signature_documents(D)
+verifier("après mise à jour : aucune étape périmée (étapes touchées et non touchées)",
+         controles.etapes_perimees(D, signature_courante) == [])
+derniers = {}
+for e in controles.lire(D):
+    derniers[str(e["etape"])] = e
+verifier("après mise à jour : les étapes 6 et 7 ont un contrôle du programme", "6" in derniers and "7" in derniers
+         and derniers["6"]["verdict"] == "conforme")
+
 print("MAJ-REPRISE:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

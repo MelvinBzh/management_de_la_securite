@@ -93,7 +93,7 @@ La revue a comparé, point par point, ce que Melvin a demandé à ce qui est éc
 | F | Propagation ciblée après validation, contrôlée et tracée | `web/propagation.py` |
 | G | Recherche hors documents (`origine = externe`), jamais mêlée aux documents | `externe.py` |
 
-**Limites connues.** Le croisement incrémental ne reconfronte pas un fait inchangé à un document ajouté (bouton « Tout refaire »). La recherche externe demande un moteur SearXNG configuré. La compaction d'opencode (`reserved`) reste à mesurer sur le serveur. La sécurité du site (authentification, SSH, Ollama exposé) est toujours reportée.
+**Limites connues.** Le croisement incrémental confronte les faits des documents nouveaux ou modifiés aux autres documents, mais ne reconfronte pas un fait ancien inchangé aux passages d'un document ajouté (bouton « Tout refaire » de la page Connaissances). La recherche externe demande un moteur SearXNG configuré. La compaction d'opencode (`reserved`) reste à mesurer sur le serveur. La sécurité du site (authentification, SSH, Ollama exposé) est toujours reportée.
 
 ### 4 quater. Refonte après le run réel Nordval (2026-10-10 / 11)
 
@@ -119,6 +119,37 @@ lots devraient les supprimer) et refus de lecture par permission ; temps total ;
 
 **Recette en trois niveaux** (pour ne pas relancer la chaîne en boucle) : (0) contrôles par le code sur les livrables existants ;
 (1) jeu d'étalonnage d'affirmations vraies et fausses issu du run réel ; (2) un seul run complet, avec des seuils fixés à l'avance.
+
+### 4 quinquies. Étapes 6 et 7 par le code, puis mise à jour incrémentale (2026-10-11 / 12)
+
+**Étapes 6 et 7.** Un agent qui relisait à la main 151 lignes de traitement en reprenait 9 (trois résumés automatiques). Le
+registre (`registre-risques.md`, 151 lignes), `06-validation.md`, `registre_risques.json` et les chiffres de `SYNTHESE.md` sont
+désormais **établis par le code** à partir des étapes 3 à 5 (`web/registre.py`) ; le modèle n'écrit plus qu'un court texte de
+lecture dont les nombres sont recontrôlés. Les décisions de l'analyste sont conservées à la reconstruction.
+
+**Mise à jour incrémentale.** Après l'ajout, la modification ou le retrait de documents, on ne refait pas l'analyse : on calcule
+ce qui a changé, on le montre, puis on n'applique que cela (`web/miseajour.py`, option `--maj` du pilote, carte « Mise à jour
+proposée » de la page ②). Le chemin de la première analyse n'est pas modifié.
+
+| Brique | Rôle | Où |
+|---|---|---|
+| Numéros de preuve stables | Un numéro `[E…]` n'est jamais réattribué ; un document retraité garde les numéros de ses éléments identiques ; les éléments retirés sont gardés à part (texte, vecteur) | `index.py`, `ingestion.py` |
+| État appliqué (`baseline.json`) | Documents (empreinte) et éléments lus par les livrables ; écrit en fin d'analyse et en fin de mise à jour, amorcé avant la première lecture de nouveaux documents | `delta.py`, `travail.py`, `chaine.py` |
+| Calcul des changements | Faits **nouveaux**, **confirmés** (proches d'un fait d'un autre document), **modifiés** (ancien → nouveau, même document ou document remplacé), **perdus**, par similarité des vecteurs de l'index | `delta.py` |
+| Plan | Actifs à créer ou à réviser (faits nouveaux ou modifiés qui les mentionnent), lignes dont une preuve citée a disparu, retraits **proposés** (jamais cochés) ; les retraits et les lignes à revoir sont calculés sur l'état des preuves et persistent jusqu'à ce qu'ils soient réglés | `miseajour.py` |
+| Application | Un appel structuré à Ollama par actif ou par lot de six menaces ; le code vérifie preuves, sources, termes inventés, colonnes ; il pose les identifiants et calcule le niveau ; écriture atomique, lignes inchangées identiques à l'octet près ; coupure → reprise sans doublon | `miseajour.py` |
+| Décisions de l'analyste | Une empreinte du contenu est enregistrée avec la décision ; si la ligne change, la décision revient « à confirmer » (l'ancienne reste visible) ; les décisions antérieures au suivi sont adoptées avant toute modification | `registre.py`, `validations.py` |
+| Trace | `MISE-A-JOUR.md` (créé, révisé, avant → après, à revoir) et `mise-a-jour-journal.json` | `miseajour.py` |
+
+Cas couverts : nouvel actif (création de l'actif, de ses menaces, évaluations et traitements) ; document qui complète un actif
+(révision ciblée et nouvelles menaces permises) ; fait modifié (« 126 » devient « 132 ») ; fait confirmé (aucun changement) ;
+document retiré (lignes à revoir, retrait d'actif proposé) ; document illisible (ni créé ni retiré) ; format de livrables d'une
+version antérieure (refusé avec un message : « Tout refaire » une fois). `00-description.md` est régénérée (l'ancienne est
+restaurée si la nouvelle est invalide) ; `02-methodes.md` est conservée.
+
+**Limites.** Les révisions dépendent du modèle (contrôlées par le code, pas parfaites) ; après plusieurs mises à jour de petites
+dérives sont possibles, « Tout refaire » reste la sortie de secours ; la détection d'un actif nouveau repose sur les entités de
+l'index (une entité mal typée peut être proposée ou manquer).
 
 ## 5. Règles de conception à ne pas casser
 

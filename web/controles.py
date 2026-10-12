@@ -128,6 +128,26 @@ def _ecrire(dossier: Path, entrees: list[dict]) -> None:
     (dossier / NOM_RAPPORT).write_text(rapport_markdown(entrees), encoding="utf-8")
 
 
+def actualiser_signature(dossier: Path, signature: str, etapes: list[str | int]) -> int:
+    """Marque comme « à jour avec les documents actuels » le dernier contrôle de ces étapes (mise à jour incrémentale : l'étape
+    n'avait pas à changer, ou a été mise à jour ligne à ligne). Renvoie le nombre d'étapes actualisées."""
+    dossier = Path(dossier)
+    entrees = lire(dossier)
+    voulues = {str(e) for e in etapes}
+    vues: set[str] = set()
+    n = 0
+    for entree in reversed(entrees):
+        cle = str(entree.get("etape"))
+        if cle in voulues and cle not in vues:
+            vues.add(cle)
+            if entree.get("signature") != signature:
+                entree["signature"] = signature
+                n += 1
+    if n:
+        _ecrire(dossier, entrees)
+    return n
+
+
 def a_valider(dossier: Path) -> list[dict]:
     """Étapes dont le DERNIER contrôle nécessite une validation humaine (une reprise conforme l'efface)."""
     derniers: dict[str, dict] = {}
