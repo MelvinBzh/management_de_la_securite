@@ -301,7 +301,7 @@ class Rendu:
                         code, _c = _schemas.reparer_mermaid(code)
                     self.schemas += 1
                     sortie.append('<div class="schema"><pre class="mermaid">' + html.escape(code) + "</pre>"
-                                  '<p class="source">Schéma (Mermaid) — hors ligne ou dans le PDF, le code source ci-dessus le décrit.</p></div>')
+                                  '<p class="source">Schéma Mermaid — si le dessin ne s\'affiche pas (hors ligne, PDF), le texte ci-dessus est le code du schéma.</p></div>')
                 else:
                     sortie.append("<pre><code>" + "\n".join(html.escape(x) for x in bloc) + "</code></pre>")
                 continue

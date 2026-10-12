@@ -12,6 +12,8 @@ Documentation de conception et d'implémentation du prototype. Base : sujet E21 
 | `04-garde-fous.md` | Sécurité du système : injections, fuite, hallucination, excès d'autonomie… |
 | `05-cas-et-modele.md` | Choix du cas d'étude et du modèle de menaces (justifié) |
 | `06-plan-de-test.md` | Comparatif analyse manuelle, test d'injection, checklist de rendu |
+| `09-dossier-de-connaissance.md` | Dossier de connaissance, preuves, mise à jour incrémentale |
+| `10-export-et-schemas.md` | Export du dossier complet (HTML/PDF/ZIP) et réparation des schémas Mermaid |
 
 ## Structure d'une analyse
 
