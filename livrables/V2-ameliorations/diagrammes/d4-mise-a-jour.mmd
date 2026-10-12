@@ -1,0 +1,21 @@
+flowchart TB
+    N["Document ajouté, modifié ou retiré"]
+    L["Lecture : faits à extrait exact"]
+    CMP["Comparaison avec l'état appliqué aux livrables"]
+    R1["Nouveaux"]
+    R2["Confirmés<br/>rien à changer"]
+    R3["Modifiés"]
+    R4["Perdus"]
+    PLAN["Plan visible, cases à cocher<br/>les retraits sont seulement proposés"]
+    APP["Application ligne par ligne<br/>le modèle propose, le code contrôle"]
+    REG["Registre et synthèse reconstruits<br/>décisions conservées · ligne modifiée : à confirmer"]
+    ETAT["Nouvel état appliqué<br/>lignes inchangées identiques à l'octet près"]
+    N --> L --> CMP
+    CMP --> R1
+    CMP --> R2
+    CMP --> R3
+    CMP --> R4
+    R1 --> PLAN
+    R3 --> PLAN
+    R4 --> PLAN
+    PLAN --> APP --> REG --> ETAT

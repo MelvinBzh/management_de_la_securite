@@ -1,0 +1,13 @@
+flowchart TB
+    subgraph L1["Ce que disent les documents"]
+        direction LR
+        DOC["Document d'origine<br/>Audit_interne.docx"] --> EXT["Extrait exact [E12]<br/>« 16 contrôleurs<br/>de domaine »"] --> ACT["Actif A08<br/>Domaine<br/>Active Directory"]
+    end
+    subgraph L2["Ce que l'analyse en tire"]
+        direction LR
+        MEN["Menace M041<br/>STRIDE-E<br/>élévation de privilèges"] --> EVA["Évaluation<br/>probabilité × impact<br/>niveau calculé"] --> TRA["Traitement<br/>réduire +<br/>contre-mesures"]
+    end
+    DEC["Décision de l'analyste<br/>valide_par · date · motif"]
+    L1 --> L2 --> DEC
+    VER["Le code vérifie que l'extrait [E12]<br/>existe dans le document"]
+    L1 -.-> VER

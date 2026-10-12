@@ -1,0 +1,16 @@
+flowchart TB
+    subgraph L1["Préparation"]
+        direction LR
+        D["Documents<br/>déposés"] --> C["Connaissance<br/>faits + preuves [E…]"] --> E1["1 · Existant<br/>et actifs<br/>(par lots)"] --> E2["2 · Choix<br/>de la méthode"]
+    end
+    subgraph L2["Analyse"]
+        direction LR
+        E3["3 · Menaces<br/>(par lots)"] --> E4["4 · Évaluation<br/>modèle : jugement<br/>code : niveau"] --> E5["5 · Traitement<br/>modèle : mesures<br/>code : colonnes"]
+    end
+    subgraph L3["Restitution"]
+        direction LR
+        E6["6 · Registre<br/>par le code"] --> E7["7 · Synthèse<br/>chiffres par le code"] --> H["Validation humaine<br/>page ④"]
+    end
+    L1 --> L2 --> L3
+    K["Après chaque étape : contrôle par le code puis juge<br/>écart : une reprise · écart persistant : validation humaine"]
+    L2 -.-> K

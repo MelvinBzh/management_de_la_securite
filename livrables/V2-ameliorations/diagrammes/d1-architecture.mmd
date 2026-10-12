@@ -1,0 +1,26 @@
+flowchart TB
+    AN["Analyste (décideur)"]
+    P1["① Documents"]
+    P2["② Lancer l'analyse"]
+    P4["④ Validation"]
+    ING["Ingestion<br/>PDF, OCR, Office, ZIP<br/>tout intrant = donnée"]
+    KB[("Dossier de connaissance<br/>faits à extrait exact<br/>contradictions, couverture")]
+    PIL["Pilote déterministe<br/>7 étapes, reprises, contrôles"]
+    LLM["Ollama (poste GPU)<br/>qwen3.5:9b · gemma4:12b<br/>nomic-embed-text"]
+    CODE["Contrôles par le code<br/>sources, identifiants, niveau"]
+    REG["Registre, synthèse, mise à jour<br/>établis par le code"]
+    P3["③ Résultats"]
+    EXP["Exports HTML · PDF · ZIP<br/>dossier complet avec liens"]
+    AN --> P1
+    AN --> P2
+    AN --> P4
+    P1 --> ING
+    ING --> KB
+    P2 --> PIL
+    KB -- "preuves [E…]" --> PIL
+    PIL <--> LLM
+    PIL --> CODE
+    CODE --> REG
+    REG --> P3
+    P3 --> EXP
+    P4 <-- "décisions conservées" --> REG
