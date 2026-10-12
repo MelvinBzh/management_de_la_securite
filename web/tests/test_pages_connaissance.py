@@ -104,6 +104,15 @@ app = ouvrir(racine, "④ Validation")
 verifier("④ : aucune exception", not app.exception)
 vue = next(r for r in app.radio if str(r.key) == "valid_vue")
 options_vue = [str(o) for o in vue.options]
+ordre_types = [o.split(" — ")[0] for o in options_vue]
+verifier("④ : contradictions et questions viennent en premier, puis les risques",
+         ordre_types.index(next(o for o in ordre_types if o.startswith("Risques"))) >=
+         max(i for i, o in enumerate(ordre_types) if o.startswith(("Contradictions", "Questions"))) + 1
+         if any(o.startswith(("Contradictions", "Questions")) for o in ordre_types) else True)
+vue.set_value(next(o for o in options_vue if o.startswith("Risques")))
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app.run()
+vue = next(r for r in app.radio if str(r.key) == "valid_vue")  # les éléments sont recréés à chaque run
 verifier("④ : une vue par groupe (risques, étapes à valider…) avec le nombre restant à décider",
          any(o.startswith("Risques") and "à décider sur" in o for o in options_vue) and any("Étapes à valider" in o for o in options_vue))
 tout = textes(app) + " " + " ".join(str(e.value) for e in app.subheader)
@@ -148,6 +157,10 @@ app = ouvrir(racine, "④ Validation")
 verifier("④ registre de 25 risques : aucune exception", not app.exception)
 vue = next(r for r in app.radio if str(r.key) == "valid_vue")
 options_vue = [str(o) for o in vue.options]
+vue.set_value(next(o for o in options_vue if "Risques Critique" in o))
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app.run()
+vue = next(r for r in app.radio if str(r.key) == "valid_vue")
 verifier("④ une vue par niveau : Critique (12) et Moyen (13)",
          any("Risques Critique" in o and "12 à décider sur 12" in o for o in options_vue)
          and any("Risques Moyen" in o and "13 à décider sur 13" in o for o in options_vue))

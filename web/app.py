@@ -1246,25 +1246,28 @@ elif page == PAGE_CONNAISSANCES:
 elif page == PAGE_VALIDATION:
     st.title("④ Validation")
     st.markdown(
-        "**Étape 4 sur 4.** Tout ce qui demande votre avis est ici, au même endroit : les **risques** du registre, les "
-        "**étapes** que le contrôle n'a pas pu trancher, les **lignes** dont la preuve est en doute, les **contradictions** "
-        "entre documents et les **questions** sans réponse. Chaque point montre pourquoi il est là, quoi vérifier, le "
+        "**Étape 4 sur 4.** Tout ce qui demande votre avis est ici, au même endroit : les **contradictions** entre "
+        "documents et les **questions** sans réponse (à traiter en premier), puis les **risques** du registre, les "
+        "**étapes** que le contrôle n'a pas pu trancher et les **lignes** dont la preuve est en doute. Chaque point montre "
+        "pourquoi il est là, quoi vérifier, le "
         "contexte exact et la preuve citée. **Vous décidez** ; une correction est ensuite appliquée aux lignes concernées "
         "(et seulement à celles-là), et ce qui en dépend plus loin vous revient comme « impact à revoir »."
     )
     with st.expander("Comment décider ? (à lire une fois)"):
         st.markdown(
-            "1. **Commencez par les risques Critique et Élevé.** Chaque carte dit pourquoi le programme propose ce risque, "
-            "montre la preuve citée et la mesure prévue. *Accepté tel quel* : le risque est réaliste et la mesure applicable. "
-            "*Accepté avec modification* : un chiffre ou une mesure est à corriger (écrivez laquelle). *Refusé* : le risque "
-            "ne concerne pas cette entreprise.\n"
-            "2. **Les risques Moyen et Faible** peuvent être acceptés d'un coup, une fois le tableau relu "
-            "(« Tous les accepter tels quels »).\n"
-            "3. **Contradictions et questions** : dites quel document fait foi, ou ce qu'il faut demander à l'entreprise. "
-            "« Non documenté » ne veut pas dire « n'existe pas ».\n"
-            "4. **Lignes à relire** : la machine n'a pas pu confirmer la preuve citée ; comparez, puis dites si la ligne est correcte.\n"
-            "5. Pour finir : **Enregistrer mes décisions**, puis, en bas de page, **Appliquer mes décisions et mettre à jour la "
-            "synthèse**. Rien n'est modifié sans votre décision, et tout est tracé (qui, quand, pourquoi)."
+            "1. **Commencez par les contradictions et les questions** : elles fixent les faits sur lesquels reposent les "
+            "risques. Dites quel document fait foi, ou ce qu'il faut demander à l'entreprise. « Non documenté » ne veut pas "
+            "dire « n'existe pas ».\n"
+            "2. **Puis les risques Critique et Élevé.** Chaque carte dit pourquoi le programme propose ce risque, montre la "
+            "preuve citée et la mesure prévue. *Accepté tel quel* : le risque est réaliste et la mesure applicable. "
+            "*Accepté avec modification* : un chiffre ou une mesure est à corriger (écrivez le motif). *Refusé* : le risque "
+            "ne concerne pas cette entreprise (écrivez le motif).\n"
+            "3. **Les risques Moyen et Faible** peuvent être acceptés d'un coup, une fois le tableau relu "
+            "(« Accepter d'un coup »).\n"
+            "4. **Étapes et lignes à relire** : la machine n'a pas pu confirmer la preuve citée ; comparez, puis dites si la "
+            "ligne est correcte.\n"
+            "5. À chaque bloc, **Enregistrer** ; en bas de page, **Appliquer mes décisions et mettre à jour la synthèse**. "
+            "Rien n'est modifié sans votre décision, et tout est tracé (qui, quand, pourquoi)."
         )
     if not projet:
         st.info("Aucun projet sélectionné : créez-en un dans le menu de gauche (« Projet en cours » → « ＋ Créer un nouveau projet »).")
@@ -1366,7 +1369,9 @@ elif page == PAGE_VALIDATION:
         groupes_all.setdefault(cle_g, []).append(point)
     cles_r = [f"r:{n}" for n in NIVEAUX_ORDRE if f"r:{n}" in groupes_all]
     cles_r += sorted(k for k in groupes_all if k.startswith("r:") and k not in cles_r)
-    ordre_g = cles_r + [f"t:{t}" for t in validations.TYPES if t != "risque" and f"t:{t}" in groupes_all]
+    # contradictions et questions d'abord : elles fixent les faits sur lesquels reposent les risques, les étapes et les lignes
+    ordre_g = ([f"t:{t}" for t in ("contradiction", "question") if f"t:{t}" in groupes_all] + cles_r
+               + [f"t:{t}" for t in validations.TYPES if t not in ("risque", "contradiction", "question") and f"t:{t}" in groupes_all])
 
     def etiquette(cle_g: str) -> str:
         pts = groupes_all[cle_g]
