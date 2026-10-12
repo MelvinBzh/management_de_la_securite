@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS mentions (doc TEXT NOT NULL, nom TEXT NOT NULL, type 
 -- résultat « connu / partiel / inconnu » de chaque besoin d'information (JSON)
 CREATE TABLE IF NOT EXISTS couverture (besoin TEXT PRIMARY KEY, donnees TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS meta (cle TEXT PRIMARY KEY, valeur TEXT NOT NULL);
+-- éléments retirés (document retiré ou retraité) : un identifiant [E…] n'est JAMAIS réattribué à un autre fait, et le
+-- texte retiré reste disponible pour comparer « ce que disait l'ancien document » à « ce que dit le nouveau »
+CREATE TABLE IF NOT EXISTS elements_retires (
+    id INTEGER PRIMARY KEY, genre TEXT NOT NULL, doc TEXT NOT NULL, libelle TEXT NOT NULL, extrait TEXT NOT NULL,
+    vecteur TEXT, retire_le TEXT NOT NULL DEFAULT ''
+);
 """
 
 
@@ -81,15 +87,46 @@ class Index:
         self.base.commit()
         self.base.close()
 
+    def _identifiant_suivant(self) -> int:
+        """Identifiant d'un NOUVEL élément : supérieur à tout identifiant déjà attribué, même retiré.
+
+        Sans cela, SQLite réattribue les numéros libérés en fin de table : une ligne de livrable qui cite `[E1233]`
+        pourrait se retrouver adossée à un autre fait. Sur un index neuf, les numéros sont identiques à ceux d'avant."""
+        courant = self.base.execute("SELECT COALESCE(MAX(id), 0) FROM elements").fetchone()[0]
+        retire = self.base.execute("SELECT COALESCE(MAX(id), 0) FROM elements_retires").fetchone()[0]
+        memoire = int(self.lire_meta("element_id_max", "0") or 0)
+        return max(courant, retire, memoire) + 1
+
     def ajouter_element(self, genre: str, doc: str, libelle: str, extrait: str, verifie: bool,
-                        vecteur: list[float] | None = None, origine: str = "document", url: str | None = None) -> int:
-        curseur = self.base.execute(
-            "INSERT INTO elements (genre, doc, libelle, extrait, verifie, vecteur, origine, url) VALUES (?,?,?,?,?,?,?,?)",
-            (genre, doc, libelle, extrait, int(verifie), json.dumps(vecteur) if vecteur else None, origine, url))
+                        vecteur: list[float] | None = None, origine: str = "document", url: str | None = None,
+                        ident: int | None = None) -> int:
+        """Ajoute un élément. `ident` : reprend l'identifiant d'un élément identique d'une version précédente du document."""
+        nouvel = int(ident) if ident else self._identifiant_suivant()
+        self.base.execute(
+            "INSERT INTO elements (id, genre, doc, libelle, extrait, verifie, vecteur, origine, url) VALUES (?,?,?,?,?,?,?,?,?)",
+            (nouvel, genre, doc, libelle, extrait, int(verifie), json.dumps(vecteur) if vecteur else None, origine, url))
         if self.fts:
-            self.base.execute("INSERT INTO elements_fts (rowid, libelle, extrait) VALUES (?,?,?)",
-                              (curseur.lastrowid, libelle, extrait))
-        return int(curseur.lastrowid)
+            self.base.execute("INSERT INTO elements_fts (rowid, libelle, extrait) VALUES (?,?,?)", (nouvel, libelle, extrait))
+        if nouvel > int(self.lire_meta("element_id_max", "0") or 0):
+            self.definir("element_id_max", str(nouvel))
+        return nouvel
+
+    def elements_du_document(self, nom: str) -> list[tuple[int, str, str]]:
+        """`(id, genre, extrait)` des éléments d'un document (avant son retraitement)."""
+        return [tuple(l) for l in self.base.execute("SELECT id, genre, extrait FROM elements WHERE doc = ?", (nom,))]
+
+    def purger_retires_reutilises(self) -> None:
+        """Un identifiant repris par un élément identique d'une nouvelle version n'est plus « retiré »."""
+        self.base.execute("DELETE FROM elements_retires WHERE id IN (SELECT id FROM elements)")
+
+    def retires(self) -> dict[int, dict]:
+        """Éléments retirés, par identifiant : genre, doc, libelle, extrait, vecteur (liste ou None)."""
+        sortie = {}
+        for ident, genre, doc, libelle, extrait, vec in self.base.execute(
+                "SELECT id, genre, doc, libelle, extrait, vecteur FROM elements_retires"):
+            sortie[int(ident)] = {"id": int(ident), "genre": genre, "doc": doc, "libelle": libelle, "extrait": extrait,
+                                  "vecteur": json.loads(vec) if vec else None}
+        return sortie
 
     def ajouter_entite(self, nom: str, canonique: str, type_: str, docs: list[str]) -> None:
         self.base.execute("INSERT OR REPLACE INTO entites VALUES (?,?,?,?)", (nom, canonique, type_, json.dumps(sorted(set(docs)))))
@@ -119,7 +156,12 @@ class Index:
              v["relations_verifiees"], v["passages"], type_doc, date_doc, int(rang)))
 
     def supprimer_document(self, nom: str) -> None:
-        """Retire TOUT ce qui vient d'un document (preuves, mentions, contradictions qui le citent)."""
+        """Retire TOUT ce qui vient d'un document (preuves, mentions, contradictions qui le citent).
+
+        Les éléments retirés sont gardés à part (`elements_retires`) : leur identifiant ne sera pas réattribué."""
+        self.base.execute(
+            "INSERT OR REPLACE INTO elements_retires (id, genre, doc, libelle, extrait, vecteur, retire_le) "
+            "SELECT id, genre, doc, libelle, extrait, vecteur, datetime('now','localtime') FROM elements WHERE doc = ?", (nom,))
         if self.fts:
             for ident, libelle, extrait in self.base.execute(
                     "SELECT id, libelle, extrait FROM elements WHERE doc = ?", (nom,)).fetchall():

@@ -62,6 +62,10 @@ def _rien(*_args) -> None:
 def traiter_document(index: Index, nom: str, contenu: str, moteurs: Moteurs) -> dict:
     """Extrait et indexe UN document ; en cas d'échec le document est marqué `erreur` (réessayé au prochain passage)."""
     sceau = empreinte(contenu)
+    # un élément dont le texte exact est inchangé GARDE son identifiant [E…] : les livrables qui le citent restent valides
+    anciens: dict[tuple[str, str], list[int]] = {}
+    for ident, genre_ancien, extrait_ancien in index.elements_du_document(nom):
+        anciens.setdefault((genre_ancien, texte.normaliser(extrait_ancien)), []).append(ident)
     index.supprimer_document(nom)
     try:
         faits = moteurs.extraire_faits(nom, contenu)
@@ -102,7 +106,9 @@ def traiter_document(index: Index, nom: str, contenu: str, moteurs: Moteurs) -> 
         index.base.commit()
         return {"nom": nom, "statut": "erreur", "detail": str(erreur)[:160]}
     for (genre, doc, libelle, extrait), vec in zip(elements, vecs):
-        index.ajouter_element(genre, doc, libelle, extrait, True, vec)
+        repris = anciens.get((genre, texte.normaliser(extrait)))
+        index.ajouter_element(genre, doc, libelle, extrait, True, vec, ident=repris.pop(0) if repris else None)
+    index.purger_retires_reutilises()
     for e in entites:
         index.ajouter_mention(nom, e.nom, e.type)
     for r in rels_ok:
