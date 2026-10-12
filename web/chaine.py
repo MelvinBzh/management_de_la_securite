@@ -1119,6 +1119,11 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
             installes = {m for m in installes if m in declares} or installes
         _journal(f"[chaine] routage automatique — modèles installés : {', '.join(sorted(installes)) or 'inconnus'}")
     defaut = MODELE_DEFAUT if auto else modele
+    try:  # décisions enregistrées avant le suivi des modifications : on prend l'empreinte du registre D'AVANT cette analyse
+        from web import registre as registre_mod
+        registre_mod.adopter_decisions(dossier)
+    except Exception:  # noqa: BLE001
+        pass
     archive = None if reprendre else archiver_precedent(dossier)
     if archive:
         _journal(f"[chaine] livrables précédents archivés dans {archive.name}/ (rien n'est écrasé)")
@@ -1295,6 +1300,16 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
     _journal(f"[chaine] {reussies}/{len(ETAPES)} étapes abouties"
              + (f", validation humaine demandée : {reserves}" if reserves else "")
              + " — registre en attente de validation humaine.")
+    if index_pret:  # référence des futures mises à jour : ce que les livrables ont lu (fichier annexe, n'influe pas sur le résultat)
+        try:
+            from tools.connaissance import delta as delta_mod
+            idx_fin = Index(travail.chemins(dossier)[1])
+            try:
+                delta_mod.ecrire_baseline(dossier, idx_fin, travail.signature_documents(dossier))
+            finally:
+                idx_fin.fermer()
+        except Exception as exc:  # noqa: BLE001
+            _journal(f"[chaine] état de référence non enregistré ({type(exc).__name__}) : sans effet sur les livrables")
     return 2 if reserves else 0
 
 
@@ -1343,11 +1358,76 @@ def resynthese(dossier_nom: str, modele: str, cli: str) -> int:
     return 1
 
 
+def regenerer_description(cli: str, dossier: Path, dossier_nom: str, installes: set[str]) -> bool:
+    """Régénère `00-description.md` (description du système) d'après le dossier de preuves à jour : c'est un texte descriptif,
+    rapide à refaire, qu'aucun analyste ne corrige à la main. L'ancienne version est RESTAURÉE si la nouvelle est invalide."""
+    chemin = Path(dossier) / "00-description.md"
+    ancienne = chemin.read_text(encoding="utf-8") if chemin.is_file() else None
+    agent = "e21-analyse-existant"
+    try:
+        preuves_f = fichier_de_preuves(dossier, 1)
+    except Exception as exc:  # noqa: BLE001
+        _journal(f"[maj] description non régénérée : dossier de preuves indisponible ({type(exc).__name__})")
+        return False
+    m = choisir_modele(agent, 1, installes, MODELE_DEFAUT)
+    _journal(f"[maj] 00-description.md : régénération d'après les documents à jour · modèle {m}")
+    debut = time.time() - 1
+    texte = consigne(agent, dossier_nom, ["00-description.md"], None, "", avec_preuves=bool(preuves_f))
+    _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f), pret=lambda: pret_depuis(dossier, ["00-description.md"], debut))
+    if livrables_manquants(dossier, ["00-description.md"]) or (not chemin.is_file()) or chemin.stat().st_mtime < debut:
+        if ancienne is not None:
+            chemin.write_text(ancienne, encoding="utf-8")
+        _journal("[maj] la nouvelle description est invalide : l'ancienne est conservée.")
+        return False
+    return True
+
+
+def mise_a_jour(dossier_nom: str, modele: str, cli: str) -> int:
+    """Met les livrables à jour après l'ajout, la modification ou le retrait de documents (voir `web/miseajour.py`).
+
+    N'appelle ni l'agent d'une étape ni opencode : des appels structurés à Ollama, ligne par ligne, contrôlés par le code.
+    0 = terminé · 2 = terminé avec des lignes à revoir · 1 = impossible (profil sans Ollama, aucun état de référence)."""
+    from web import miseajour
+    dossier = lib.DOSSIER_ANALYSES / dossier_nom
+    if modele != "auto":
+        _journal("[maj] mise à jour impossible avec un profil sans Ollama : utilisez un profil Ollama (page Réglages).")
+        return 1
+    from web import reglages
+    regler_endpoint(reglages.charger().get("endpoint", ""))
+    installes = modeles_installes(reglages.charger().get("endpoint", ""))
+    modele_ollama = choisir_modele("e21-menaces", 1, installes, MODELE_DEFAUT).split("/", 1)[-1]
+    _journal(f"[maj] mise à jour des livrables du projet {dossier_nom} · modèle {modele_ollama}")
+    if not preparer_connaissance(dossier, True):
+        _journal("[maj] ÉCHEC : le dossier de connaissance n'a pas pu être mis à jour.")
+        return 1
+    compte = miseajour.executer(dossier, journal=_journal, verifier_citations=miseajour._citations_changees, modele=modele_ollama)
+    statut = compte.get("statut")
+    if statut == "ok":
+        try:
+            plan = miseajour.lire_plan(dossier) or {}
+            docs = plan.get("documents", {})
+            if docs.get("ajoutes") or docs.get("modifies") or docs.get("retires"):
+                regenerer_description(cli, dossier, dossier_nom, installes)
+        except Exception as exc:  # noqa: BLE001 — la description est un confort : jamais un motif d'échec de la mise à jour
+            _journal(f"[maj] description non régénérée ({type(exc).__name__}: {str(exc)[:100]})")
+    if statut == "format_ancien":
+        _journal("[maj] " + compte.get("message", ""))
+        return 1
+    if statut == "sans_reference":
+        _journal("[maj] " + compte.get("message", "") + " Utilisez « Tout refaire » pour établir un point de départ.")
+        return 1
+    if statut == "rien":
+        _journal("[maj] " + compte.get("message", ""))
+        return 0
+    return 2 if compte.get("a_revoir") else 0
+
+
 def main(argv: list[str]) -> int:
     synthese_seule = len(argv) == 5 and argv[4] == "--synthese"
     reprise = len(argv) == 5 and argv[4] == "--reprendre"
-    if len(argv) != 4 and not synthese_seule and not reprise:
-        print("usage : python -m web.chaine <cas> <dossier-analyse> <modele|auto> [--synthese|--reprendre]", file=sys.stderr)
+    maj = len(argv) == 5 and argv[4] == "--maj"
+    if len(argv) != 4 and not synthese_seule and not reprise and not maj:
+        print("usage : python -m web.chaine <cas> <dossier-analyse> <modele|auto> [--synthese|--reprendre|--maj]", file=sys.stderr)
         return 2
     signal.signal(signal.SIGTERM, _arret)
     cas, dossier_nom, modele = argv[1:4]   # les options (--synthese, --reprendre) viennent après
@@ -1361,6 +1441,8 @@ def main(argv: list[str]) -> int:
         print("opencode introuvable", file=sys.stderr)
         return 2
     try:
+        if maj:
+            return mise_a_jour(dossier_nom, modele if modele == "auto" else run_agent._modele_valide(modele), cli)
         if synthese_seule:
             return resynthese(dossier_nom, modele if modele == "auto" else run_agent._modele_valide(modele), cli)
         return derouler(cas, dossier_nom, modele if modele == "auto" else run_agent._modele_valide(modele), cli, reprendre=reprise)

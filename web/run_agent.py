@@ -167,6 +167,7 @@ def lancer(
     pilote: bool = False,
     synthese: bool = False,
     reprendre: bool = False,
+    maj: bool = False,
 ) -> dict:
     """Lance la chaîne d'agents sur un cas et renvoie les infos de pilotage.
 
@@ -216,6 +217,8 @@ def lancer(
             argv.append("--synthese")
         elif reprendre:  # garde les étapes déjà faites et contrôlées
             argv.append("--reprendre")
+        elif maj:  # mise à jour incrémentale après ajout / modification / retrait de documents
+            argv.append("--maj")
     else:
         prompt = lib.prompt_orchestrateur(nom, dossier_reel.name)
         argv = [cli, "run", "--agent", "orchestrator"]

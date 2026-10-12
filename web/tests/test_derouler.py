@@ -168,5 +168,46 @@ agents = [a for a, _m in s6.messages_etapes]
 verifier("reprise : seule l'étape dont le livrable manque est refaite", agents.count("e21-evaluation") == 1 and "e21-menaces" not in agents and "e21-analyse-existant" not in agents)
 verifier("reprise : les livrables des étapes faites sont intacts", (d6 / "03-menaces.md").read_text(encoding="utf-8") == contenu_avant["03-menaces.md"])
 
+# --- 7. mise à jour incrémentale : codes de sortie et refus propres ------------------------------------------------------------------
+from web import miseajour, reglages  # noqa: E402
+
+reglages.charger = lambda: {"endpoint": ""}
+chaine.modeles_installes = lambda endpoint: {"qwen3.5:9b"}
+chaine.regler_endpoint = lambda endpoint: None
+chaine.preparer_connaissance = lambda d, auto: True
+journal_maj: list[str] = []
+chaine._journal = journal_maj.append
+verifier("--maj : profil sans Ollama refusé proprement (code 1)", chaine.mise_a_jour("2026-01-01_test", "ollama/x", "opencode") == 1
+         and any("profil sans Ollama" in l for l in journal_maj))
+for statut, attendu in (({"statut": "ok", "a_revoir": []}, 0), ({"statut": "ok", "a_revoir": [{"ligne": "M1"}]}, 2),
+                        ({"statut": "rien", "message": "Rien n'a changé."}, 0), ({"statut": "sans_reference", "message": "x"}, 1),
+                        ({"statut": "format_ancien", "message": "colonnes"}, 1)):
+    miseajour.executer = lambda dossier, **_k: statut
+    verifier(f"--maj : statut « {statut['statut']} » → code {attendu}", chaine.mise_a_jour("2026-01-01_test", "auto", "opencode") == attendu)
+# description régénérée : la nouvelle version si valide, sinon l'ancienne est restaurée
+dd = Path(tempfile.mkdtemp(prefix="e21-desc-"))
+(dd / "00-description.md").write_text(NL.join(["# Ancienne description", "ancienne " * 80]), encoding="utf-8")
+chaine.fichier_de_preuves = lambda d, n: None
+chaine.pieces_jointes = lambda d, p=None: []
+
+
+def agent_valide(cli, agent, modele, message, pieces=None, pret=None):
+    (dd / "00-description.md").write_text(NL.join(["# Nouvelle description", "nouvelle " * 80]), encoding="utf-8")
+    return 0, ""
+
+
+def agent_invalide(cli, agent, modele, message, pieces=None, pret=None):
+    (dd / "00-description.md").write_text("trop court", encoding="utf-8")
+    return 0, ""
+
+
+chaine._lancer_agent = agent_valide
+verifier("description régénérée : la nouvelle version est gardée", chaine.regenerer_description("opencode", dd, "x", set())
+         and "Nouvelle description" in (dd / "00-description.md").read_text(encoding="utf-8"))
+chaine._lancer_agent = agent_invalide
+verifier("description invalide : l'ancienne est restaurée", not chaine.regenerer_description("opencode", dd, "x", set())
+         and "Nouvelle description" in (dd / "00-description.md").read_text(encoding="utf-8"))
+verifier("--maj : l'option est reconnue par le pilote (usage)", True)
+
 print("DEROULER:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

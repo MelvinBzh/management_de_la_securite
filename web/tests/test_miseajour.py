@@ -232,5 +232,13 @@ verifier("retrait confirmé : l'actif et ses 2 menaces disparaissent des 4 livra
 verifier("un identifiant retiré n'est jamais réattribué", miseajour.reserver_ids(D, "A", ["A01", "A02"], 1) == ["A04"]
          and miseajour.reserver_ids(D, "M", ["M001", "M002"], 1) == ["M005"])
 
+# --- livrables d'une ancienne version (autres colonnes) : mise à jour refusée avec un message clair ------------------------------------
+ancien = Path(tempfile.mkdtemp(prefix="e21-maj-ancien-"))
+for f in ("01-actifs.md", "03-menaces.md", "04-evaluation.md", "05-traitement.md"):
+    (ancien / f).write_text("# x\n\n| ID | Nom | Type | Description | Valeur | Sensibilité | Preuve |\n|---|---|---|---|---|---|---|\n| A1 | a | b | c | d | e | f |\n",
+                            encoding="utf-8")
+verifier("format ancien reconnu", "colonnes" in miseajour.format_ancien(ancien))
+verifier("format actuel : rien à signaler", miseajour.format_ancien(D) == "")
+
 print("MISEAJOUR:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

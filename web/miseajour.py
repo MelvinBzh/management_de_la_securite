@@ -160,6 +160,23 @@ def candidats_nouveaux(dossier: Path, index, docs_changes: set[str], actifs: lis
     return sorted(sortie, key=lambda c: (-len(c["docs"]), c["nom"]))
 
 
+def format_ancien(dossier: Path) -> str:
+    """Motif si les livrables n'ont pas le format de colonnes d'aujourd'hui (analyse faite par une version antérieure) ; sinon « »."""
+    for fichier in ("01-actifs.md", "03-menaces.md", "04-evaluation.md", "05-traitement.md"):
+        chemin = Path(dossier) / fichier
+        try:
+            tableaux = coherence.tableaux(chemin.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            return f"{fichier} est absent."
+        attendu = len(lots.ENTETES[fichier][1])
+        if not tableaux:
+            return f"{fichier} ne contient aucun tableau."
+        if len(tableaux[0]["entete"]) != attendu:
+            return (f"{fichier} a {len(tableaux[0]['entete'])} colonnes au lieu de {attendu} : il a été produit par une version "
+                    "antérieure de l'analyse.")
+    return ""
+
+
 def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool] | None = None) -> dict:
     """Plan de mise à jour (sans modèle) : ce qui serait créé, révisé, revu ou retiré, et pourquoi."""
     dossier = Path(dossier)
@@ -193,15 +210,15 @@ def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool]
         faits = [f for f in pertinents if _mentionne(_texte_fait(f), v)]
         modifies = [m for m in delta.modifies if _mentionne(_texte_fait(m["apres"]), v)]
         perdus = [f for f in pertes if _mentionne(_texte_fait(f), v)]
-        if not faits and not perdus:
-            continue
+        if not faits:
+            continue  # des faits perdus seuls ne justifient pas de réécrire la ligne : si une preuve CITÉE a disparu, « revoir » s'en charge
         ident = "reviser:" + a["id"]
         raison = f"{len(faits)} fait(s) nouveau(x) ou modifié(s)"
         if modifies:
             m = modifies[0]
             raison += f" — par exemple « {m['avant']['extrait'][:90]} » devient « {m['apres']['extrait'][:90]} »"
-        if perdus and not faits:
-            raison = f"{len(perdus)} fait(s) qui le concernaient ne figurent plus dans les documents"
+        if perdus:
+            raison += f" ; {len(perdus)} fait(s) qui le concernaient ne figurent plus dans les documents"
         items.append({"id": ident, "type": "reviser_actif", "etape": 1, "cible": a["id"], "titre": f"Réviser l'actif {a['id']} — {a['nom']}",
                       "raison": raison, "coche": choix.get(ident, True),
                       "donnees": {"actif": a["id"], "nom": a["nom"], "faits": [f["id"] for f in faits],
@@ -256,6 +273,7 @@ def calculer_plan(dossier: Path, index, delta, choix_precedents: dict[str, bool]
                            for c in delta.contradictions[:20]],
         "items": items,
         "applique": False,
+        "format_ancien": format_ancien(dossier),
     }
 
 
@@ -318,6 +336,25 @@ def reserver_ids(dossier: Path, prefixe: str, existants: list[str], n: int) -> l
     return ids
 
 
+NOM_EN_COURS = "mise-a-jour-en-cours.json"    # dans connaissance/ : actifs créés dont les menaces n'ont pas encore été établies
+
+
+def _lire_en_cours(dossier: Path) -> list[str]:
+    try:
+        return list(json.loads((Path(dossier) / "connaissance" / NOM_EN_COURS).read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return []
+
+
+def _ecrire_en_cours(dossier: Path, ids: list[str]) -> None:
+    chemin = Path(dossier) / "connaissance" / NOM_EN_COURS
+    if ids:
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        chemin.write_text(json.dumps(sorted(set(ids))), encoding="utf-8")
+    elif chemin.is_file():
+        chemin.unlink()
+
+
 def _ligne(cellules: list[str]) -> str:
     return "| " + " | ".join(_cel(c) for c in cellules) + " |"
 
@@ -371,7 +408,9 @@ def ecrire_lignes(dossier: Path, fichier: str, lignes: list[list[str]], retirer:
         cellules = [c.strip() for c in l.strip().strip("|").split("|")]
         ordre[k] = _cle_id(_propre(cellules[0])) if cellules else ("", 0)
     corps = [corps[k] for k in sorted(range(len(corps)), key=lambda k: (ordre[k], k))]
-    chemin.write_text("\n".join(brut[:debut + 2] + corps + brut[fin:]), encoding="utf-8")
+    temporaire = chemin.with_suffix(".tmp")   # écriture atomique : une coupure ne laisse jamais un livrable à moitié écrit
+    temporaire.write_text("\n".join(brut[:debut + 2] + corps + brut[fin:]), encoding="utf-8")
+    temporaire.replace(chemin)
     return ajoutees, remplacees, retirees
 
 
@@ -406,8 +445,8 @@ class Contexte:
     """Ce dont l'application a besoin ; tout est injectable pour les tests (aucun modèle, aucun réseau)."""
 
     def __init__(self, dossier: Path, index, *, generer=None, preuves=None, termes=None, assainir=None, sources: str = "",
-                 base_texte: str = "", journal=print, methode: str = ""):
-        self.dossier, self.index, self.journal = Path(dossier), index, journal
+                 base_texte: str = "", journal=print, methode: str = "", modele: str = MODELE):
+        self.dossier, self.index, self.journal, self.modele = Path(dossier), index, journal, modele
         self.generer = generer or self._generer_ollama
         self.preuves = preuves or self._preuves_index
         self.sources, self.base_texte, self.methode = sources, base_texte, methode
@@ -430,7 +469,7 @@ class Contexte:
 
     def _generer_ollama(self, consigne: str, schema: dict) -> dict:
         from tools.connaissance import ollama
-        return ollama.discuter_json(MODELE, consigne, schema, contexte=16384, max_sortie=3000)
+        return ollama.discuter_json(self.modele, consigne, schema, contexte=16384, max_sortie=3000)
 
     def _preuves_index(self, requetes: list[str], budget: int = 9000) -> str:
         from tools.connaissance import preuves as preuves_mod
@@ -945,7 +984,8 @@ def ecrire_rapport(dossier: Path, plan: dict, ctx: Contexte) -> Path:
 
 # ------------------------------------------------------------------------------------------------------ orchestration
 def executer(dossier: Path, *, index=None, generer=None, preuves=None, termes=None, assainir=None, sources: str = "",
-             base_texte: str = "", journal=print, verifier_citations=None, avec_lecture: bool = True) -> dict:
+             base_texte: str = "", journal=print, verifier_citations=None, avec_lecture: bool = True,
+             modele: str = MODELE) -> dict:
     """Applique le plan (cases cochées) puis reconstruit registre, validation et synthèse. Renvoie un compte rendu.
 
     `statut` : « ok », « rien » (rien n'a changé) ou « sans_reference » (aucun état appliqué connu : « Tout refaire »)."""
@@ -960,6 +1000,9 @@ def executer(dossier: Path, *, index=None, generer=None, preuves=None, termes=No
         plan = preparer_plan(dossier, index)
         if plan is None:
             return {"statut": "sans_reference", "message": "Aucun état de référence : impossible de dire ce qui a changé."}
+        if plan.get("format_ancien"):
+            return {"statut": "format_ancien", "message": plan["format_ancien"] + " Faites « Tout refaire » une fois : les mises "
+                    "à jour suivantes seront incrémentales."}
         retenus = [i for i in plan["items"] if i.get("coche")]
         if plan_vide(plan) and not retenus:
             return {"statut": "rien", "message": "Rien n'a changé depuis la dernière mise à jour."}
@@ -969,27 +1012,39 @@ def executer(dossier: Path, *, index=None, generer=None, preuves=None, termes=No
         except OSError:
             pass
         ctx = Contexte(dossier, index, generer=generer, preuves=preuves, termes=termes, assainir=assainir, sources=sources,
-                       base_texte=base_texte, journal=journal, methode=methode)
+                       base_texte=base_texte, journal=journal, methode=methode, modele=modele)
         ctx.index_chemin = chemin_index
         par_type: dict[str, list[dict]] = {}
         for i in retenus:
             par_type.setdefault(i["type"], []).append(i)
         journal(f"[maj] plan : {len(retenus)} élément(s) retenu(s) sur {len(plan['items'])}")
         a_evaluer: set[str] = set()
+        # les décisions enregistrées avant ce suivi prennent l'empreinte du registre d'AVANT la mise à jour
+        registre.adopter_decisions(dossier)
         # 1. actifs : créations puis révisions
         crees = creer_actifs(ctx, par_type.get("creer_actif", []))
+        if crees:  # reprise après coupure : un actif créé dont les menaces n'ont pas été établies sera complété au passage suivant
+            _ecrire_en_cours(dossier, _lire_en_cours(dossier) + [c["id"] for c in crees])
         revises = reviser_actifs(ctx, par_type.get("reviser_actif", []))
         # 2. retraits confirmés (d'abord : les lignes retirées n'ont plus à être revues)
         retirer_actifs(ctx, par_type.get("retirer_actif", []))
         # 3. lignes dont une preuve a changé
         reviser_lignes(ctx, par_type.get("revoir_ligne", []), a_evaluer)
         # 4. menaces : celles des actifs créés, et les nouvelles menaces permises par les faits nouveaux d'un actif révisé
-        ids_menaces = generer_menaces(ctx, [{"id": c["id"], "nom": c["nom"]} for c in crees], nouveaux=True)
+        a_completer = [a for a in actifs_du_livrable(dossier) if a["id"] in _lire_en_cours(dossier)
+                       and not any(_propre(m["actif"]).split(" ")[0] == a["id"] for m in menaces_du_livrable(dossier))]
+        ids_menaces = generer_menaces(ctx, [{"id": a["id"], "nom": a["nom"]} for a in a_completer], nouveaux=True)
+        _ecrire_en_cours(dossier, [])
         ids_menaces += generer_menaces(ctx, [{"id": r["id"], "nom": r["nom"], "faits": r.get("faits", [])} for r in revises], nouveaux=False)
         a_evaluer |= set(ids_menaces)
+        # état : une menace sans évaluation, ou une évaluation sans traitement, est complétée (jamais d'analyse à moitié faite)
+        ids03 = {m["id"] for m in menaces_du_livrable(dossier)}
+        ids04 = {_propre(c[0]) for c in lots.lire_lignes(dossier, "04-evaluation.md")}
+        ids05 = {_propre(c[0]) for c in lots.lire_lignes(dossier, "05-traitement.md")}
+        a_evaluer |= ids03 - ids04
         # 5. évaluation puis traitement des menaces nouvelles ou modifiées
         evalues = evaluer(ctx, sorted(a_evaluer))
-        traiter(ctx, sorted(set(evalues)))
+        traiter(ctx, sorted(set(evalues) | ((ids03 | set(evalues)) & ids04 - ids05)))
         # 6. registre, validation et synthèse : établis par le code (décisions conservées ; ligne modifiée → « à confirmer »)
         n_risques, _problemes = registre.ecrire_registre_et_validation(dossier)
         lecture = lecture_directe(ctx, dossier) if (avec_lecture and ctx.changements) else ""

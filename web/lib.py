@@ -569,6 +569,7 @@ LIVRABLES_LISIBLES = [
     ("Synthèse", "SYNTHESE.md"),
     ("Recherches, contradictions et questions ouvertes", "recherches-contradictions-questions.md"),
     ("Propagation des décisions de l'analyste", "PROPAGATION.md"),
+    ("Mises à jour après ajout de documents", "MISE-A-JOUR.md"),
     ("Rapport de contrôle", "RAPPORT-CONTROLE.md"),
 ]
 

@@ -159,11 +159,7 @@ def _items_risques(dossier: Path) -> list[dict]:
                             "niveau": str(r.get("Niveau", "")).strip(), "id_risque": rid, "actif": str(r.get("Actif", "")),
                             "menace": str(r.get("Menace", "")), "traitement": str(r.get("Traitement", "")),
                             "residuel": str(r.get("Risque résiduel", "")),
-                            "contenu": registre.empreinte_contenu({
-                                "actif": r.get("Actif", ""), "menace": r.get("Menace", ""), "niveau": r.get("Niveau", ""),
-                                "probabilite": r.get("Probabilité", ""), "impact": r.get("Impact", ""),
-                                "traitement": r.get("Traitement", ""), "mesures": r.get("Contre-mesures", ""),
-                                "residuel": r.get("Risque résiduel", "")})}))
+                            "contenu": registre.empreinte_ligne_registre(r)}))
     return items
 
 

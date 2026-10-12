@@ -157,6 +157,11 @@ def executer(dossier_projet: str | Path, *, complet: bool = False, moteurs=None,
 
     index = Index(base)
     try:
+        try:  # état « appliqué aux livrables » : repère pour calculer ce que les nouveaux documents changent
+            from . import delta
+            delta.amorcer(dossier_projet, index)
+        except Exception:  # noqa: BLE001 — un suivi manquant ne doit jamais empêcher la lecture des documents
+            pass
         bilan = ingestion.mettre_a_jour(str(Path(dossier_projet) / DOSSIER_INTRANTS), index, moteurs=moteurs,
                                         progression=progression, complet=complet, options_couverture=options_couverture)
         if externe:  # recherche hors documents pour les besoins restés sans réponse ; jamais mêlée aux documents

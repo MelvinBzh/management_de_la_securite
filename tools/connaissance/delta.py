@@ -87,6 +87,17 @@ def ecrire_baseline(dossier: str | Path, index, signature: str = "") -> Path:
     return chemin
 
 
+def amorcer(dossier: str | Path, index, signature: str = "") -> bool:
+    """Écrit l'état appliqué s'il n'existe pas ET que des livrables existent : à appeler AVANT de lire de nouveaux documents.
+
+    Un projet analysé avant ce suivi (ou dont l'état a été perdu) repart ainsi de l'index tel qu'il est, qui correspond
+    aux livrables existants tant que rien n'a encore été lu depuis."""
+    if lire_baseline(dossier) is not None or not (Path(dossier) / "01-actifs.md").is_file() or not index.documents():
+        return False
+    ecrire_baseline(dossier, index, signature)
+    return True
+
+
 def lire_baseline(dossier: str | Path) -> dict | None:
     try:
         donnees = json.loads(chemin_baseline(dossier).read_text(encoding="utf-8"))

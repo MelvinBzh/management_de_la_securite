@@ -927,10 +927,65 @@ elif page == PAGES[3]:
     if not run:
         _deja = any(e["terminee"] for e in lib.avancement_chaine(lib.DOSSIER_ANALYSES / cible))
         _perimees = connaissance.etapes_perimees(cible) if _deja else []
+        _plan_maj = connaissance.plan_mise_a_jour(cible) if _deja else None
+        if _plan_maj:
+            _docs = _plan_maj["documents"]
+            _f = _plan_maj["faits"]
+            st.subheader("Mise à jour proposée")
+            st.markdown(
+                "Des documents ont été ajoutés, modifiés ou retirés depuis la dernière analyse. **La mise à jour ne refait pas "
+                "l'analyse** : seules les lignes concernées sont créées ou révisées, tout le reste reste **identique**, et vos "
+                "décisions sont conservées (une décision sur une ligne modifiée vous revient « à confirmer »). Rien n'est "
+                "supprimé sans votre confirmation."
+            )
+            st.caption(
+                f"Documents : {len(_docs['ajoutes'])} ajouté(s), {len(_docs['modifies'])} modifié(s), {len(_docs['retires'])} retiré(s). "
+                f"Faits : {_f.get('faits_nouveaux', 0)} nouveau(x), {_f.get('faits_confirmes', 0)} confirmé(s) par d'autres "
+                f"documents (rien à changer), {_f.get('faits_modifies', 0)} modifié(s), {_f.get('faits_perdus', 0)} perdu(s)."
+            )
+            _TYPES_MAJ = {"creer_actif": "Actifs à créer", "reviser_actif": "Actifs à réviser", "retirer_actif": "Retraits proposés"}
+            _coches: dict[str, bool] = {}
+            for _type, _titre in _TYPES_MAJ.items():
+                _liste = [i for i in _plan_maj["items"] if i["type"] == _type]
+                if not _liste:
+                    continue
+                st.markdown(f"**{_titre} ({len(_liste)})**")
+                for _i in _liste:
+                    _coches[_i["id"]] = st.checkbox(_i["titre"], value=bool(_i["coche"]), key=f"maj_{_i['id']}", help=_i["raison"])
+                    st.caption(_i["raison"])
+            _revoir = [i for i in _plan_maj["items"] if i["type"] == "revoir_ligne"]
+            if _revoir:
+                _tous = st.checkbox(f"Revoir les {len(_revoir)} ligne(s) dont une preuve a changé ou disparu",
+                                    value=all(i["coche"] for i in _revoir), key="maj_revoir")
+                for _i in _revoir:
+                    _coches[_i["id"]] = _tous
+                with st.expander("Voir ces lignes"):
+                    for _i in _revoir[:60]:
+                        st.markdown(f"- `{_i['donnees']['fichier']}` {_i['cible']} — {_i['raison']}")
+            if _plan_maj.get("contradictions"):
+                st.caption(f"{len(_plan_maj['contradictions'])} contradiction(s) nouvelle(s) à décider en ④ (aucune ligne n'est "
+                           "modifiée avant votre décision).")
+            if _plan_maj.get("format_ancien"):
+                st.warning(_plan_maj["format_ancien"] + " La mise à jour incrémentale n'est pas possible sur ce format : faites "
+                           "« Tout refaire » une fois, les mises à jour suivantes seront incrémentales.")
+            elif st.button("▶ Appliquer la mise à jour (garde tout le reste)", type="primary", key="appliquer_maj"):
+                connaissance.enregistrer_choix_mise_a_jour(cible, _coches)
+                try:
+                    _dec = reglages.decider_lancement(reglages.charger())
+                    _lancement = run_agent.lancer(cas, dossier=lib.DOSSIER_ANALYSES / cible, modele=_dec["modele"] or None,
+                                                  pilote=True, maj=True)
+                    run_agent.enregistrer_etat(Path(_lancement["dossier"]), _lancement)
+                    st.session_state["run_chaine"] = _lancement
+                except (run_agent.ChaineError, ValueError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.rerun()
+            st.divider()
         if _perimees:
             st.warning(
                 f"Les documents ont changé depuis l'analyse : l'étape {_perimees[0]} et les suivantes ({', '.join(_perimees)}) "
-                "ont été produites sur d'autres documents. « Reprendre » les refait ; les étapes d'avant sont conservées."
+                "ont été produites sur d'autres documents. Pour ne mettre à jour que ce qui change, utilisez « Mise à jour "
+                "proposée » ci-dessus ; « Reprendre » refait ces étapes en entier (les étapes d'avant sont conservées)."
             )
         if _deja:
             st.info(
@@ -1323,6 +1378,11 @@ elif page == PAGE_VALIDATION:
                 libelle_d = dict(point["choix"]).get(point["decision"], point["decision"])
                 st.caption(f"Décision enregistrée : **{libelle_d}**" + (f" — {point['analyste']}" if point.get("analyste") else "")
                            + (f" · « {point['commentaire']} »" if point.get("commentaire") else ""))
+            if point.get("a_confirmer"):
+                _prec = point.get("decision_precedente", {})
+                st.warning(f"⚠️ À confirmer : la ligne a changé depuis votre décision (« {_prec.get('libelle', '')} », "
+                           f"{_prec.get('analyste', '') or 'analyste'}, {_prec.get('date', '')}). Relisez-la puis confirmez, "
+                           "modifiez ou refusez.")
             st.markdown(f"**Pourquoi** : {point['pourquoi']}")
             st.markdown(f"**Quoi vérifier** : {point['quoi']}")
             if point["contexte"]:

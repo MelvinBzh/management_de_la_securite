@@ -72,6 +72,8 @@ test-chaine:
 	$(PYTHON) web/tests/test_lots.py
 	$(PYTHON) web/tests/test_registre.py
 	$(PYTHON) web/tests/test_derouler_lots.py
+	$(PYTHON) web/tests/test_miseajour.py
+	$(PYTHON) web/tests/test_miseajour_reprise.py
 
 ## Tests hermétiques du dossier de connaissance (faits, relations, index, contradictions, couverture).
 test-connaissance:
@@ -81,11 +83,14 @@ test-connaissance:
 	$(PYTHON) tools/connaissance/tests/test_externe.py
 	$(PYTHON) tools/connaissance/tests/test_identite.py
 	$(PYTHON) tools/connaissance/tests/test_garde_fous.py
+	$(PYTHON) tools/connaissance/tests/test_stabilite.py
+	$(PYTHON) tools/connaissance/tests/test_delta.py
 
 ## Tests autonomes de l'interface web (chantier #26).
 test-web:
 	$(PYTHON) web/tests/test_web.py
 	$(PYTHON) web/tests/test_pages_connaissance.py
+	$(PYTHON) web/tests/test_page_miseajour.py
 
 ## Tests autonomes de la méthode EBIOS RM (ateliers générés).
 test-methodes-ebios:

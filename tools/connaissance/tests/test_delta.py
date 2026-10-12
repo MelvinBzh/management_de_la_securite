@@ -95,6 +95,26 @@ verifier("le fait retiré qui existe encore ailleurs (c.md) est aussi perdu pour
 delta.ecrire_baseline(D, idx, signature="s2")
 verifier("après application : delta vide", delta.calculer(idx, delta.lire_baseline(D)).vide())
 
+# --- l'état appliqué est amorcé AVANT de lire de nouveaux documents (projet analysé avant ce suivi) -----------------------------------
+from tools.connaissance import travail  # noqa: E402
+
+P = Path(tempfile.mkdtemp(prefix="e21-amorce-"))
+(P / "intrants").mkdir()
+(P / "intrants" / "a.md").write_text(document("A", "Fait : le serveur applicatif NordTMS est hébergé à Lesquin"), encoding="utf-8")
+travail.executer(P, moteurs=moteurs())
+verifier("première lecture, aucun livrable : pas d'état appliqué", delta.lire_baseline(P) is None)
+(P / "01-actifs.md").write_text(chr(10).join(["# Actifs", "", "| ID | Actif |", "|---|---|", "| A01 | NordTMS |"]) + chr(10),
+                                encoding="utf-8")   # l'analyse a eu lieu
+(P / "intrants" / "b.md").write_text(document("B", "Fait : le pare-feu de bordure est un FortiGate"), encoding="utf-8")
+travail.executer(P, moteurs=moteurs())
+base_p = delta.lire_baseline(P)
+verifier("document ajouté après l'analyse : l'état appliqué est celui d'AVANT (seul a.md)", base_p and set(base_p["documents"]) == {"a.md"})
+idx_p = Index(travail.chemins(P)[1])
+d_p = delta.calculer(idx_p, base_p)
+verifier("le nouveau document est bien vu comme ajouté, ses faits comme nouveaux", d_p.documents_ajoutes == ["b.md"]
+         and any("FortiGate" in n["extrait"] for n in d_p.nouveaux))
+idx_p.fermer()
+
 echecs = [n for n, ok in RESULTATS if not ok]
 for n, ok in RESULTATS:
     print(("PASS " if ok else "FAIL ") + n)

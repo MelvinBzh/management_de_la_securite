@@ -85,6 +85,37 @@ def etapes_perimees(projet: str) -> list[str]:
         return []
 
 
+def plan_mise_a_jour(projet: str) -> dict | None:
+    """Plan de mise à jour des livrables (sans modèle) ; `None` si rien à signaler ou si on ne peut pas le calculer."""
+    try:
+        from web import miseajour
+        dossier = dossier_du_projet(projet)
+        base = travail.chemins(dossier)[1]
+        if not base.is_file() or not (dossier / "01-actifs.md").is_file():
+            return None
+        index = Index(base)
+        try:
+            plan = miseajour.preparer_plan(dossier, index)
+        finally:
+            index.fermer()
+        return None if miseajour.plan_vide(plan) else plan
+    except Exception:  # noqa: BLE001 — un doute ne doit jamais casser la page
+        return None
+
+
+def enregistrer_choix_mise_a_jour(projet: str, coches: dict[str, bool]) -> None:
+    """Mémorise les cases cochées / décochées du plan (par identifiant d'élément)."""
+    from web import miseajour
+    dossier = dossier_du_projet(projet)
+    plan = miseajour.lire_plan(dossier)
+    if not plan:
+        return
+    for item in plan.get("items", []):
+        if item["id"] in coches:
+            item["coche"] = bool(coches[item["id"]])
+    miseajour.ecrire_plan(dossier, plan)
+
+
 def lire(projet: str) -> dict | None:
     """Contenu de l'index d'un projet pour affichage (lecture seule) ; None si rien n'est encore construit."""
     _, base, _ = travail.chemins(dossier_du_projet(projet))

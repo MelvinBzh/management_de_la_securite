@@ -188,6 +188,41 @@ def empreinte_contenu(r: dict) -> str:
     return hashlib.sha1(brut.encode("utf-8")).hexdigest()[:12]
 
 
+def empreinte_ligne_registre(ligne: dict) -> str:
+    """Empreinte d'une ligne LUE dans registre-risques.md (colonnes Actif, Menace, Niveau…) : même valeur que celle calculée
+    depuis les étapes 3 à 5 par `empreinte_contenu`."""
+    return empreinte_contenu({
+        "actif": ligne.get("Actif", ""), "menace": ligne.get("Menace", ""), "niveau": ligne.get("Niveau", ""),
+        "probabilite": ligne.get("Probabilité", ""), "impact": ligne.get("Impact", ""), "traitement": ligne.get("Traitement", ""),
+        "mesures": ligne.get("Contre-mesures", ""), "residuel": ligne.get("Risque résiduel", "")})
+
+
+def adopter_decisions(dossier: Path) -> int:
+    """Donne une empreinte aux décisions enregistrées avant ce suivi, d'après le registre ACTUEL (avant toute modification).
+
+    À appeler avant une mise à jour ou une nouvelle analyse : ensuite, toute ligne qui change est détectée. Renvoie le nombre
+    de décisions adoptées."""
+    donnees = _charger_validations(dossier)
+    decisions = donnees.get("decisions", {})
+    if not any(d.get("type") == "risque" and d.get("decision") and not d.get("contenu") for d in decisions.values()):
+        return 0
+    try:
+        _col, lignes = lib.lire_registre(dossier)
+    except Exception:  # noqa: BLE001
+        return 0
+    par_id = {r["ID"]: empreinte_ligne_registre(r) for r in lignes}
+    adoptees = 0
+    for d in decisions.values():
+        if d.get("type") == "risque" and d.get("decision") and not d.get("contenu"):
+            rid = str(d.get("titre", "")).split(" — ")[0].strip()
+            if rid in par_id:
+                d["contenu"] = par_id[rid]
+                adoptees += 1
+    if adoptees:
+        (Path(dossier) / "validations.json").write_text(json.dumps(donnees, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return adoptees
+
+
 def _charger_validations(dossier: Path) -> dict:
     try:
         return json.loads((Path(dossier) / "validations.json").read_text(encoding="utf-8"))
