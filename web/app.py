@@ -34,6 +34,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 RACINE = Path(__file__).resolve().parents[1]
 if str(RACINE) not in sys.path:
@@ -44,6 +45,7 @@ from web import modeles_ollama as conseils_ollama  # alias : app.py a déjà une
 from web import reglages  # noqa: E402  (réglages modèles, stockage local hors git)
 from web import run_agent  # noqa: E402  (lancement réel de la chaîne, hors UI)
 from tools.export import export as export_tool  # noqa: E402
+from tools.export import schemas as schemas_mermaid  # noqa: E402
 from tools.ingest import preparer  # noqa: E402
 from tools.ingest.ingest import nom_sur, parse_file  # noqa: E402
 from tools.ingest.parsers import commun  # noqa: E402
@@ -353,6 +355,38 @@ def supprimer_entite(type_: str, nom: str) -> None:
     st.rerun()
 
 
+MERMAID_HTML = """<div id="m" style="font-family:sans-serif">__CODE__</div>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({startOnLoad: false, securityLevel: 'strict', theme: 'neutral'});
+const el = document.getElementById('m');
+try {
+  const {svg} = await mermaid.render('schema', el.textContent);
+  el.innerHTML = svg;
+} catch (e) {
+  el.innerHTML = '<pre style="color:#b42318;white-space:pre-wrap">Schéma non affichable : ' + String(e.message || e).split('\\n')[0] + '</pre>';
+}
+</script>"""
+
+
+def afficher_markdown(dossier: Path, texte: str, cle: str = "md") -> None:
+    """Markdown d'un livrable : les schémas Mermaid sont RÉPARÉS puis dessinés (le code reste consultable), le reste en Markdown."""
+    import html as _html
+    import re as _re
+    morceaux = _re.split(r"(```[ \t]*mermaid[ \t]*\n.*?```)", texte, flags=_re.S | _re.I)
+    for k, morceau in enumerate(morceaux):
+        if _re.match(r"```[ \t]*mermaid", morceau, _re.I):
+            code = _re.sub(r"^```[ \t]*mermaid[ \t]*\n|```\s*$", "", morceau, flags=_re.I)
+            code, corrections = schemas_mermaid.reparer_mermaid(code)
+            hauteur = min(900, 160 + 24 * len(code.splitlines()))
+            components.html(MERMAID_HTML.replace("__CODE__", _html.escape(code)), height=hauteur, scrolling=True)
+            with st.expander("Code du schéma" + (f" ({len(corrections)} correction(s) automatique(s))" if corrections else "")):
+                st.code(code, language="text")
+        elif morceau.strip():
+            lisible, avec_html = connaissance.pour_lecture(dossier, morceau)
+            st.markdown(lisible, unsafe_allow_html=avec_html)  # notes de preuves : HTML produit par le code, texte échappé
+
+
 def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True, telecharger: bool = False) -> None:
     """Livrables déjà écrits, lisibles dans la page, avec téléchargement.
 
@@ -378,8 +412,7 @@ def afficher_livrables(dossier: Path, cle: str, ouvrir_dernier: bool = True, tel
                 st.caption("Les identifiants [E…] renvoient aux preuves citées dans les étapes 3, 4 et 5 ; le tableau se trie "
                            "en cliquant sur une colonne.")
             else:
-                lisible, avec_html = connaissance.pour_lecture(dossier, texte)
-                st.markdown(lisible, unsafe_allow_html=avec_html)  # notes de preuves : HTML produit par le code, texte échappé
+                afficher_markdown(dossier, texte, cle)
             if telecharger:  # le téléchargement est réservé à la page « Résultats » (fin de parcours)
                 st.download_button(
                     f"Télécharger {chemin.name}", texte.encode("utf-8"), file_name=chemin.name,
@@ -846,7 +879,7 @@ elif page == PAGES[2]:
                 st.info(f"`{nom_fichier}` absent de ce cas.")
                 continue
             with st.container(border=True):
-                st.markdown(chemin.read_text(encoding="utf-8"))
+                afficher_markdown(dossier, chemin.read_text(encoding="utf-8"), f"cas_{libelle}")
             st.download_button(
                 f"Télécharger {chemin.name}", chemin.read_bytes(),
                 file_name=chemin.name, mime="text/markdown",

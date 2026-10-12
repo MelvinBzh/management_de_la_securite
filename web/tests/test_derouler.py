@@ -168,6 +168,26 @@ agents = [a for a, _m in s6.messages_etapes]
 verifier("reprise : seule l'étape dont le livrable manque est refaite", agents.count("e21-evaluation") == 1 and "e21-menaces" not in agents and "e21-analyse-existant" not in agents)
 verifier("reprise : les livrables des étapes faites sont intacts", (d6 / "03-menaces.md").read_text(encoding="utf-8") == contenu_avant["03-menaces.md"])
 
+# --- 6 bis. un schéma Mermaid cassé écrit par le modèle est réparé par le programme dès l'écriture du livrable -----------------------------
+class ScenarioSchema(Scenario):
+    def lancer(self, cli, agent, modele, message, pieces=None, pret=None):
+        retour = super().lancer(cli, agent, modele, message, pieces, pret)
+        f = self.dossier / "00-description.md"
+        if agent != "e21-controle" and f.is_file() and "```mermaid" not in f.read_text(encoding="utf-8"):
+            f.write_text(f.read_text(encoding="utf-8") + NL + "```mermaid" + NL + "flowchart LR" + NL + "  Core_Net -.→ API_Gateway" + NL + "```" + NL,
+                         encoding="utf-8")
+        return retour
+
+
+s_schema = ScenarioSchema()
+code_s, d_schema = derouler(s_schema)
+desc = (d_schema / "00-description.md").read_text(encoding="utf-8")
+verifier("schéma Mermaid cassé : réparé au déroulé de la chaîne (flèche Unicode corrigée)", "Core_Net -.-> API_Gateway" in desc and "→" not in desc)
+verifier("schéma réparé : la version d'avant la correction est conservée à côté",
+         (d_schema / "00-description.avant-correction-schema.md").is_file()
+         and "-.→" in (d_schema / "00-description.avant-correction-schema.md").read_text(encoding="utf-8"))
+verifier("schéma réparé : la chaîne n'est pas perturbée (code 0)", code_s == 0)
+
 # --- 7. mise à jour incrémentale : codes de sortie et refus propres ------------------------------------------------------------------
 from web import miseajour, reglages  # noqa: E402
 
@@ -208,6 +228,17 @@ chaine._lancer_agent = agent_invalide
 verifier("description invalide : l'ancienne est restaurée", not chaine.regenerer_description("opencode", dd, "x", set())
          and "Nouvelle description" in (dd / "00-description.md").read_text(encoding="utf-8"))
 verifier("--maj : l'option est reconnue par le pilote (usage)", True)
+
+
+def agent_schema(cli, agent, modele, message, pieces=None, pret=None):
+    (dd / "00-description.md").write_text(NL.join(["# Description régénérée", "texte " * 80, "```mermaid", "flowchart LR", "  Utilisateur → Portail", "```"]),
+                                          encoding="utf-8")
+    return 0, ""
+
+
+chaine._lancer_agent = agent_schema
+verifier("description régénérée : son schéma Mermaid est réparé", chaine.regenerer_description("opencode", dd, "x", set())
+         and "Utilisateur --> Portail" in (dd / "00-description.md").read_text(encoding="utf-8"))
 
 print("DEROULER:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)

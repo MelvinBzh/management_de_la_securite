@@ -1198,6 +1198,14 @@ def derouler(cas: str, dossier_nom: str, modele: str, cli: str, reprendre: bool 
                     code, _ = _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f),
                                             pret=lambda: pret_depuis(dossier, simples, debut_appel))
                     rien_refait = False
+                    for f in simples:  # un schéma Mermaid écrit par un petit modèle est réparé par le code (flèches, libellés, zones)
+                        try:
+                            from tools.export import schemas as schemas_mermaid
+                            n_schemas = schemas_mermaid.reparer_fichier(Path(dossier) / f)
+                            if n_schemas:
+                                _journal(f"[chaine] {f} : {n_schemas} ligne(s) de schéma Mermaid réparée(s) par le programme")
+                        except Exception as exc:  # noqa: BLE001 — jamais un motif d'échec d'étape
+                            _journal(f"[chaine] réparation des schémas impossible ({type(exc).__name__})")
                     for f in simples:  # même règle que pour les lots : une source inexistante ou une CVE de remplissage se retire par le code
                         if f in FICHIERS_A_SOURCES:
                             n_retires = assainir_fichier(Path(dossier) / f)
@@ -1374,6 +1382,11 @@ def regenerer_description(cli: str, dossier: Path, dossier_nom: str, installes: 
     debut = time.time() - 1
     texte = consigne(agent, dossier_nom, ["00-description.md"], None, "", avec_preuves=bool(preuves_f))
     _lancer_agent(cli, agent, m, texte, pieces_jointes(dossier, preuves_f), pret=lambda: pret_depuis(dossier, ["00-description.md"], debut))
+    try:
+        from tools.export import schemas as schemas_mermaid
+        schemas_mermaid.reparer_fichier(chemin)
+    except Exception:  # noqa: BLE001
+        pass
     if livrables_manquants(dossier, ["00-description.md"]) or (not chemin.is_file()) or chemin.stat().st_mtime < debut:
         if ancienne is not None:
             chemin.write_text(ancienne, encoding="utf-8")

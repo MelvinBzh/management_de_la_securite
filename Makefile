@@ -61,6 +61,8 @@ test-preparation:
 ## Tests autonomes des exports de rapports (chantier #27).
 test-export:
 	$(PYTHON) tools/export/tests/test_export.py
+	$(PYTHON) tools/export/tests/test_dossier.py
+	$(PYTHON) tools/export/tests/test_schemas.py
 
 ## Tests hermétiques du pilote de chaîne (routage, contrôle, rapports numérotés) : aucun modèle contacté.
 test-chaine:
@@ -91,6 +93,7 @@ test-web:
 	$(PYTHON) web/tests/test_web.py
 	$(PYTHON) web/tests/test_pages_connaissance.py
 	$(PYTHON) web/tests/test_page_miseajour.py
+	$(PYTHON) web/tests/test_page_export.py
 
 ## Tests autonomes de la méthode EBIOS RM (ateliers générés).
 test-methodes-ebios:

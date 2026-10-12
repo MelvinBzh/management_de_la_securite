@@ -122,6 +122,18 @@ chemin = export_tool.exporter(str(D), "dossier-html", out=str(sortie2))
 verifier("export.exporter(« dossier-html ») fonctionne et écrit dans le dossier demandé", chemin.parent == sortie2.resolve() and chemin.is_file())
 verifier("l'export exécutif d'avant reste inchangé (md)", export_tool.exporter(str(D), "md", out=str(sortie2)).name.endswith(".md"))
 
+# --- schémas Mermaid : réparés puis dessinés par mermaid.js (code source conservé) ------------------------------------------------------------------
+M = Path(tempfile.mkdtemp(prefix="e21-dossier-mermaid-"))
+(M / "00-description.md").write_text(NL.join([
+    "# Description", "", "```mermaid", "flowchart LR", "  Core_Net -.→ API_Gateway", "  D --> E[Prioriser (DREAD/CVSS)]", "```", "",
+    "```bash", "echo <ok>", "```"]) + NL, encoding="utf-8")
+hm = dos.html_complet(M)
+verifier("Mermaid : le bloc devient un schéma, réparé (flèche Unicode corrigée, libellé guillemeté)",
+         '<pre class="mermaid">' in hm and "Core_Net -.-&gt; API_Gateway" in hm and "→" not in hm.split("<main>")[1]
+         and "E[&quot;Prioriser (DREAD/CVSS)&quot;]" in hm)
+verifier("Mermaid : mermaid.js n'est chargé que s'il y a un schéma", "mermaid.esm.min.mjs" in hm and "mermaid.esm.min.mjs" not in h)
+verifier("Mermaid : les autres blocs de code restent du code échappé", "<pre><code>echo &lt;ok&gt;</code></pre>" in hm)
+
 # --- dossier presque vide : jamais de plantage ----------------------------------------------------------------------------------------------------
 V = Path(tempfile.mkdtemp(prefix="e21-dossier-vide-"))
 (V / "SYNTHESE.md").write_text("# Synthèse\n\nRien d'autre.\n", encoding="utf-8")

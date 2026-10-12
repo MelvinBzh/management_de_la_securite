@@ -27,6 +27,17 @@ import unicodedata
 import zipfile
 from pathlib import Path
 
+try:
+    from tools.export import schemas as _schemas
+except ImportError:  # module chargé seul (script, essai) : le voisin, ou aucune réparation
+    try:
+        import importlib.util as _iu
+        _spec = _iu.spec_from_file_location("schemas_mermaid", Path(__file__).resolve().parent / "schemas.py")
+        _schemas = _iu.module_from_spec(_spec)
+        _spec.loader.exec_module(_schemas)
+    except Exception:  # noqa: BLE001
+        _schemas = None
+
 # (fichier, ancre, titre) : ordre de lecture du dossier
 LIVRABLES = [
     ("SYNTHESE.md", "synthese", "Synthèse"),
@@ -81,6 +92,7 @@ pre { background: var(--bandeau); padding: 10px; overflow-x: auto; }
 .preuve-bloc { border-left: 4px solid var(--accent); background: var(--bandeau); padding: 6px 12px; margin: 8px 0; break-inside: avoid; }
 .preuve-bloc .doc { color: var(--discret); font-size: 12px; }
 .retour { font-size: 12px; color: var(--discret); }
+.schema { margin: 12px 0; } .schema pre.mermaid { background: var(--bandeau); padding: 10px; white-space: pre; overflow-x: auto; text-align: center; }
 @media print {
   header.page { padding: 0 0 8px; } nav.sommaire { padding: 6px 0; } main { padding: 0; max-width: none; }
   a { color: inherit; text-decoration: none; }
@@ -237,6 +249,7 @@ class Rendu:
         self.risques = set(c["risques"])
         self.actifs = set(c["actifs"][1])
         self.cites_par: dict[int, set[str]] = {}
+        self.schemas = 0
 
     def cible(self, ident: str) -> str | None:
         if ident in self.risques:
@@ -275,13 +288,22 @@ class Rendu:
             ligne = lignes[i]
             brut = ligne.strip()
             if brut.startswith("```"):
+                langue = brut[3:].strip().lower()
                 bloc = []
                 i += 1
                 while i < len(lignes) and not lignes[i].strip().startswith("```"):
-                    bloc.append(html.escape(lignes[i]))
+                    bloc.append(lignes[i])
                     i += 1
                 i += 1
-                sortie.append("<pre><code>" + "\n".join(bloc) + "</code></pre>")
+                if langue == "mermaid":
+                    code = "\n".join(bloc)
+                    if _schemas is not None:
+                        code, _c = _schemas.reparer_mermaid(code)
+                    self.schemas += 1
+                    sortie.append('<div class="schema"><pre class="mermaid">' + html.escape(code) + "</pre>"
+                                  '<p class="source">Schéma (Mermaid) — hors ligne ou dans le PDF, le code source ci-dessus le décrit.</p></div>')
+                else:
+                    sortie.append("<pre><code>" + "\n".join(html.escape(x) for x in bloc) + "</code></pre>")
                 continue
             m = re.match(r"^(#{1,6})\s+(.*)$", brut)
             if m:
@@ -464,9 +486,13 @@ def html_complet(dossier: str | Path, titre: str | None = None) -> str:
               f"{len(c['preuves'])} preuve(s) citée(s)</p>"
               "<p>Les identifiants (A05, M012) et les preuves [E123] sont des liens : cliquez pour passer d'un livrable à l'autre. "
               "Les décisions de l'analyste sont indiquées telles qu'enregistrées ; rien n'est validé par le programme.</p></header>")
+    script = ""
+    if r.schemas:  # les schémas sont dessinés par mermaid.js dans le navigateur ; sans réseau, le code source reste lisible
+        script = ("<script type=\"module\">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';"
+                  "mermaid.initialize({startOnLoad:true,securityLevel:'strict',theme:'neutral'});</script>")
     return ("<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
             f"<title>Dossier d'analyse — {html.escape(nom)}</title><style>{CSS}</style></head><body>{entete}"
-            f"<nav class=\"sommaire\"><h2>Sommaire</h2><ol>{''.join(sommaire)}</ol></nav><main>{''.join(sections)}</main></body></html>")
+            f"<nav class=\"sommaire\"><h2>Sommaire</h2><ol>{''.join(sommaire)}</ol></nav><main>{''.join(sections)}</main>{script}</body></html>")
 
 
 def graphe(dossier: str | Path) -> dict:

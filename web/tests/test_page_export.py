@@ -69,5 +69,20 @@ noms = zipfile.ZipFile(io.BytesIO(contenu_zip)).namelist()
 verifier("export ZIP : archive complète sans les documents d'origine", nom_zip == "dossier-complet.zip"
          and "dossier-complet.html" in noms and "LISEZ-MOI.txt" in noms and not any("intrants" in n for n in noms))
 
+# --- page ③ : un schéma Mermaid cassé est réparé puis dessiné, jamais affiché en texte brut -------------------------------------------------
+(D / "00-description.md").write_text(NL.join(["# Description", "", "Texte avant.", "", "```mermaid", "flowchart LR", "  Core_Net -.→ API_Gateway",
+                                              "```", "", "Texte après."]) + NL, encoding="utf-8")
+with mock.patch.object(lib, "DOSSIER_ANALYSES", racine):
+    app2 = AppTest.from_file(str(APP), default_timeout=120)
+    app2.session_state["projet_courant"] = NOM
+    app2.session_state["nav"] = "③ Résultats"
+    app2.run()
+verifier("page ③ avec un schéma : aucune exception", not app2.exception)
+codes = [str(c.value) for c in app2.code]
+verifier("page ③ : le code du schéma proposé est la version réparée", any("Core_Net -.-> API_Gateway" in c for c in codes))
+textes = " ".join(str(m.value) for m in app2.markdown)
+verifier("page ③ : le texte autour du schéma est affiché, sans le bloc mermaid brut", "Texte avant." in textes and "Texte après." in textes
+         and "```mermaid" not in textes)
+
 print("PAGE-EXPORT:", "OK" if not ECHECS else f"{len(ECHECS)} ECHEC(S)")
 sys.exit(1 if ECHECS else 0)
