@@ -25,6 +25,8 @@ ETAPES_PAR_CODE = {6: ("registre-risques.md", "06-validation.md"), 7: ("SYNTHESE
 NIVEAUX = ("Critique", "Élevé", "Moyen", "Faible")
 STATUT_A_VALIDER = "À valider par l'analyste"
 STATUT_DECIDE = "Décidé par l'analyste"
+STATUT_A_CONFIRMER = "À confirmer — ligne modifiée depuis votre décision"
+CHAMPS_CONTENU = ("actif", "menace", "niveau", "probabilite", "impact", "traitement", "mesures", "residuel")
 COLONNES = ["ID", "Actif", "Menace", "Niveau", "Probabilité", "Impact", "Justification", "Traitement", "Contre-mesures",
             "Risque résiduel", "Sources", "valide_par", "Statut"]
 RE_ID = re.compile(r"[MR]-?\d{1,4}")
@@ -176,10 +178,57 @@ def _decisions_existantes(dossier: Path) -> tuple[dict[str, str], str]:
     return decisions, sections
 
 
-def _ligne_registre(r: dict, valide_par: str) -> str:
+def empreinte_contenu(r: dict) -> str:
+    """Empreinte de CE QUE DIT un risque (actif, menace, niveau, probabilité, impact, traitement, mesures, résiduel).
+
+    Enregistrée avec la décision de l'analyste : si elle change plus tard (mise à jour des documents), la décision n'est plus
+    valable telle quelle et revient « à confirmer »."""
+    import hashlib
+    brut = "¤".join(" ".join(_cel(r.get(c, "")).split()) for c in CHAMPS_CONTENU)
+    return hashlib.sha1(brut.encode("utf-8")).hexdigest()[:12]
+
+
+def _charger_validations(dossier: Path) -> dict:
+    try:
+        return json.loads((Path(dossier) / "validations.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def risques_a_confirmer(dossier: Path, risques: list[dict], adopter: bool = True) -> set[str]:
+    """Identifiants des risques DÉCIDÉS dont le contenu a changé depuis la décision.
+
+    Une décision enregistrée avant ce suivi n'a pas d'empreinte : on l'ADOPTE (empreinte du contenu actuel), à partir de là
+    toute modification est suivie."""
+    donnees = _charger_validations(dossier)
+    decisions = donnees.get("decisions", {})
+    par_id = {r["id"]: empreinte_contenu(r) for r in risques}
+    changes: set[str] = set()
+    modifie = False
+    for d in decisions.values():
+        if d.get("type") != "risque" or not d.get("decision"):
+            continue
+        rid = str(d.get("titre", "")).split(" — ")[0].strip()
+        if rid not in par_id:
+            continue
+        if not d.get("contenu"):
+            if adopter:
+                d["contenu"] = par_id[rid]
+                modifie = True
+        elif d["contenu"] != par_id[rid]:
+            changes.add(rid)
+    if modifie:
+        try:
+            (Path(dossier) / "validations.json").write_text(json.dumps(donnees, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+    return changes
+
+
+def _ligne_registre(r: dict, valide_par: str, a_confirmer: bool = False) -> str:
+    statut = STATUT_A_CONFIRMER if a_confirmer else (STATUT_DECIDE if valide_par else STATUT_A_VALIDER)
     cellules = [r["id"], r["actif"], r["menace"], r["niveau"], r["probabilite"], r["impact"], r["justification"], r["traitement"],
-                r["mesures"], r["residuel"], ", ".join(r["sources"]) or "—", valide_par,
-                STATUT_DECIDE if valide_par else STATUT_A_VALIDER]
+                r["mesures"], r["residuel"], ", ".join(r["sources"]) or "—", valide_par, statut]
     return "| " + " | ".join(_cel(c) for c in cellules) + " |"
 
 
@@ -187,7 +236,7 @@ def _repartition(risques: list[dict], cle: str = "niveau") -> Counter:
     return Counter(r.get(cle, "") for r in risques)
 
 
-def construire_registre(risques: list[dict], decisions: dict[str, str]) -> str:
+def construire_registre(risques: list[dict], decisions: dict[str, str], a_confirmer: frozenset | set = frozenset()) -> str:
     comptes = _repartition(risques)
     repart = " · ".join(f"{n} : {comptes.get(n, 0)}" for n in NIVEAUX)
     autres = sum(v for k, v in comptes.items() if k not in NIVEAUX)
@@ -205,11 +254,13 @@ def construire_registre(risques: list[dict], decisions: dict[str, str]) -> str:
         "| " + " | ".join(COLONNES) + " |",
         "|" + "|".join("---" for _ in COLONNES) + "|",
     ]
-    return "\n".join(haut + [_ligne_registre(r, decisions.get(r["id"], "")) for r in risques]) + "\n"
+    return "\n".join(haut + [_ligne_registre(r, decisions.get(r["id"], ""), r["id"] in a_confirmer) for r in risques]) + "\n"
 
 
-def construire_validation(risques: list[dict], decisions: dict[str, str], sections_humaines: str) -> str:
+def construire_validation(risques: list[dict], decisions: dict[str, str], sections_humaines: str,
+                          a_confirmer: frozenset | set = frozenset()) -> str:
     comptes = _repartition(risques)
+    decisions = {k: ("" if k in a_confirmer else v) for k, v in decisions.items()}   # « à confirmer » = pas encore décidé
     decides = Counter(decision_de(decisions.get(r["id"], "")) for r in risques)
     n_decides = sum(v for k, v in decides.items() if k)
     sortie = [
@@ -223,7 +274,8 @@ def construire_validation(risques: list[dict], decisions: dict[str, str], sectio
         f"- Risques au registre : **{len(risques)}**.",
         f"- Décidés par un analyste : **{n_decides}** ({decides.get('accepte', 0)} acceptés, {decides.get('modifie', 0)} acceptés "
         f"avec modification, {decides.get('refuse', 0)} refusés).",
-        f"- Restant à valider : **{len(risques) - n_decides}**.",
+        f"- Restant à valider : **{len(risques) - n_decides}**"
+        + (f", dont **{len(a_confirmer)}** à confirmer (la ligne a changé depuis votre décision)." if a_confirmer else "."),
         "",
         "| Niveau | Risques | Dont décidés |",
         "|---|---|---|",
@@ -260,12 +312,12 @@ def construire_validation(risques: list[dict], decisions: dict[str, str], sectio
     return texte + ("\n" + sections_humaines if sections_humaines else "\n")
 
 
-def registre_json(risques: list[dict], decisions: dict[str, str]) -> list[dict]:
+def registre_json(risques: list[dict], decisions: dict[str, str], a_confirmer: frozenset | set = frozenset()) -> list[dict]:
     return [{
         "id": r["id"], "actif": r["actif"], "menace": r["menace"], "categorie": r["categorie"],
         "probabilite": r["probabilite"], "impact": r["impact"], "niveau": r["niveau"], "traitement": r["traitement"],
         "mesures": [m.strip() for m in re.split(r"\s\+\s", r["mesures"]) if m.strip()], "sources": r["sources"],
-        "risque_residuel": r["residuel"], "valide_par": decisions.get(r["id"]) or None,
+        "risque_residuel": r["residuel"], "valide_par": (None if r["id"] in a_confirmer else decisions.get(r["id"])) or None,
     } for r in risques]
 
 
@@ -278,10 +330,11 @@ def ecrire_registre_et_validation(dossier: Path) -> tuple[int, list[str]]:
     if not risques:
         return 0, problemes
     decisions, sections = _decisions_existantes(dossier)
-    (dossier / "registre-risques.md").write_text(construire_registre(risques, decisions), encoding="utf-8")
-    (dossier / "06-validation.md").write_text(construire_validation(risques, decisions, sections), encoding="utf-8")
+    a_confirmer = risques_a_confirmer(dossier, risques)
+    (dossier / "registre-risques.md").write_text(construire_registre(risques, decisions, a_confirmer), encoding="utf-8")
+    (dossier / "06-validation.md").write_text(construire_validation(risques, decisions, sections, a_confirmer), encoding="utf-8")
     (dossier / lib.NOM_JSON_REGISTRE).write_text(
-        json.dumps({"risques": registre_json(risques, decisions)}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        json.dumps({"risques": registre_json(risques, decisions, a_confirmer)}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return len(risques), problemes
 
 
@@ -304,7 +357,9 @@ def risques_du_registre(dossier: Path) -> list[dict]:
             "probabilite": champ("probabilite") or "—", "impact": champ("impact") or "—",
             "justification": champ("justification") or _prend(evaluations.get(ident, {}), "justification") or "—",
             "traitement": champ("traitement") or "—", "mesures": champ("contre-mesure", "mesure") or "—",
-            "residuel": champ("residuel") or "—", "valide_par": champ("valide_par"),
+            "residuel": champ("residuel") or "—",
+            "valide_par": "" if "a confirmer" in _norm(champ("statut")) else champ("valide_par"),
+            "a_confirmer": "a confirmer" in _norm(champ("statut")),
         })
     return sortie
 

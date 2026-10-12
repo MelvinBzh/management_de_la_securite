@@ -517,6 +517,11 @@ def enregistrer_decisions(dossier: Path, analyste: str, decisions: dict) -> dict
                     indice = i
             if indice is not None:
                 break
+    indice_statut = None
+    for ligne in contenu:
+        if ligne.lstrip().startswith("|"):
+            indice_statut = next((i for i, c in enumerate(_cellules(ligne)) if c.strip("*` ").lower() == "statut"), None)
+            break
     if indice is not None:
         for position, ligne in enumerate(contenu):
             if not ligne.lstrip().startswith("|"):
@@ -527,6 +532,8 @@ def enregistrer_decisions(dossier: Path, analyste: str, decisions: dict) -> dict
                 etiquette = {"accepte": f"{nom} · accepté", "modifie": f"{nom} · accepté avec modification",
                              "refuse": f"{nom} · REFUSÉ"}[d["decision"]]
                 cellules[indice] = f"{etiquette} · {horodatage[:10]}" + (f" : {d['commentaire']}" if d["commentaire"] else "")
+                if indice_statut is not None and indice_statut < len(cellules):
+                    cellules[indice_statut] = "Décidé par l'analyste"
                 contenu[position] = "| " + " | ".join(cellules) + " |"
         registre.write_text("\n".join(contenu), encoding="utf-8")
 

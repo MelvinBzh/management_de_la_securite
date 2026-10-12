@@ -21,7 +21,7 @@ import re
 import time
 from pathlib import Path
 
-from web import controles, lib, propagation
+from web import controles, lib, propagation, registre
 
 NOM_JSON = "validations.json"
 FICHIERS_ORDRE = propagation.FICHIERS_ORDRE
@@ -158,7 +158,12 @@ def _items_risques(dossier: Path) -> list[dict]:
                            {"etat_actuel": etat if any(m in etat for m in ("accepté", "REFUSÉ")) else "",
                             "niveau": str(r.get("Niveau", "")).strip(), "id_risque": rid, "actif": str(r.get("Actif", "")),
                             "menace": str(r.get("Menace", "")), "traitement": str(r.get("Traitement", "")),
-                            "residuel": str(r.get("Risque résiduel", ""))}))
+                            "residuel": str(r.get("Risque résiduel", "")),
+                            "contenu": registre.empreinte_contenu({
+                                "actif": r.get("Actif", ""), "menace": r.get("Menace", ""), "niveau": r.get("Niveau", ""),
+                                "probabilite": r.get("Probabilité", ""), "impact": r.get("Impact", ""),
+                                "traitement": r.get("Traitement", ""), "mesures": r.get("Contre-mesures", ""),
+                                "residuel": r.get("Risque résiduel", "")})}))
     return items
 
 
@@ -276,7 +281,7 @@ def _items_aval(dossier: Path) -> list[dict]:
                     f"**Ligne concernée plus loin** (*{a['fichier']}*) :\n\n{a['ligne']}")
         items.append(_item("aval", a["fichier"] + "|" + a["ligne"], ETAPE_DE_FICHIER.get(a["fichier"], "-"),
                            f"{a['fichier']} — {' '.join(RE_CITATION.sub('', a['ligne']).split())[:100]}",
-                           "Cette ligne s'appuie sur la même preuve qu'une ligne que vous avez modifiée : elle peut devoir suivre.",
+                           a.get("motif") or "Cette ligne s'appuie sur la même preuve qu'une ligne que vous avez modifiée : elle peut devoir suivre.",
                            "Vérifier que cette ligne reste vraie après votre correction, sinon la corriger.", contexte,
                            preuves_de(dossier, a["ligne"]), a["fichier"], a["ligne"]))
     return items
@@ -293,6 +298,16 @@ def construire(dossier: Path) -> list[dict]:
         item["decision"] = d.get("decision", "")
         item["commentaire"] = d.get("commentaire", "")
         item["analyste"] = d.get("analyste", "")
+        if item["type"] == "risque" and d.get("decision") and d.get("contenu") and item.get("contenu") and d["contenu"] != item["contenu"]:
+            # la ligne a changé depuis la décision (mise à jour des documents) : à confirmer, la décision précédente reste visible
+            item["a_confirmer"] = True
+            item["decision_precedente"] = {"libelle": d.get("libelle_decision", d.get("decision", "")), "analyste": d.get("analyste", ""),
+                                           "date": d.get("date", ""), "commentaire": d.get("commentaire", "")}
+            item["decision"], item["commentaire"] = "", ""
+            item["pourquoi"] = ("La ligne a CHANGÉ depuis votre décision (« " + item["decision_precedente"]["libelle"] + " », "
+                                + (item["decision_precedente"]["analyste"] or "analyste") + ", " + item["decision_precedente"]["date"]
+                                + ") : relisez-la et confirmez, modifiez ou refusez. " + item["pourquoi"])
+            continue
         if item["type"] == "risque" and not item["decision"] and item.get("etat_actuel"):
             item["decision"] = "refuse" if "REFUSÉ" in item["etat_actuel"] else ("modifie" if "modification" in item["etat_actuel"] else "accepte")
     return items
@@ -339,6 +354,7 @@ def enregistrer(dossier: Path, analyste: str, saisies: dict[str, dict], items: l
     for ident, d in retenues.items():
         item = par_id[ident]
         donnees["decisions"][ident] = {**d, "analyste": nom, "date": date, "type": item["type"], "titre": item["titre"],
+                                       "contenu": item.get("contenu", ""),
                                        "libelle_decision": dict(item["choix"]).get(d["decision"], d["decision"]),
                                        "contexte": item["contexte"][:700]}
         if item["type"] == "risque":
