@@ -1,7 +1,10 @@
 # Livrables V1 — production école (figée au 24 septembre 2026)
 
+> **Travail de groupe** : Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro.
+>
 > Ces fichiers sont extraits **tels quels** du tag Git `ecole-2026-09-24` (commit `b7f3155`, le 24/09/2026 à 13h34,
-> juste après le dépôt du PPT de soutenance). Rien n'a été modifié. Pour la suite (améliorations hors cours), voir `../V2-ameliorations/`.
+> juste après le dépôt du PPT de soutenance), à une exception près : les noms du groupe ont été ajoutés sur la slide de titre du
+> PPT. Pour la suite (améliorations hors cours), voir `../V2-ameliorations/`.
 
 ## Ce que le sujet attendait, et où le trouver
 
@@ -32,5 +35,8 @@ Le dépôt complet au tag (sujet PDF compris) est dans `depot-complet-ecole-2026
    relèvent donc de la V2.
 3. **Le modèle utilisé en V1** est un service cloud gratuit (`opencode/big-pickle`) avec des données fictives ; le passage en
    local était une perspective. La V2 l'a réalisé.
-4. **Attribution.** Le dépôt ne montre que deux auteurs (Melvin Raimbault pour l'essentiel, un commit de `lucash` : référentiels
-   ANSSI rattachés aux agents). La répartition du travail entre les membres du groupe est à compléter par l'équipe.
+4. **Équipe.** Travail de groupe de 4 : Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro. Le dépôt ne montre que
+   deux identités (`MelvinBzh` pour l'essentiel, un commit de `lucash` : référentiels ANSSI rattachés aux agents) : la répartition
+   détaillée des tâches entre les membres est à donner par l'équipe.
+5. **Modification du PPT.** Dans `3-soutenance/Soutenance_E21_Agents_IA.pptx`, seule la slide de titre diffère du fichier du tag :
+   les noms des quatre membres y ont été ajoutés (13/10/2026).

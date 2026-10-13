@@ -1,8 +1,8 @@
 # V2 — Améliorations hors cours : ce qui a été ajouté après la soutenance
 
 > Projet E21 « Des agents IA pour analyser les risques » — M2 Cybersécurité, Sup de Vinci Rennes.
-> Ce document sépare **la production d'école** (groupe, jusqu'au 24 septembre 2026) des **améliorations personnelles** de
-> Melvin Raimbault faites ensuite, hors cours.
+> Ce document sépare **la production d'école** (travail de groupe de Melvin Raimbault, Lucas Huard, Jérémy Lessa et David Amaro
+> Monteiro, jusqu'au 24 septembre 2026) des **améliorations personnelles** de Melvin Raimbault faites ensuite, hors cours.
 
 ## 1. Où passe la frontière
 

@@ -69,8 +69,10 @@ piégé peut la détourner. Le défi n'est donc pas « faire écrire l'IA », c'
 | Quand | 23–24 septembre | 4–12 octobre |
 | Trace | Tag Git `ecole-2026-09-24` | 144 commits ensuite |
 
-À dire à l'oral : « La V1 est ce que nous avons rendu en cours. Sa feuille de route listait ce qui manquait ; la V2 est ce que
-j'ai fait ensuite pour y répondre, seul, hors cours. »
+Équipe de la V1 : Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro (groupe de 4).
+
+À dire à l'oral : « La V1 est ce que nous avons rendu en cours, en groupe. Sa feuille de route listait ce qui manquait ; la V2 est
+ce que j'ai fait ensuite pour y répondre, seul, hors cours. »
 
 ## 6. Ce qui marche et ce qui ne marche pas
 

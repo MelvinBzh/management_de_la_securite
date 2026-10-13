@@ -54,7 +54,7 @@
 | « Le test d'injection a été joué avec le modèle » | Faux. Exécuté sur l'ingestion et la commande (11 contrôles), pas avec le modèle en direct. |
 | « La mise à jour gère modification et retrait » | Testé avec de faux modèles ; non rejoué avec le modèle réel. |
 | « Le système est sécurisé » | Faux : pas d'authentification, SSH root par mot de passe, Ollama exposé, conteneur en root. |
-| « Le travail de groupe est détaillé » | Non : Git ne permet pas d'attribuer le travail des camarades. |
+| « La répartition des tâches du groupe est retraçable dans Git » | Non : le groupe (Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro) est identifié, mais Git ne montre que deux identités (`MelvinBzh`, `lucash`) ; le détail des tâches est à donner par l'équipe. |
 
 ## 5. Où regarder sur GitHub
 

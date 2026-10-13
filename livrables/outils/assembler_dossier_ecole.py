@@ -79,6 +79,7 @@ out.append("""# Dossier écrit — version école
 
 | | |
 |---|---|
+| Équipe | Melvin RAIMBAULT, Lucas HUARD, Jérémy LESSA, David AMARO MONTEIRO (groupe de 4) |
 | Production | Travail de cours, 23 et 24 septembre 2026 |
 | État du dépôt | Tag Git `ecole-2026-09-24` (commit `b7f3155`, 24/09/2026 à 13h34) |
 | Cas d'étude | Boutique en ligne ShoPix (données fictives) : 14 risques validés |

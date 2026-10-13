@@ -195,6 +195,11 @@ for sh in s.shapes:
             sh.text_frame.paragraphs[0].runs[0].text = "Soutenance V2 · améliorations hors cours · Octobre 2026"
             for r in sh.text_frame.paragraphs[0].runs[1:]:
                 r.text = ""
+# mention de l'équipe de la V1 : la V2 est le travail personnel de Melvin, faite à partir du projet de groupe
+for sh in s.shapes:
+    if sh.has_text_frame and sh.text_frame.text.startswith("Soutenance V2"):
+        sh.top = Inches(4.98)
+texte(s, 0.6, 4.64, 5.6, 0.3, "V1 réalisée en groupe avec Lucas HUARD, Jérémy LESSA et David AMARO MONTEIRO", 10, TEXTE_CLAIR)
 notes(s, "Ouverture. La V1 est ce que nous avons rendu en cours (23-24 septembre). La V2 est ce que j'ai ajouté ensuite, seul, hors cours : "
          "elle répond point par point à la liste de ce que la V1 reconnaissait ne pas faire. Idée centrale : le modèle propose, le code "
          "vérifie, l'humain décide.")

@@ -6,7 +6,8 @@
 
 | | |
 |---|---|
-| Auteur de la V2 | Melvin Raimbault |
+| Auteur de la V2 | Melvin Raimbault, seul, hors cours |
+| Équipe de la V1 (école) | Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro (groupe de 4) |
 | Version | V2, état au 12 octobre 2026 |
 | Base | V1 « école » figée au 24 septembre 2026 (tag Git `ecole-2026-09-24`) |
 | Données | **Entièrement fictives** (Nordval Logistique, SanteTech, ShoPix) |
@@ -79,9 +80,9 @@ Le sujet E21 demande de concevoir un système de plusieurs agents IA qui assiste
 système informatique, avec un registre des risques argumenté, validé par un humain, et une présentation de l'architecture.
 L'IA doit **assister**, pas remplacer l'analyste.
 
-### 2.2 Ce que la V1 a livré (24 septembre)
+### 2.2 Ce que la V1 a livré (24 septembre, travail de groupe)
 
-Une chaîne de sept agents opencode (existant et actifs, méthode, menaces, évaluation, traitement, validation, synthèse), un agent
+Le groupe (Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro) a livré une chaîne de sept agents opencode (existant et actifs, méthode, menaces, évaluation, traitement, validation, synthèse), un agent
 de contrôle, quinze skills de méthode (STRIDE, LINDDUN, EBIOS RM, PASTA, DREAD, CVSS, ATT&CK…), un cas pilote (boutique en ligne
 ShoPix, 14 risques validés), une suite de tests T-01 à T-11 et une soutenance de 45 minutes.
 
