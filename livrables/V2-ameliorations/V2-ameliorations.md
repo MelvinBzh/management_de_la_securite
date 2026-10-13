@@ -10,7 +10,7 @@
 |---|---|---|
 | **Période** | 23 → 24 septembre 2026 | 4 → 12 octobre 2026 (en cours) |
 | **Référence** | tag Git `ecole-2026-09-24` (commit `b7f3155`, 24/09 à 13h34, juste après le dépôt du PPT de soutenance) | branche `corrections/chaine-ollama-pilote` |
-| **Commits** | 40 | 144 (dont 118 hors fusions) |
+| **Commits** | 40 | 144 (dont 118 hors fusions), au commit `cc1b2c0` du 12/10 à 18h44 |
 | **Python (hors tests)** | 640 lignes (le script du PPT) : le système était un *POC piloté par consignes*, sans code applicatif | ≈ 22 500 lignes + ≈ 10 000 lignes de tests (35 fichiers) |
 | **Écart** | — | 184 fichiers modifiés, + 35 000 lignes |
 | **Nature** | système d'agents opencode, cas ShoPix, 14 risques validés, dossier, soutenance | application complète : ingestion, site web, pilote déterministe, dossier de connaissance, validation, exports, mise à jour |

@@ -1,0 +1,185 @@
+{
+  "decisions": {
+    "con-0e5bcdf160": {
+      "decision": "deux",
+      "commentaire": "le premier est une hypothèse du devenir le deuxième est l'existant donc c'est important d'avoir les demandes hypothétique des entreprise sur les amélioration, les 2 sont donc a garder met mettre le deuxième en tant que valeur d'origine",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 14:44",
+      "type": "contradiction",
+      "titre": "FAQ___Complément_de_Cadrage_-_Sant ≠ Fiche_d_Audit_Technique_-_État_des",
+      "libelle_decision": "Les deux conviennent (cas ou périmètres différents)",
+      "contexte": "**FAQ___Complément_de_Cadrage_-_SanteTech__Bloc_1_.pdf.md** (document, 2016) : « Hypothèse retenue : Isolation logique stricte via micro-segmentation VLAN/NAC et interdiction d'accès Internet direct. »\n\n**Fiche_d_Audit_Technique_-_État_des_Lieux_SanteTech__As-Is_.pdf.md** (audit, 2026-10) : « 10.1.30.0/24 : VLAN IoT / Biomédical (Non cloisonné, routage direct vers les automates) »"
+    },
+    "con-91de6770f1": {
+      "decision": "deux",
+      "commentaire": "parrille l'un est le cas aujourd'hui lièe a l'audit et l'autre une hypothèse sur le devenir. les 2 a garder mais a bien remplir l'existant par celui de l'audit",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 14:44",
+      "type": "contradiction",
+      "titre": "Fiche_d_Audit_Technique_-_État_des ≠ FAQ___Complément_de_Cadrage_-_Sant",
+      "libelle_decision": "Les deux conviennent (cas ou périmètres différents)",
+      "contexte": "**Fiche_d_Audit_Technique_-_État_des_Lieux_SanteTech__As-Is_.pdf.md** (audit, 2026-10) : « 10.1.40.0/24 : VLAN Wi-Fi Invités / Patients (Sortie Internet directe sans filtrage SSL) »\n\n**FAQ___Complément_de_Cadrage_-_SanteTech__Bloc_1_.pdf.md** (document, 2016) : « Hypothèse retenue : Isolation logique stricte via micro-segmentation VLAN/NAC et interdiction d'accès Internet direct. »"
+    },
+    "que-a98998f909": {
+      "decision": "repondu",
+      "commentaire": "je valide ta réponse",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 14:53",
+      "type": "question",
+      "titre": "Quelles sont les applications critiques et qui en est propriétaire ? — partiel",
+      "libelle_decision": "Je fournis la réponse (voir mon commentaire)",
+      "contexte": "**Réponse tirée des documents** : Les applications critiques sont le Progiciel Nexus (Dossier Patient Informatisé), PACS/RIS pour l'imagerie, la messagerie interne Exchange 2016 et une nouvelle brique de télémédecine.\n\n- (FAQ___Complément_de_Cadrage_-_Sant) « ● Applications Métier : Progiciel Nexus (Dossier Patient Informatisé), PACS/RIS pour l'imagerie, et messagerie interne Exchange 2016. »\n- (FAQ___Complément_de_Cadrage_-_Sant) «       micro-segmentation : un poste compromis dans une clinique peut communiquer en IP\n        directe avec tout le réseau.\n    ●​ Annuaire : Forêt Active Directory unique (corp.santetech.local) avec 16\n       contrôleur »\n- (FAQ___Complément_de_Cadrage_-_Sant) «"
+    },
+    "que-d1ad841b69": {
+      "decision": "repondu",
+      "commentaire": "oui je valide ta réponse",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 14:53",
+      "type": "question",
+      "titre": "Le réseau est-il segmenté et quels pare-feu protègent les sites ? — partiel",
+      "libelle_decision": "Je fournis la réponse (voir mon commentaire)",
+      "contexte": "**Réponse tirée des documents** : Le réseau n'est pas micro-segmenté : un poste compromis peut communiquer en IP directe avec tout le réseau. Les sites sont protégés par une passerelle FortiGate / FortiSSL.\n\n- (FAQ___Complément_de_Cadrage_-_Sant) « ● Réseau (Hub & Spoke) : Interconnexion MPLS centralisée par le siège. »\n- (FAQ___Complément_de_Cadrage_-_Sant) « Aucune micro-segmentation : un poste compromis dans une clinique peut communiquer en IP directe avec tout le réseau. »\n- (Fiche_d_Audit_Technique_-_État_des) « 5. Services Exposés sur Internet & Accès Distants\n\n    ●​  Portail VPN Télétravail & Praticiens Libéraux :\n           ○​ URL : vpn.santetech-sante.fr (Passerelle FortiGate / For"
+    },
+    "eta-e494658f2a": {
+      "decision": "corrige",
+      "commentaire": "retravaille cette et trouve les preuves et redis moi",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:03",
+      "type": "etape",
+      "titre": "Étape 1 · Existant et actifs",
+      "libelle_decision": "À corriger (voir mon commentaire)",
+      "contexte": "**Points relevés par le contrôle** : 00-description.md : identifiants de preuve INEXISTANTS à retirer ou remplacer : [E10], [E19], [E3], [E7], [E44], [E36], [E17], [E9], [E18], [E5], [E2], [E45], [E8], [E6], [E15], [E38], [E16], [E1], [E25]. 00-description.md : trop de lignes sans preuve citée (12 sur 39) : cite [E…] après chaque fait, ou retire la ligne si le dossier de preuves ne la soutient pas. 01-actifs.md : identifiants de preuve INEXISTANTS à retirer ou remplacer : [E5], [E7], [E9], [E11], [E13].\n\n*00-description.md* (début) :\n\n# Analyse E21 — Étape 1 : Description du cas & Cartographie du système (ANSSI-CARTO-SI)\n## 📄 1. Résumé de la fiche (cas étudié)\n**Cas SanteTech : Étude de Sécu"
+    },
+    "eta-be9d7053c4": {
+      "decision": "corrige",
+      "commentaire": "retravaille cette et trouve les preuves et redis moi",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:03",
+      "type": "etape",
+      "titre": "Étape 2 · Choix de la méthode",
+      "libelle_decision": "À corriger (voir mon commentaire)",
+      "contexte": "**Points relevés par le contrôle** : 02-methodes.md : identifiants de preuve INEXISTANTS à retirer ou remplacer : [E5], [E9], [E38], [E40], [E7].\n\n*02-methodes.md* (début) :\n\n# Choix de méthode — Analyse des risques SanteTech\nLe projet « SanteTech » vise la sécurisation d'un SI hospitalier hérité (legacy) migrant vers un cloud hybride, avec 150 000 dossierspatients actifs [E223], 4 500 collaborateurs et une flotte de ~3 200 postes informatiques [A16][A7]. Le budget cible est de 1,5 M€ (Build) / 300 k€/an (Run) [E149]. Ce document justifie les méthodes d'analyse des risques retenues.\n## Tableau comparatif\n| Méthode | Point de départ | Effort* | Idéal pour | Quand choisir |\n|---|---|---|---|--"
+    },
+    "eta-3737e80278": {
+      "decision": "corrige",
+      "commentaire": "retravaille cette et trouve les preuves et redis moi",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:03",
+      "type": "etape",
+      "titre": "Étape 3 · Menaces",
+      "libelle_decision": "À corriger (voir mon commentaire)",
+      "contexte": "**Points relevés par le contrôle** : 03-menaces.md : identifiants de preuve INEXISTANTS à retirer ou remplacer : [E7], [E5], [E38], [E9], [E2], [E40], [E32], [E3], [E57], [E36], [E271], [E274], [E277], [E25], [E18], [E16]. Identifiants utilisés mais jamais définis dans un tableau — définis-les ou utilise un identifiant existant : A3 (03-menaces.md); A5 (03-menaces.md); A7 (03-menaces.md). 03-menaces.md : texte d'attente à remplacer par l'information ou par « non documenté » : | M069 | A21 — Infrastructure Cloud — Hébergeur Cloud Hybride — HDS certifié, choix entre Scaleway/OVHcloud/Azure (pas d'imposition) [E142] \n\n*03-menaces.md* (début) :\n\n# Menaces (étape 3)\n| ID | Actif concerné | Catégo"
+    },
+    "eta-6d7c826b28": {
+      "decision": "corrige",
+      "commentaire": "retravaille cette et trouve les preuves et redis moi",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:03",
+      "type": "etape",
+      "titre": "Étape 4 · Évaluation",
+      "libelle_decision": "À corriger (voir mon commentaire)",
+      "contexte": "**Points relevés par le contrôle** : 04-evaluation.md : termes absents des intrants à retirer, ou à présenter explicitement comme une hypothèse à confirmer : jwt. Ne les mentionne pas du tout, pas même pour dire qu'ils sont absents. 04-evaluation.md : identifiants de preuve INEXISTANTS à retirer ou remplacer : [E7], [E5], [E38], [E24], [E240], [E2], [E9], [E40], [E30], [E4], [E32], [E3], [E57], [E36], [E271], [E274], [E277], [E25], [E18], [E16]. Identifiants utilisés mais jamais définis dans un tableau — définis-les ou utilise un identifiant existant : A3 (04-evaluation.md); A5 (04-evaluation.md); A7 (04-evaluation.md); R2 (04-evaluation.md). 04-evaluation.md : texte d'attente à remplacer pa"
+    },
+    "que-1e7493143b": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Qui est le RSSI et est-il indépendant du DSI ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-419d33e01f": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "À quelle fréquence se réunit le comité de sécurité ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-669049d144": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Comment sont réalisées les sauvegardes et où sont-elles stockées ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-e0b0f50528": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Quand a eu lieu la dernière restauration de sauvegarde réussie ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-292e3e800a": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Existe-t-il un plan de reprise d'activité, quand a-t-il été testé, quel est le site de repli ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-3123bfc1a9": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Les comptes d'administration sont-ils nominatifs ou partagés ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-5300e64ad8": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Comment et sous quel délai les comptes des personnes parties sont-ils désactivés ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-ae6eece08f": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Les journaux (logs) sont-ils centralisés et analysés, qui reçoit les alertes ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-563ff1228e": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Comment sont gérés les correctifs de sécurité et les vulnérabilités ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    },
+    "que-705a3602cd": {
+      "decision": "demander",
+      "commentaire": "",
+      "analyste": "Melvin RAIMBAULT",
+      "date": "2026-10-12 15:05",
+      "type": "question",
+      "titre": "Quels incidents de sécurité ont eu lieu récemment ? — non documenté",
+      "libelle_decision": "À demander à l'entreprise",
+      "contexte": ""
+    }
+  },
+  "aval": []
+}

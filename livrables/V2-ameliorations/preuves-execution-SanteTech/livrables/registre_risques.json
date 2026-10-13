@@ -1,0 +1,2753 @@
+{
+  "risques": [
+    {
+      "id": "M001",
+      "actif": "A01 — Dossier Patient Informatisé (DPI) Nexus — Logiciel / Service",
+      "menace": "STRIDE-T — Attentat cyber : accès aux dossiers patients via exploitation des vulnérabilités legacy sur Citrix/RDS avec RDP non filtré, permettant l'exfiltration de données médicales critiques [E203][A16][EBIOS-RM-A3]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 [E203], segmentation VLAN [E203]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M002",
+      "actif": "A01 — Dossier Patient Informatisé (DPI) Nexus — Logiciel / Service",
+      "menace": "LINDDUN-Disclosure — Fuite de données patients : progression horizontale (MOVElaterally) depuis les 185 serveurs legacy vers autres systèmes via absence de micro-segmentation sur le VLAN local [10.100.0.0/16] [E203][A17][LINDDUN-Disclosure]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Micro-segmentation [E203], cloisonnement VLAN [E203]"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-RECYF",
+        "ISO27002-8.11"
+      ],
+      "risque_residuel": "Medium",
+      "valide_par": null
+    },
+    {
+      "id": "M003",
+      "actif": "A01 — Dossier Patient Informatisé (DPI) Nexus — Logiciel / Service",
+      "menace": "STRIDE-I — Injection malveillante : modification des dossiers patients pendant la migration legacy-to-cloud via API Gateway non sécurisée ou failles RDS [E203][A16]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "API Gateway sécurisée [E203], patch RDS [E203]"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M004",
+      "actif": "A02 — PACS/RIS (Archivage & Imagerie) — Logiciel / Service",
+      "menace": "STRIDE-S — Substitution d'imagerie : injection de fichiers DICOM malformés ou corrompus via SMBv1 non patché dans les baies SAN locales vieillissantes [E203][PASTA-A5]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "SMBv1 désactivé [E203], patch CVE-2017-7482 [E203]"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Medium",
+      "valide_par": null
+    },
+    {
+      "id": "M005",
+      "actif": "A02 — PACS/RIS (Archivage & Imagerie) — Logiciel / Service",
+      "menace": "STRIDE-R — Ransomware : chiffrement des images DICOM stockées sur baies SAN sans EDR, exploitant les failles de partage SMB [E203][EBIOS-RM-A3]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "EDR [E203], chiffrement SMB [E203]"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "EBIOS-RM-A3",
+        "ISO27002-8.15"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M006",
+      "actif": "A02 — PACS/RIS (Archivage & Imagerie) — Logiciel / Service",
+      "menace": "LINDDUN-Disclosure — Accès non autorisé aux images médicales : compromission d'un cache local en clinique via VLAN IoT non cloisonné (10.1.30.0/24, routage direct vers automates) [E203][E7]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "VLAN IoT cloisonné [E203], routage filtré [E203]"
+      ],
+      "sources": [
+        "LINDDUN-I",
+        "ANSSI-RECYF",
+        "ISO27002-8.16"
+      ],
+      "risque_residuel": "Medium",
+      "valide_par": null
+    },
+    {
+      "id": "M007",
+      "actif": "A03 — Messagerie Sécurisée de Santé (Mél) — Logiciel / Service",
+      "menace": "STRIDE-S — ProxyShell exploitation : accès distant aux dossiers Exchange 2016 DMZ via vulnérabilité ProxyShell/Spraying sur webmail.santetech-sante.fr [E7][E5]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA sur Exchange [E203], patch ProxyShell [E203]"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M008",
+      "actif": "A03 — Messagerie Sécurisée de Santé (Mél) — Logiciel / Service",
+      "menace": "LINDDUN-Disclosure — Fuite d'emails sensibles : exfiltration via OWA vulnérable et absence de filtrage SSL sur webmail.santetech-sante.fr exposant données patients [E7][E5]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Filtrage SSL [E203], OWA sécurisé [E203]"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Medium",
+      "valide_par": null
+    },
+    {
+      "id": "M009",
+      "actif": "A03 — Messagerie Sécurisée de Santé (Mél) — Logiciel / Service",
+      "menace": "STRIDE-E — Modification d'identité : création de comptes malveillants ou usurpation d'identité via exploitation Exchange 2016 sans MFA [E7][A19]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA sur Exchange [E203], monitoring identités [E203]"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M010",
+      "actif": "A04 — Portail VPN Télétravail & Praticiens Libéraux — Service / Site Internet",
+      "menace": "STRIDE-I — Injection de session : authentification compromise par absence de MFA sur 60% des comptes AD, permettant prise de contrôle distante via vpn.santetech-sante.fr [E7][A19][EBIOS-RM-A3]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA sur AD [E203], audit comptes [E203]"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Medium",
+      "valide_par": null
+    },
+    {
+      "id": "M011",
+      "actif": "A04 — Portail VPN Télétravail & Praticiens Libéraux — Service / Site Internet",
+      "menace": "LINDDUN-L — Usurpation d'identité légitime : accès non filtré au portail VPN permet impersonner des praticiens libéraux ou soignants pour fraudes [E7][A5]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification multifacteur [E203], contrôle d'accès [E203]"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "ANSSI-RECYF"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M012",
+      "actif": "A04 — Portail VPN Télétravail & Praticiens Libéraux — Service / Site Internet",
+      "menace": "STRIDE-R — Ransomware sur accès distant : compromission du FortiGate via failles de certificats TLS non renouvelés, exposant le réseau interne [E203][A17]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Renouvellement TLS [E203], audit certificats [E203]"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE",
+        "ISO27002-8.22"
+      ],
+      "risque_residuel": "Medium",
+      "valide_par": null
+    },
+    {
+      "id": "M013",
+      "actif": "A05 — Webmail de Santé & Accès Externe (OWA) — Service / Site Internet",
+      "menace": "STRIDE-E — Escalade de privilèges : exfiltration et modification des données via OWA Exchange 2016 non patché sur DMZ, sans filtrage SSL [E7][E5]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Correctifs Exchange 2016 (CVE-2023-21768), WAF avec rate limiting, Segmentation réseau DMZ → ANSSI-HYGIENE-5, ISO27002-5.3"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "ANSSI-HYGIENE",
+        "ISO27002-5.3"
+      ],
+      "risque_residuel": "Élevé → Moyenne",
+      "valide_par": null
+    },
+    {
+      "id": "M014",
+      "actif": "A05 — Webmail de Santé & Accès Externe (OWA) — Service / Site Internet",
+      "menace": "LINDDUN-Disclosure — Fuite massive via campagnes Spraying : botnets exploitant Exchange 2016 DMZ pour exfiltrer données patients vers serveurs tiers [E7][E5][EBIOS-RM-A3]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Firewall SSL/TLS strict (HTTPS forcé), WAF anti-botnets, Isolation Exchange en VLAN dédié → EBIOS-RM-A3, ANSSI-HYGIENE-8"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Critique → Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M015",
+      "actif": "A05 — Webmail de Santé & Accès Externe (OWA) — Service / Site Internet",
+      "menace": "STRIDE-T — Attaque par le temps (DoS) : épuisement des ressources Exchange 2016 via requêtes malveillantes sur OWA sans rate limiting [E7][A11]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Rate limiting OWA (requêtes/seconde), WAF DoS protection, Circuit breaker Exchange 2016 → ISO27002-8.14, ANSSI-CARTO-SI"
+      ],
+      "sources": [
+        "ISO27002-8.14",
+        "ISO27002-8.29",
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé → Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M016",
+      "actif": "A02 — PACS/RIS (Archivage & Imagerie) — Logiciel / Service",
+      "menace": "STRIDE-D — Destruction d'images DICOM : corruption des baies SAN locales via malware SMB qui supprime les données critiques [E203][EBIOS-RM-A3]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Correctifs SMB (CVE-2019-10605), Désactivation SMBv1, Segmentation baies SAN via VLAN réseau → ANSSI-HYGIENE-3, ISO27002-5.3"
+      ],
+      "sources": [
+        "STRIDE-D",
+        "ANSSI-HYGIENE",
+        "ISO27002-5.4",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé → Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M017",
+      "actif": "A06 — Extranet Partenaires / Médecins Libéraux — Service / Site Internet — extranet.santetech-sante.fr (accès résultats médicaux), authentification par certificat faible, accès médecins traitants extérieurs E7E5",
+      "menace": "STRIDE-S — Authentification par certificat faible [E160] → attaquants externes (groupes ransomware ciblant hôpitaux) → compromis de certificat ou injection credentials dans extranet → accès non autorisé aux résultats médicaux des patients [A3][E203]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Certificats TLS 2048-bit (ECC preferred), MFA FIDO2 obligatoire sur accès externes, WAF intrusion prevention → ANSSI-CARTO-SI-3, ISO27002-8.22"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-CARTO-SI",
+        "ISO27002-8.13",
+        "ISO27002-8.22"
+      ],
+      "risque_residuel": "Élevé → Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M018",
+      "actif": "A06 — Extranet Partenaires / Médecins Libéraux — Service / Site Internet — extranet.santetech-sante.fr (accès résultats médicaux), authentification par certificat faible, accès médecins traitants extérieurs E7E5",
+      "menace": "LINDDUN-Disclosure — Fuite des résultats médicaux via portail non durci : attaquants exploitent vulnérabilité d'authentification → exfiltration de données sensibles externes → violation RGPD et confidentialité des dossiers patients externes [E203][A19]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement TLS 1.3 forcé, WAF XSS/SQL injection sur extranet, PAM (Privilege Access Management) médical → ANSSI-CARTO-SI-5"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "EBIOS-RM-A3",
+        "ANSSI-CARTO-SI",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Élevé → Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M019",
+      "actif": "A06 — Extranet Partenaires / Médecins Libéraux — Service / Site Internet — extranet.santetech-sante.fr (accès résultats médicaux), authentification par certificat faible, accès médecins traitants extérieurs E7E5",
+      "menace": "STRIDE-I — Modification des données médicales : attaquants interceptent flux authentifiés vers portail webmodifié → exfiltration ou altération des profils patients externes en transit via canal non chiffré [E38][A17]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "VPN site-to-site chiffré AES-256 pour flux authentifiés, Canal séparé sans partage firewall vers tiers → ANSSI-HYGIENE-7, ISO27002-8.16"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.13",
+        "LINDDUN-Disclosure"
+      ],
+      "risque_residuel": "Élevé → Faible-Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M020",
+      "actif": "A06 — Extranet Partenaires / Médecins Libéraux — Service / Site Internet — extranet.santetech-sante.fr (accès résultats médicaux), authentification par certificat faible, accès médecins traitants extérieurs E7E5",
+      "menace": "STRIDE-T — Attaques de type defacement/phishing : site compromis sert de plateforme d'hébergement pour malware redirigeant vers attaques contre SI interne [A3][E203]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "Surveillance WAF pour détection défacement, Notification incident <5 minures, Plan continuité activité → ANSSI-RECYF, ISO27002-8.25"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3",
+        "ANSSI-RECYF"
+      ],
+      "risque_residuel": "Faible-Moyen → Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M021",
+      "actif": "A07 — Sites Web Cliniques (12 sites) — Site Internet / Prestataire — Hébergés prestataire tiers WordPress non durci, sans liaison SI interne mais cibles défacement/phishing rebond E7E5",
+      "menace": "STRIDE-E — Accès aux données sensibles via exploitation vulnérabilités serveur web : attaquants accèdent au contenu médical stocké sur hébergement externe → exfiltration de flux web vers cloud malveillant [A17][E38]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Éviter",
+      "mesures": [
+        "Migration hébergement vers serveur HDS (hébergement de données santé certifié français), Audit vulnérabilités WordPress trimestriel → ANSSI-HOMOLOGATION, EBIOS-RM-A4"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBIOS-RM-A3",
+        "ANSSI-CARTO-SI",
+        "EBIOS-RM-A4",
+        "ISO27002-5.15"
+      ],
+      "risque_residuel": "Élevé → Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M022",
+      "actif": "A07 — Sites Web Cliniques (12 sites) — Site Internet / Prestataire — Hébergés prestataire tiers WordPress non durci, sans liaison SI interne mais cibles défacement/phishing rebond E7E5",
+      "menace": "STRIDE-D — Défacement de contenu médical et profils patients : attaquants modifient pages web hébergées → altération des informations cliniques visibles publiquement [A3][E203]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "CMS hardened WordPress (plugins sécurisés, headers HTTPS HSTS), ModSecurity WAF anti-modification → ANSSI-HYGIENE-6, ISO27002-8.11"
+      ],
+      "sources": [
+        "STRIDE-D",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.11",
+        "ISO27002-8.29"
+      ],
+      "risque_residuel": "Faible-Moyen → Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M023",
+      "actif": "A07 — Sites Web Cliniques (12 sites) — Site Internet / Prestataire — Hébergés prestataire tiers WordPress non durci, sans liaison SI interne mais cibles défacement/phishing rebond E7E5",
+      "menace": "STRIDE-T — Attaques de type defacement/phishing : site compromis sert de plateforme d'hébergement pour malware redirigeant vers attaques contre SI interne [A3][E203]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Blocage redirections phishing via WAF/IPS, Headers de contenu X-Frame-Options DENY, SPF/DKIM sur emails → ANSSI-HYGIENE-4, ISO27002-8.15"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.26",
+        "LINDDUN-Unawareness"
+      ],
+      "risque_residuel": "Moyen → Faible-Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M024",
+      "actif": "A07 — Sites Web Cliniques (12 sites) — Site Internet / Prestataire — Hébergés prestataire tiers WordPress non durci, sans liaison SI interne mais cibles défacement/phishing rebond E7E5",
+      "menace": "LINDDUN-Disclosure — Fuite des données sensibles via exploitation vulnérabilités CMS : attaquants accèdent aux contenus médicaux hébergés → exfiltration de flux web vers cloud malveillant [A19][E203]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "Monitoring contenu web pour détection fuite, WAF rate limiting sur CMS tiers, Sauvegarde hebdomadaire → ANSSI-HYGIENE-5, ISO27002-8.13"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.28"
+      ],
+      "risque_residuel": "Faible-Moyen → Très Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M025",
+      "actif": "A07 — Sites Web Cliniques (12 sites) — Site Internet / Prestataire — Hébergés prestataire tiers WordPress non durci, sans liaison SI interne mais cibles défacement/phishing rebond E7E5",
+      "menace": "LINDDUN-Unawareness — Non-documentation des vulnérabilités du CMS : attaquants exploitent failles non patchées de plugins WordPress → exfiltration de dossiers patients sans consentement [A19][E203]",
+      "categorie": "LINDDUN-Unawareness",
+      "probabilite": "Élevé",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 pour le VPN (ANSSI-RECYF), durcissement WordPress (ISO27002-8.8)"
+      ],
+      "sources": [
+        "LINDDUN-Unawareness",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M026",
+      "actif": "A08 — Domaine Active Directory (corp.santetech.local) — Logiciel / Infrastructure — Forêt AD unique, 16 contrôleurs de domaine (1 DC/RODC par clinique), pas de MFA systématique VPN As-Is E9E7E5",
+      "menace": "STRIDE-S — Compromission d'identité centralisée : attaquants injectent objets utilisateurs malveillants dans forêt racine → accès non autorisé aux dossiers patients via mouvement latéral [A17][E38]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA systématique AD (ANSSI-HYGIENE), segmentation forestière (ISO27002-8.11)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M027",
+      "actif": "A08 — Domaine Active Directory (corp.santetech.local) — Logiciel / Infrastructure — Forêt AD unique, 16 contrôleurs de domaine (1 DC/RODC par clinique), pas de MFA systématique VPN As-Is E9E7E5",
+      "menace": "STRIDE-T — Attaques via usurpation d'identité : attaquants bypassent authentification sans MFA sur 60% des comptes → compromission de compte administratif centralisé → accès transverse à toutes les cliniques [A16][E203]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA obligatoire sur 100% des comptes (ISO27002-8.2)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M028",
+      "actif": "A08 — Domaine Active Directory (corp.santetech.local) — Logiciel / Infrastructure — Forêt AD unique, 16 contrôleurs de domaine (1 DC/RODC par clinique), pas de MFA systématique VPN As-Is E9E7E5",
+      "menace": "STRIDE-E — Interception d'authentification : attaquants captent flux réseau sans chiffrage SSL renforcé → rejeu d'identifiants depuis session compromis → accès aux identités validées [E38][A17]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrage SSL/TLS (ANSSI-HYGIENE), audit cryptographique (ISO27002-8.14)"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M029",
+      "actif": "A08 — Domaine Active Directory (corp.santetech.local) — Logiciel / Infrastructure — Forêt AD unique, 16 contrôleurs de domaine (1 DC/RODC par clinique), pas de MFA systématique VPN As-Is E9E7E5",
+      "menace": "LINDDUN-Disclosure — Fuite des identités : attaquants exploitent forêt non cloisonnée pour exfiltrer données sensibles → accès aux profils patients centralisés sans consentement [A19][E9]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Cloisonnement AD (ISO27002-8.13), audit de vulnérabilités (ANSSI-IA-GEN)"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M030",
+      "actif": "A08 — Domaine Active Directory (corp.santetech.local) — Logiciel / Infrastructure — Forêt AD unique, 16 contrôleurs de domaine (1 DC/RODC par clinique), pas de MFA systématique VPN As-Is E9E7E5",
+      "menace": "LINDDUN-L — Modification des attributs utilisateurs : attaquants altèrent droits d'accès dans forêt racine → accès non documenté aux dossiers patients via promotion d'utilisateur faible [A3]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Contrôle d'accès granulaire (ISO27002-8.26), audit attributs utilisateurs (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M031",
+      "actif": "A08 — Domaine Active Directory (corp.santetech.local) — Logiciel / Infrastructure — Forêt AD unique, 16 contrôleurs de domaine (1 DC/RODC par clinique), pas de MFA systématique VPN As-Is E9E7E5",
+      "menace": "STRIDE-I — Altération des clés Kerberos : attaquants réplication compromise → exfiltration et altération du catalogue AD vers endpoints externes [E38][A17]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement des clés Kerberos (ISO27002-8.28), audit réplication AD (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M032",
+      "actif": "A09 — Contrôleurs de Domaine AD (16 unités) — Matériel / Infrastructure — 1 DC complet + 1 RODC par clinique (12 sites), gestion identités centralisée, patching potentiellement hétérogène E9E5",
+      "menace": "STRIDE-S — Compromission contrôleurs de domaine : attaquants exploitent faille matérielle ou corruption disque → perte d'authenticité des identités cliniques [A3][E203]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patching systématique (ISO27002-8.16), audit matériel (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M033",
+      "actif": "A09 — Contrôleurs de Domaine AD (16 unités) — Matériel / Infrastructure — 1 DC complet + 1 RODC par clinique (12 sites), gestion identités centralisée, patching potentiellement hétérogène E9E5",
+      "menace": "STRIDE-T — Défaillance des serveurs DC/RODC : panne matérielle critique → perte d'authentification pour toute la clinique → déni de service système [A3][E9]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Redondance DC locale (ISO27002-8.22), monitoring disponibilité (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M034",
+      "actif": "A09 — Contrôleurs de Domaine AD (16 unités) — Matériel / Infrastructure — 1 DC complet + 1 RODC par clinique (12 sites), gestion identités centralisée, patching potentiellement hétérogène E9E5",
+      "menace": "LINDDUN-Unawareness — Non-patching hétérogène : attaquants exploitent faille de serveur non corrige → exfiltration depuis DC vieillissant sans agent EDR moderne [A3][E2]",
+      "categorie": "LINDDUN-Unawareness",
+      "probabilite": "Élevé",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patching hétérogène (ISO27002-8.15), isolation VLAN/NAC (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "LINDDUN-Unawareness",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M035",
+      "actif": "A09 — Contrôleurs de Domaine AD (16 unités) — Matériel / Infrastructure — 1 DC complet + 1 RODC par clinique (12 sites), gestion identités centralisée, patching potentiellement hétérogène E9E5",
+      "menace": "STRIDE-E — Accès aux données de l'AD : attaquants accèdent au système de réplication → lecture des catalogues utilisateurs depuis DC compromis [A17][E38]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Séparation réplication AD (ISO27002-8.24), audit lecture catalogue (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBiOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M036",
+      "actif": "A09 — Contrôleurs de Domaine AD (16 unités) — Matériel / Infrastructure — 1 DC complet + 1 RODC par clinique (12 sites), gestion identités centralisée, patching potentiellement hétérogène E9E5",
+      "menace": "STRIDE-I — Altération des données d'AD : attaquants modifient catalogue AD vers DC local → invalidation des tickets Kerberos pour tous les comptes cliniques [A17]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Contrôle d'accès DC local (ISO27002-8.25), invalidation tickets Kerberos (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M037",
+      "actif": "A10 — Applications Cloud Hybride (To-Be) — Logiciel / Service — Migration DPI Nexus vers Cloud HDS, télémédecine et portail patient en Cloud, API Gateway sécurisée nouvelle brique E9E5E11",
+      "menace": "STRIDE-S — Compromission migration cloud : attaquants infiltrent flux de migration → altération des métadonnées patients dans cible hybride [A3][E203]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrage TLS 1.3+ avec ECDHE (E9E5E11 [DREAD-D]); Authentification OAuth2/OIDC avec JWT short-living tokens (E9E5E11 [DREAD-D]); Segmentation VLAN IoT/Biomédical (10.1.30.0/24) [E203]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-5.3",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M038",
+      "actif": "A10 — Applications Cloud Hybride (To-Be) — Logiciel / Service — Migration DPI Nexus vers Cloud HDS, télémédecine et portail patient en Cloud, API Gateway sécurisée nouvelle brique E9E5E11",
+      "menace": "STRIDE-E — Exfiltration de flux API : attaquants accèdent aux endpoints cloud non authentifiés → lecture des dossiers patients dans infrastructure hybride [A19][E5]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification OAuth2/OIDC avec JWT short-living tokens (E9E5E11 [DREAD-D]); WAF Next-Gen (OWASP Core Rule Set) [ISO27002-8.11]"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-5.19"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M039",
+      "actif": "A10 — Applications Cloud Hybride (To-Be) — Logiciel / Service — Migration DPI Nexus vers Cloud HDS, télémédecine et portail patient en Cloud, API Gateway sécurisée nouvelle brique E9E5E11",
+      "menace": "STRIDE-T — Attaques de type defacement/application : attaquants compromise flux télémédecine via API mal protégée → redirige communications vers services hostiles [A3][E203]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrage E2E avec TLS 1.3 [ISO27002-8.14]; MFA FIDO2/CPS pour soignants (E9E5E11 [DREAD-D])"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-5.4",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M040",
+      "actif": "A10 — Applications Cloud Hybride (To-Be) — Logiciel / Service — Migration DPI Nexus vers Cloud HDS, télémédecine et portail patient en Cloud, API Gateway sécurisée nouvelle brique E9E5E11",
+      "menace": "LINDDUN-Disclosure — Fuite des données patients cloud : attaquants exploitent faille API Gateway → exfiltration continue des flux télémédicaux vers endpoints externes [A19][E5]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire + Transférer",
+      "mesures": [
+        "Chiffrage E2E avec TLS 1.3 [ISO27002-8.14]; JWT signed RS256",
+        "OAuth2 (E9E5E11 [DREAD-D])"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "EBIOS-RM-A3",
+        "ISO27002-8.8",
+        "ANSSI-RECYF-8.2"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M041",
+      "actif": "A10 — Applications Cloud Hybride (To-Be) — Logiciel / Service — Migration DPI Nexus vers Cloud HDS, télémédecine et portail patient en Cloud, API Gateway sécurisée nouvelle brique E9E5E11",
+      "menace": "LINDDUN-Unawareness — Non-documentation des flux API : attaquants exploitent endpoints non inventorisés dans architecture cloud → exfiltration de données sensibles sans traçabilité [A3][E9]",
+      "categorie": "LINDDUN-Unawareness",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Registre API centralisé (APIM Azure/AWS) inventorier tous endpoints [E143]; Analyse de traçabilité flux API [E144]"
+      ],
+      "sources": [
+        "LINDDUN-Unawareness",
+        "EBIOS-RM-A3",
+        "ANSSI-RECYF-8.8"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M042",
+      "actif": "A10 — Applications Cloud Hybride (To-Be) — Logiciel / Service — Migration DPI Nexus vers Cloud HDS, télémédecine et portail patient en Cloud, API Gateway sécurisée nouvelle brique E9E5E11",
+      "menace": "STRIDE-I — Altération des flux télémédicaux : attaquants interceptent messages cloud → modification des données médicales transmises entre cliniques [A3][E203]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement TLS 1.3 avec certifiats HDS homologués [E203]; S/MIME pour messagerie [ISO27002-8.15]"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3",
+        "ANSSI-HOMOLOGATION",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M043",
+      "actif": "A11 — Fournisseur Cloud HDS",
+      "menace": "STRIDE-S — [E140] Attaque de spoofing via certification HDS non conforme : un fournisseur malveillant pourrait falsifier l'identité d'un hôte Cloud HDS et accéder aux données patients via le portail vpn.santetech-sante.fr sans authentification MFA.",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Impose certification HDS obligatoire fournisseur Cloud Act [E203]; Audit trimestriel de conformité HDS [E140]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-RECYF-8.8",
+        "STRIDE-R"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M044",
+      "actif": "A11 — Fournisseur Cloud HDS",
+      "menace": "LINDDUN-D — [E203] Fuite de données via exposition Cloud Act : le Cloud HDS sans analyse rigoureuse pourrait exposer les dossiers patients aux attaques de type data exfiltration via le portail extranet.santetech-sante.fr.",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire + Transférer",
+      "mesures": [
+        "Addendum contractuel DSA-Cloud avec clauses RGPD [E203]; Clause de non-divulgation SSL [E140]"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "ANSSI-IA-GEN",
+        "ISO27002-8.2"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M045",
+      "actif": "A12 — Parc IoT Médical",
+      "menace": "STRIDE-T — [E205] Manipulation de dispositifs non-patchables : les moniteurs et scanners avec micro-noyaux temps réel non patchables (OS non patchables partie parc) pourraient être compromis pour injecter des données falsifiées dans le système PACS/RIS.",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Accepter",
+      "mesures": [
+        "Segmentation micro-segmentation VLAN IoT isolé (10.1.30.0/24) [E203]; Interdiction accès Internet direct [E143]"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ANSSI-HYGIENE-5.30",
+        "LINDDUN-Disclosure"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M046",
+      "actif": "A12 — Parc IoT Médical",
+      "menace": "LINDDUN-I — [E140] Perturbation de l'intégrité des données : le VLAN IoT/Biomédical non cloisonné (10.1.30.0/24) permettrait à un attaquant de modifier les paramètres des dispositifs médicaux via le routage direct vers les automates.",
+      "categorie": "LINDDUN-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire + Éviter",
+      "mesures": [
+        "Cloisonnement VLAN IoT/Biomédical par firewall interne [E203]; ACL bloquant accès non autorisés [E140]"
+      ],
+      "sources": [
+        "LINDDUN-I",
+        "ISO27002-8.24",
+        "STRIDE-T"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M047",
+      "actif": "A13 — Segmentation Réseau VLAN/NAC",
+      "menace": "STRIDE-R — [E203] Négation de service via routage non cloisonné : le VLAN IoT/Biomédical non cloisonné (10.1.30.0/24) permettrait à un attaquant de saturer le réseau avec des paquets malformés, causant une perte de disponibilité des dispositifs de surveillance.",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Routage firewall interne cloisonné VLANs (10.1.30.0/24) [E203]; Audit de segmentation [E140]"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "ANSSI-RECYF-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M048",
+      "actif": "A14 — Wi-Fi Invités/Patients",
+      "menace": "STRIDE-I — [E140] Divulgation d'informations via filtrage SSL manquant : le VLAN Wi-Fi Invités/Patients (10.1.40.0/24) sans filtrage SSL permettrait à un attaquant d'intercepter les communications via le portail webmail.santetech-sante.fr et d'extraire des données sensibles.",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Filtrage SSL manquant corrigé (10.1.40.0/24) [E203]; Chiffrage TLS 1.3 avec certificats HDS [E140]"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ISO27002-8.16",
+        "ANSSI-HYGIENE-5.3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M049",
+      "actif": "A14 — Wi-Fi Invités/Patients",
+      "menace": "LINDDUN-D — [E203] Fuite de données via access point non sécurisé : le VLAN Wi-Fi Invités/Patients (10.1.40.0/24) avec sortie Internet directe sans filtrage SSL pourrait être utilisé pour des attaques de type phishing de rebond vers les cliniques.",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Micro-segmentation VLAN/NAC (ANSSI-HYGIENE)",
+        "filtrage SSL (ISO27002-8.8)"
+      ],
+      "sources": [
+        "LINDDUN-D"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M050",
+      "actif": "A15 — API SaaS / APIs Télémedecine",
+      "menace": "STRIDE-E — [E146] Élévation de privilèges via API Gateway non sécurisée : l'exposition de l'API Gateway Cloud Hybride sans signature images Docker/SBOM pourrait permettre à un attaquant de s'insérer dans la brique télémédecine et accéder à des données patients.",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Vérification signatures Docker/SBOM (ANSSI-RECYF)",
+        "cosign (ISO27002-8.16)"
+      ],
+      "sources": [
+        "STRIDE-E"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M051",
+      "actif": "A15 — API SaaS / APIs Télémedecine",
+      "menace": "[E146] Compromission de la confidentialité via API non durcie : l'API Gateway exposée sans vérification des signatures Docker/SBOM pourrait être exploitée pour des attaques de type data exfiltration via les flux de télémédecine.",
+      "categorie": "",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement TLS 1.3 OAuth2/OIDC (ISO27002-8.14)",
+        "ISO27002-8.8"
+      ],
+      "sources": [],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M052",
+      "actif": "A16 — Domaine hospitalier — Site",
+      "menace": "STRIDE-D — Vol de données via vol d'identifiants administrateur (credential stuffing) sur postes non patchables et VPN FortiGate sans MFA [E163][A17]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ANSSI-HYGIENE)",
+        "rotation cred (ISO27002-8.13)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M053",
+      "actif": "A16 — Domaine hospitalier — Site",
+      "menace": "LINDDUN-L — Dénonciation de données patients via exposition physique des locaux informatiques (contrôle d'accès défaillant en période posturée) [E142]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Biométrie/USB sécurisé (ANSSI-HYGIENE)",
+        "RFID G4 (ISO27002-8.11)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M054",
+      "actif": "A17 — Infrastructure réseau — Active Directory",
+      "menace": "STRIDE-T — Tampering des permissions AD via exploitation de compte service faible sur 60% des postes (pas de MFA sur VPN) enclinning aux attacks pass-the-hash [E140]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ISO27002-8.8)",
+        "rotation cred (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M055",
+      "actif": "A17 — Infrastructure réseau — Active Directory",
+      "menace": "STRIDE-I — Denial of service du contrôleur de domaine unique par saturation DNS (DC/RODC sans replication) bloquant les authentifications à tous clinique [E140]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Critique",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Réplication DC/RODC (ISO27002-8.2)",
+        "DNSSEC/TLS (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M056",
+      "actif": "A17 — Infrastructure réseau — Active Directory",
+      "menace": "LINDDUN-D — Disclosure personnelle des dossiers patients via forêt AD unique non cloisonnée avec partage SMB/CIFS sans filtrage SSL entre cliniques [E204][E145]",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Forêt AD multi-domaine (ANSSI-RECYF)",
+        "filtrage SMB (ISO27002-8.8)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M057",
+      "actif": "A18 — Application métier — DPI Progiciel Nexus",
+      "menace": "STRIDE-R — Irresponsabilité des accès via RDS mis en réseau direct MPLS sans micro-segmentation VLAN/NAC permettant aux cliniques non sécurisées d'accéder à tous données [E38]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Micro-segmentation VLAN/NAC (ANSSI-HYGIENE)",
+        "isolation Group (ISO27002-8.16)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M058",
+      "actif": "A18 — Application métier — DPI Progiciel Nexus",
+      "menace": "STRIDE-E — Élévation de privilèges via vulnérabilités Citrix XenApp/RDS (XenDesktop 7.15 CVE-2020-34692) permettant l'exécution code sur ferme RDS Siège [E146]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patch immédiat CVE-2020-34692 (ANSSI-RECYF)",
+        "virtualisation (ISO27002-8.16)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M059",
+      "actif": "A18 — Application métier — DPI Progiciel Nexus",
+      "menace": "LINDDUN-L — Leakage des données patients via exploitation SMBv1 legacy actif sur PACS/RIS pour compatibilité scanners anciens [E131]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Désactivation SMBv1 (ANSSI-RECYF)",
+        "GPO (ISO27002-8.8)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M060",
+      "actif": "A19 — Donnée/Structure — Données Patients (DPI)",
+      "menace": "STRIDE-I — Information leakage via exploitation ProxyShell sur Exchange 2016 non patché (DMZ vulnérable aux attacks Spraying) [E168][A17]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Critique",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patch Exchange 2016 (ANSSI-RECYF)",
+        "MFA (ISO27002-8.8)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M061",
+      "actif": "A19 — Donnée/Structure — Données Patients (DPI)",
+      "menace": "STRIDE-R — Repudiation des accès via logs citrix incomplets sur RDS legacy ne traçant pas les connexions aux dossiers patients [E208]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ISO27002-8.8), Cloisonnement VLAN IoT (ANSSI-HYGIENE-8.11), Journalisation complète Citrix (ANSSI-HYGIENE-8.8)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M062",
+      "actif": "A19 — Donnée/Structure — Données Patients (DPI)",
+      "menace": "LINDDUN-D — Disclosure de 150 000 dossiers via API Gateway non sécurisée pour télémédecine (no authz, no encryption in transit) [E231][A11]",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification à deux facteurs (ISO27002-8.8), Chiffrement transit (ANSSI-HYGIENE-8.14), Audit API Gateway (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "CVE-2023-38448"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M063",
+      "actif": "A20 — Matériel IoT — Dispositifs Médicaux Connectés",
+      "menace": "STRIDE-S — Spoofing des commandes médicales via protocole Wi-Fi 6 non crypté (moniteurs, pompes perfusion) [E115][E204]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Cryptage Wi-Fi 6 (ANSSI-HYGIENE-8.13), Mise à jour micrologiciels (ISO27002-8.24), Surveillance protocoles (STRIDE-S)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "CVE-2018-8962"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M064",
+      "actif": "A20 — Matériel IoT — Dispositifs Médicaux Connectés",
+      "menace": "STRIDE-T — Tamper des paramètres d'automates via micro-noyaux temps réel non patchables permettant dosage erreur [E146]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patch micro-noyaux (ISO27002-8.22), Isolation réseau (ANSSI-HYGIENE-8.14), Contrôle matériel (EBIOS-RM-A4)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "CVE-2017-5369"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M065",
+      "actif": "A20 — Matériel IoT — Dispositifs Médicaux Connectés",
+      "menace": "STRIDE-D — Disclosure de logs médicaux via exploitation Bluetooth LE sur appareils non isolés réseau (pompes à perfusion) [E117]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Séparation VLAN médical (ANSSI-HYGIENE-8.11), Filtrage Bluetooth (ISO27002-8.15), Audit sécurité IoT (STRIDE-D)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M066",
+      "actif": "A20 — Matériel IoT — Dispositifs Médicaux Connectés",
+      "menace": "LINDDUN-L — Leakage de données patients via Wi-Fi 6 non patché sur scanners (exposés au réseau Wi-Fi Invités sans filtrage SSL) [E120]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Séparation VLAN Wi-Fi Invités (ANSSI-HYGIENE-8.11), Chiffrement SSL (ISO27002-8.8), Surveillance trafic (STR0DE-D)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "CVE-2023-32278"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M067",
+      "actif": "A21 — Infrastructure Cloud — Hébergeur Cloud Hybride — HDS certifié, choix entre Scaleway/OVHcloud/Azure (pas d'imposition) [E142]",
+      "menace": "STRIDE-S — Attaquant tiers cloud : compromission de compte administrateur via phishing → élévation des privilèges sur infrastructure hybride (VM/K8s) ; accès non autorisé aux instances et données clients via interface console [E146,EBIOS-RM-A3]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA renforcé (ISO27002-8.8), Audit comptes administrateurs (ANSSI-HYGIENE-8.8), Séparation cloud hybride (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M068",
+      "actif": "A21 — Infrastructure Cloud — Hébergeur Cloud Hybride — HDS certifié, choix entre Scaleway/OVHcloud/Azure (pas d'imposition) [E142]",
+      "menace": "LINDDUN-Disclosure — Fuite de données patients via container compromis exposé sur métadonnées publics S3 → exfiltration de dossiers médicaux identifiables [E146,LINDDUN-Disclosure]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement S3 (ISO27002-8.14), Séparation containers (ANSSI-HYGIENE-8.11), Audit métadonnées (STRIDE-D)"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M069",
+      "actif": "A21 — Infrastructure Cloud — Hébergeur Cloud Hybride — HDS certifié, choix entre Scaleway/OVHcloud/Azure (pas d'imposition) [E142]",
+      "menace": "STRIDE-E — Attaquant réseau : écoute man-in-the-middle sur API de gestion IAM cloud hybride → injection de tokens JWT falsifiés pour impersonner soignants [E146,STRIDE-E]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification JWT (ISO27002-8.8), Audit API IAM (STRIDE-E), Séparation réseau (ANSSI-HYGIENE-8.11)"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "CVE-2023-XXX"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M070",
+      "actif": "A22 — Infrastructure sécurité — Micro-segmentation VLAN/NAC — Architecture cible pour isoler poste clinique compromis (VLAN IoT/Biomedical 10.1.30.0/24 non cloisonné actuellement) [E146,E150,FichedAuditTechnique-ÉtatdesLieuxSanteTechAs-Is.pdf.md,E205]",
+      "menace": "STRIDE-R — Attaquant interne : poste clinique compromis contourne NAC mal configuré → mouvement latéral via VLAN IoT non isolé (10.1.30.0/24) vers serveurs critiques PACS/RIS [E146,E205,STRIDE-R]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Cloisonnement VLAN 10.1.30.0/24 (ANSSI-HYGIENE-8.11), NAC étendu (ISO27002-8.2), Suppression routage direct (STRIDE-R)"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M071",
+      "actif": "A22 — Infrastructure sécurité — Micro-segmentation VLAN/NAC — Architecture cible pour isoler poste clinique compromis (VLAN IoT/Biomedical 10.1.30.0/24 non cloisonné actuellement) [E146,E150,FichedAuditTechnique-ÉtatdesLieuxSanteTechAs-Is.pdf.md,E205]",
+      "menace": "STRIDE-I — Attaquant externe : injection de paquets falsifiés entre VLAN Wi-Fi Invités (10.1.40.0/24) et VLAN Biomed → interception de flux IoT non chiffrés vers automates [E146,E205,STRIDE-I]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Transférer",
+      "mesures": [
+        "Cyber-assurance (ANSSI-RECYF), Audit IPv4/IPv6 (STRIDE-T), Segmentation VLAN (ISO27002-8.11)"
+      ],
+      "sources": [
+        "STRIDE-I"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M072",
+      "actif": "A22 — Infrastructure sécurité — Micro-segmentation VLAN/NAC — Architecture cible pour isoler poste clinique compromis (VLAN IoT/Biomedical 10.1.30.0/24 non cloisonné actuellement) [E146,E150,FichedAuditTechnique-ÉtatdesLieuxSanteTechAs-Is.pdf.md,E205]",
+      "menace": "LINDDUN-Unawareness — Utilisateur soignant : clic sur lien de phishing redirigeant vers intranet compromis via VLAN invité → exécution malware sans MFA requis [E146,LINDDUN-Unawareness]",
+      "categorie": "LINDDUN-Unawareness",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Séparation VLAN invités (ANSSI-HYGIENE-8.11), Éducation phishing (ISO27002-8.8), MFA pour intranet (STRIDE-I)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M073",
+      "actif": "A23 — Application/Rôle — IdP Gestion Identités (TO-BE) — Déploiement cible IdP centralisé (Entra ID/Keycloak) avec MFA FIDO2/Carte CPS [E146]",
+      "menace": "STRIDE-E — Attaquant : contournement processus de MFA sur application mobile compromise → injection de session utilisateur validée via exploit framework [E146,STRIDE-E,CVE-2023-29358 (si applicable)]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ANSSI-HYGIENE-5.3), segmentation VLAN (ISO27002-8.14)"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M074",
+      "actif": "A23 — Application/Rôle — IdP Gestion Identités (TO-BE) — Déploiement cible IdP centralisé (Entra ID/Keycloak) avec MFA FIDO2/Carte CPS [E146]",
+      "menace": "Attaquant : lecture de logs d'authentification exposés via interface d'administration Keycloak → inférence données sensibles de patients sur les tokens validés [E146]",
+      "categorie": "",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Cryptage des logs d'authentification (ISO27002-8.11), pare-feu applicatif"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M075",
+      "actif": "A23 — Application/Rôle — IdP Gestion Identités (TO-BE) — Déploiement cible IdP centralisé (Entra ID/Keycloak) avec MFA FIDO2/Carte CPS [E146]",
+      "menace": "LINDDUN-L — Attaquant : accès non autorisé aux rapports d'audit d'authentification → profilage des habitudes médicales des soignants via historiques de connexions [E146,LINDDUN-L]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Contrôle d'accès RBAC (ISO27002-8.13), audit régulier (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M076",
+      "actif": "A23 — Application/Rôle — IdP Gestion Identités (TO-BE) — Déploiement cible IdP centralisé (Entra ID/Keycloak) avec MFA FIDO2/Carte CPS [E146]",
+      "menace": "LINDDUN-Disclosure — Atteignant à travers le flux API admin : récupération de tokens refresh compromis → accès indirect aux données personnelles des patients (noms, diagnostics) sans consentement explicite [E146,LINDDUN-D]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "API Gateway rate-limited (ISO27002-8.8), certificats TLS renouvelés (ANSSI-IA-GEN)"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M077",
+      "actif": "A24 — API Télémédecine Cloud Hybride — Logiciel / Service — Interface REST/HTTPS sécurisée via API Gateway dans Cloud Hybride [E146]",
+      "menace": "STRIDE-T — Attaquant web : exploitation d'endpoint API non rate-limited → déni de service massif par requêtes inondées bloquant consultations télé-médicales urgentes [E146,STRIDE-T]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification multifacteur (ISO27002-8.2), chiffrement des payloads (ANSSI-PSSI)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M078",
+      "actif": "A24 — API Télémédecine Cloud Hybride — Logiciel / Service — Interface REST/HTTPS sécurisée via API Gateway dans Cloud Hybride [E146]",
+      "menace": "STRIDE-I — Attaquant réseau : injection payload sur endpoint de télétransmission → interception flux DICOM/HEM (données patients en transit via HTTPS mal configured) [E146,STRIDE-I]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation des certificats mutualisés (ISO27002-8.22), inspection des paquets (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "CVE-2023-38408",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M079",
+      "actif": "A24 — API Télémédecine Cloud Hybride — Logiciel / Service — Interface REST/HTTPS sécurisée via API Gateway dans Cloud Hybride [E146]",
+      "menace": "STRIDE-E — Attaquant : falsification d'en-têtes Authorization sur API Gateway → élévation privilèges pour accéder dossiers patients hors périmètre de rôle soignant [E146,STRIDE-E]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Équilibrage de charge sécurisé (ISO27002-8.24), suppression des headers non vérifiés (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M080",
+      "actif": "A24 — API Télémédecine Cloud Hybride — Logiciel / Service — Interface REST/HTTPS sécurisée via API Gateway dans Cloud Hybride [E146]",
+      "menace": "LINDDUN-Disclosure — Exfiltration de données sensibles : accès indirect via endpoint /public-health-exports → lecture des historiques médicaux anonymisés identifiants [E146,LINDDUN-D]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Cryptage des exports (ISO27002-8.25), journalisation des accès (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M081",
+      "actif": "A24 — API Télémédecine Cloud Hybride — Logiciel / Service — Interface REST/HTTPS sécurisée via API Gateway dans Cloud Hybride [E146]",
+      "menace": "STRIDE-S — Compromission d'accès admin à l'API Gateway cloud → substitution des certificates TLS au routage (SSL/TLS stripping) interceptant consultations [E146,STRIDE-S]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Système de détection d'intrusion (ISO27002-8.26), validation des certificats TLS (ANSSI-IA-GEN)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M082",
+      "actif": "A24 — API Télémédecine Cloud Hybride — Logiciel / Service — Interface REST/HTTPS sécurisée via API Gateway dans Cloud Hybride [E146]",
+      "menace": "LINDDUN-Unawareness — Patient connecté : clic sur lien de vérification SMS compromis par attaquants → validation de session sans connaissance du contexte médical (phishing social) [E146]",
+      "categorie": "LINDDUN-Unawareness",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Éducation des utilisateurs (ISO27002-8.28), validation des liens (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M083",
+      "actif": "A25 — Plateforme DPI Nexus (Dossier Patient Informatisé) — Logiciel / Service — Hébergé sur ferme Citrix/RDS (Siège Rennes) [E139]",
+      "menace": "STRIDE-R — Attaquant interne : exploit Citrix RDS (CVE-2021-37119) → élévation privilèges globale sur serveur de dossier patients puis accès aux archives cliniques [E139,STRIDE-R,CVE-2021-37119]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patching systématique (ISO27002-8.16), segmentation réseau (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M084",
+      "actif": "A25 — Plateforme DPI Nexus (Dossier Patient Informatisé) — Logiciel / Service — Hébergé sur ferme Citrix/RDS (Siège Rennes) [E139]",
+      "menace": "STRIDE-I — Attaquant réseau : redirection DNS vers serveur compromis → interception des échanges RDP/ICM entre médecins et postes navigateurs patients [E139,STRIDE-I]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Filtrage DNS (ISO27002-8.15), chiffrement des échanges (ANSSI-PSSI)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Risque critique",
+      "valide_par": null
+    },
+    {
+      "id": "M085",
+      "actif": "A25 — Plateforme DPI Nexus (Dossier Patient Informatisé) — Logiciel / Service — Hébergé sur ferme Citrix/RDS (Siège Rennes) [E139]",
+      "menace": "LINDDUN-Disclosure — Attaquant : lecture de logs serveur d'application expose en clair les infos patients en erreur → extraction noms, diagnostics via page 404 mal config [E139,LINDDUN-D]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Journalisation des logs serveur chiffrée",
+        "correction page 404 (renvoyant login admin avec MFA)",
+        "filtrage X-WAF sur endpoints log [ANSSI-CARTO-SI,ANSSI-HYGIENE-7,ISO27002-8.15]"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "EBIOS-RM-A3",
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE-7",
+        "ISO27002-8.15"
+      ],
+      "risque_residuel": "Faible : logs exposés corrigés via journalisation chiffrée + page 404 fixée",
+      "valide_par": null
+    },
+    {
+      "id": "M086",
+      "actif": "A25 — Plateforme DPI Nexus (Dossier Patient Informatisé) — Logiciel / Service — Hébergé sur ferme Citrix/RDS (Siège Rennes) [E139]",
+      "menace": "STRIDE-E — Attaquant : injection de script XSS en-page administration → exécution non autorisée permettant d'accéder aux dossiers patients sans authentification valide [E139,STRIDE-E]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Protection CSP strict sur application admin",
+        "Sanitization des données d'entrée",
+        "WAF XSS RASP",
+        "authentification obligatoire MFA FIDO2 [ANSSI-CARTO-SI,ISO27002-8.15,STRIDE-E]"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "EBIOS-RM-A3",
+        "ANSSI-CARTO-SI",
+        "ISO27002-8.15",
+        "CVE-2023-50387"
+      ],
+      "risque_residuel": "Faible : interface admin durcie sans authentification sans MFA + CSP mis [E146]",
+      "valide_par": null
+    },
+    {
+      "id": "M087",
+      "actif": "A25 — Plateforme DPI Nexus (Dossier Patient Informatisé) — Logiciel / Service — Hébergé sur ferme Citrix/RDS (Siège Rennes) [E139]",
+      "menace": "LINDDUN-L — Attaquant : accès non autorisé à API d'export de rapports → profilage des habitudes de soins des patients via agrégation des résultats anonymisés [E139,LINDDUN-L]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Limitation des quotas d'appels API",
+        "chiffrement TLS 1.3 obligatoire",
+        "anonymisation renforcée (k-anonymité k≥50)",
+        "accès IP restreint [ANSSI-CARTO-SI,ISO27002-6.3,LINDDUN-L]"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "EBIOS-RM-A3",
+        "ANSSI-CARTO-SI",
+        "ISO27002-6.3",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Très Faible : API report protégée avec restrictions d'accès + chiffrement renforcé [E145]",
+      "valide_par": null
+    },
+    {
+      "id": "M088",
+      "actif": "A26 — Parc IoT Médical",
+      "menace": "STRIDE-D — Attaque par exploitation de vulnérabilités non-patchées sur les dispositifs IoT, exposés via le VLAN non cloisonné [E205]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Segmentation VLAN IoT médicale isolée (VLAN 10.1.30.0/24 cloisonné)",
+        "NAT strict sans accès Internet direct",
+        "patch management plan pour dispositifs EOL [ANSSI-HYGIENE-9,ISO27002-8.8,STRIDE-D]"
+      ],
+      "sources": [
+        "STRIDE-D",
+        "ANSSI-HYGIENE-9",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Moyen : VLAN IoT médical isolé de production + routage restreint vers automates [E140]",
+      "valide_par": null
+    },
+    {
+      "id": "M089",
+      "actif": "A26 — Parc IoT Médical",
+      "menace": "LINDDUN-D — Fuite de données sensibles via les dispositifs IoT non isolés, exploitant le routage direct vers les automates [E203]",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Isolation réseau physique (pas logique seulement) pour dispositifs biomédicaux critiques",
+        "chiffrement de bout en bout des flux capteurs [ANSSI-PSSI,ISO27002-8.5,LINDDUN-D]"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "ANSSI-PSSI",
+        "ISO27002-8.5",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible : IoT biomédical isolé physiquement + flux capteurs cryptés en transit [E140]",
+      "valide_par": null
+    },
+    {
+      "id": "M090",
+      "actif": "A26 — Parc IoT Médical",
+      "menace": "STRIDE-S — Attaque de spoofing via les micro-noyaux temps réel non patchables, exposés sans segmentation [E205]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Isolation par VLAN dédié micro-noyaux temps réel",
+        "surveillance intrusion IDS/IPS pour spoofing détectation précoce",
+        "authentification network NAC obligatoire [EBIOS-RM-A3,ISO27002-8.11,STRIDE-S]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3",
+        "ISO27002-8.11"
+      ],
+      "risque_residuel": "Très Faible : micro-noyaux IoT segmentés par VLAN + IDS/IPS actif pour détection spoofing [E140]",
+      "valide_par": null
+    },
+    {
+      "id": "M091",
+      "actif": "A27 — Ferme Citrix/RDS",
+      "menace": "STRIDE-S — Spoofing via le réseau MPLS non segmenté, permettant l'accès à tous les serveurs physiques [E139]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Segment MPLS avec micro-segmentation (VLAN par service)",
+        "accès direct limité uniquement par IP",
+        "authentification réseau 802.1X obligatoire [ANSSI-CARTO-SI,ISO27002-5.4,STRIDE-S]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-CARTO-SI",
+        "ISO27002-5.4"
+      ],
+      "risque_residuel": "Faible : ferme Citrix/RDS isolée sur MPLS segmenté + accès direct restreint à serveurs certifiés [E139]",
+      "valide_par": null
+    },
+    {
+      "id": "M092",
+      "actif": "A27 — Ferme Citrix/RDS",
+      "menace": "STRIDE-R — Reproduction de trafic via la micro-segmentation absente, facilitant la lateralité [E139]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Déploiement micro-segmentation (NSX/Tanzu/VMware) sur domaine Citrix",
+        "politiques ZTNA par travailleur",
+        "journalisation trafic inter-serveurs [ISO27002-8.2,ISO27002-5.30,EBIOS-RM-A4]"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "ISO27002-8.2",
+        "ISO27002-5.30",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible : micro-segmentation déployée sur ferme Citrix/RDS + lateralité bloquée [E146]",
+      "valide_par": null
+    },
+    {
+      "id": "M093",
+      "actif": "A28 — Postes legacy",
+      "menace": "LINDDUN-D — Fuite de données patients via les postes Windows 7/XP, non durcis contre les attaques par usurpation [E150]",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Migration progressive vers Windows 10/11 LTSC ou Linux avec agents HDS [ANSSI-HYGIENE-5,EBIOS-RM-A4,LINDDUN-D]"
+      ],
+      "sources": [
+        "LINDDUN-D",
+        "ANSSI-HYGIENE-5",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Négligeable : postes Windows 7/XP mis en service de secours uniquement (non critiques) + migration planifiée [E150]",
+      "valide_par": null
+    },
+    {
+      "id": "M094",
+      "actif": "A28 — Postes legacy",
+      "menace": "STRIDE-E — Élévation de privilèges via les postes Windows 7/XP, vulnérables aux exploits SMBv1 [E203]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Bloquer SMBv1 firewall par défaut",
+        "déploiement patches EternalBlue via GPO obligatoire",
+        "dégradation poste à terminal KVM sécurisé [ISO27002-8.8,STRIDE-E]"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "ISO27002-8.8",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible : SMBv1 bloqué réseau local + postes XP en mode sandbox avec isolation [E203]",
+      "valide_par": null
+    },
+    {
+      "id": "M095",
+      "actif": "A29 — MPLS Hub & Spoke",
+      "menace": "STRIDE-S — Spoofing via le réseau centralisé sans isolation, permis par la micro-segmentation absente [E139]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Intersegment MPLS avec ACL strictes (IPsec VPN entre hubs)",
+        "chiffrement TLS obligatoire sur toutes routes transversales",
+        "IDS L7 inspection trafic [ANSSI-CARTO-SI,ISO27002-6.3,STRIDE-S]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-CARTO-SI",
+        "ISO27002-6.3"
+      ],
+      "risque_residuel": "Très Faible : interconnexion sites via IPsec chiffré seul + ACL routage segmenté [E140]",
+      "valide_par": null
+    },
+    {
+      "id": "M096",
+      "actif": "A29 — MPLS Hub & Spoke",
+      "menace": "STRIDE-R — Reproduction de trafic entre cliniques via l'IP directe, sans filtre SSL [E203]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "SSL/TLS inspection inter-clinique obligatoire",
+        "déploiement WAF Gateway inter-VSite",
+        "chiffrement TLS 1.3 avec ECDHE obligatoire [ANSSI-PSSI,ISO27002-8.14,LINDDUN-N]"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "ANSSI-PSSI",
+        "ISO27002-8.14",
+        "LINDDUN-N"
+      ],
+      "risque_residuel": "Très Faible : trafic inter-clinique crypté TLS 1.3 + gateway WAF inspectant réplication [E150]",
+      "valide_par": null
+    },
+    {
+      "id": "M097",
+      "actif": "A30 — Active Directory",
+      "menace": "STRIDE-S — Spoofing via le domaine AD sans MFA, permettant la DCSync [E150]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 pour 100% des comptes AD",
+        "Upgrade forêt DC Windows Server 2016 minimum (ISO27002-8.2) [E139][E149][E201]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.2"
+      ],
+      "risque_residuel": "Élevée·Critique·Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M098",
+      "actif": "A30 — Active Directory",
+      "menace": "STRIDE-E — Élévation de privilèges via les contrôleurs de domaine non durcis, vulnérables à Kerberoasting [E203]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Micro-segmentation VLAN par DC",
+        "Renversement RODC (hachages unidiirectionnels) [E140][E203]"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "ANSSI-HYGIENE",
+        "ISO27002-5.4"
+      ],
+      "risque_residuel": "Élevée·Critique·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M099",
+      "actif": "A31 — Base de Données PACS/RIS Imagerie",
+      "menace": "STRIDE-S — Stockage images radiologiques non chiffrées sur disque local en cliniques, exposé aux fuites lors de la copie vers USB ou cloud privé [E140][EBIOS-RM-A3]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement AES-256 DICOM au repos",
+        "Désactivation SMBv1",
+        "Isolation baies SAN VLAN (ANSSI-HOMOLOGATION) [E140][E205]"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevée·Critique·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M100",
+      "actif": "A31 — Base de Données PACS/RIS Imagerie",
+      "menace": "STRIDE-I — Injection via DICOM gateway non filtrée sur 10.1.10.0/24, permettant l'écriture malveillante dans les études cliniques [E140] [E205]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Filtre DPI DICOM gateway 10.1.10.0/24",
+        "Cloisonnement VLAN biomédical IoT [E140][E205][E203]"
+      ],
+      "sources": [
+        "ISO27002-8.13",
+        "ANSSI-RECYF",
+        "ISO27002-8.16"
+      ],
+      "risque_residuel": "Élevée·Élevé·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M101",
+      "actif": "A31 — Base de Données PACS/RIS Imagerie",
+      "menace": "STRIDE-R — Altération des métadonnées DICOM par un attaquant ayant accès au VLAN Serveurs Locaux compromis via lateral movement [E205][EBIOS-RM-A3]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Segment réseau VLAN Serveurs",
+        "Isolation logique PACS (VLAN biomédical séparé) [EBIOS-RM-A3]"
+      ],
+      "sources": [
+        "ANSSI-PSSI",
+        "ANSSI-HYGIENE",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyenne·Moyen·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M102",
+      "actif": "A32 — Messagerie Exchange 2016 OWA Webmail",
+      "menace": "STRIDE-T — Modification d'emails (email spoofing) depuis webmail exposé en DMZ sur webmail.santetech-sante.fr, campagne de phishing ciblant soignants [E140][E159]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patching Exchange 2016 (CVE-2022-41040 corrigé)",
+        "WAF Reverse Proxy OWA DMZ [E152][E205]"
+      ],
+      "sources": [
+        "ISO27002-8.2",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevée·Critique·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M103",
+      "actif": "A32 — Messagerie Exchange 2016 OWA Webmail",
+      "menace": "LINDDUN-L — Leakage des dossiers patients via OWA non durci, accès distant par certificats faibles permet lecture mails contenant données sensibles [E152][E203][LINDDUN-L]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Certificats TLS ECDHE 4096bits",
+        "HSTS OWA DMZ",
+        "Double filtrage SMTP [E152]"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Élevée·Élevé·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M104",
+      "actif": "A32 — Messagerie Exchange 2016 OWA Webmail",
+      "menace": "STRIDE-E — Exploitation ProxyShell/Spraying non corrigé par patching Exchange 2016 legacy, permettant exécution RCE sur serveur messagerie [E152][CVE-2022-41040]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Correction CVE-2022-41040",
+        "Isolation OWA DMZ sous VLAN propre (micro-segmentation) [E205]"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevée·Critique·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M105",
+      "actif": "A33 — Portail VPN FortiGate",
+      "menace": "STRIDE-T — Compromission de session via authentification simple login/mot de passe sans MFA, injection de tokens dans les flux d'authentification [E149][E150]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Déploiement MFA FIDO2 FortiGate (60% comptes manquants)",
+        "SAML/SSO IDP [E149][E139]"
+      ],
+      "sources": [
+        "ISO27002-8.22",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.2"
+      ],
+      "risque_residuel": "Moyenne·Moyen·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M106",
+      "actif": "A33 — Portail VPN FortiGate",
+      "menace": "LINDDUN-Disclosure — Fuite d'identifiants VPN 60% des comptes sans MFA, accès privilégié aux ressources internes après compromission de credentia [E140][E149]",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2/MAPF (carte CPS) VPN FortiGate",
+        "Journalisation accès [E149][E203]"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.28"
+      ],
+      "risque_residuel": "Élevée·Critique·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M107",
+      "actif": "A33 — Portail VPN FortiGate",
+      "menace": "STRIDE-I — Attaques d'injection dans les logs FortiGate pour corrompre l'historique des accès, masquer les tentatives de bypass [E150]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Logs FortiGate chiffrés TLS 1.3",
+        "Normalisation format JSON (non affecte l'attaque) [E231]"
+      ],
+      "sources": [
+        "ISO27002-8.5",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.26"
+      ],
+      "risque_residuel": "Faible·Moyen·Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M108",
+      "actif": "A34 — Contrôleur de Domaine RODC par Clinique",
+      "menace": "STRIDE-S — Dumping de hachages d'identifiants via LSASS compromise sur 12 RODC, exfiltration vers cloud externe [E202][E140]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Désactivation LSASS RODC",
+        "Renversement AD (hachages salés unidirectionnels) [E202][E140]"
+      ],
+      "sources": [
+        "ANSSI-PSSI",
+        "ANSSI-HYGIENE",
+        "ISO27002-5.3"
+      ],
+      "risque_residuel": "Élevée·Critique·Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M109",
+      "actif": "A34 — Contrôleur de Domaine RODC par Clinique",
+      "menace": "STRIDE-T — Création d'objets Kerberos faux sur réseau 10.1.0.0/16, permettant délégué d'accès à tous les DC du périmètre [E202][E138][MITRE-T1558]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Micro-segmentation réseau VLAN/NAC, isolation RODC par firewall ACL strict (ISO27002-8.15), déploiement SOC centralisé avec EDR (EBIOS-RM-A3), MFA sur accès DCs critiques (ANSSI-HYGIENE 6)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.15",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Moyenne — Élevé — Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M110",
+      "actif": "A34 — Contrôleur de Domaine RODC par Clinique",
+      "menace": "STRIDE-E — Poisoning LDAP via écriture sur RODC (mode read-only théoriquement mais pas en pratique), injection d'objets malveillants [E202]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation schema LDAP strict avec ACL écriture limitée, monitoring injection objets via journalisation SIEM centralisé (ISO27002-8.8), alertes anomalies RODC écr (EBIOS-RM-A3)"
+      ],
+      "sources": [
+        "ISO27002-8.14",
+        "ISO27002-8.8",
+        "ISO27002-5.3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Faible — Moyen — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M111",
+      "actif": "A35 — Sécurité IT (SOC/EDR/SIEM)",
+      "menace": "STRIDE-T — Détection inexistante d'attaques Ransomware en temps réel, propagation latérale non surveillée via réseau MPLS [E140][E40]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Déploiement EDR/SIEM centralisé sur tous serveurs (EBIOS-RM-A3), segmentation MPLS en zones DMZ critiques (ISO27002-8.15), déploiement SOC 24/7 (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.15",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Élevée — Critique — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M112",
+      "actif": "A35 — Sécurité IT (SOC/EDR/SIEM)",
+      "menace": "STRIDE-I — Ingestion d'alertes de sécurité nulle, absence d'intégrité sur les logs SIEM ne permet pas la chasse aux intrus [E9][E139]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Journalisation sécurisée tamponnement logs (ISO27002-8.28), vérification intégrité hash SHA-256 logs SIEM, ingestion alertes via pipeline EDR/EDR-SIEM centralisé (EBIOS-RM-A4), audit logs mensuel (ANSSI-HYGIENE 13)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "ISO27002-8.28",
+        "ISO27002-8.29",
+        "ANSSI-HYGIENE",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Moyenne — Moyen — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M113",
+      "actif": "A35 — Sécurité IT (SOC/EDR/SIEM)",
+      "menace": "LINDDUN-L — Non-détection des exfiltrations de données patients vers cloud tiers, absence de comportement Anomaly sur les flux EDR [E40][EBIOS-RM-A3]",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "DLP Cloud tiers avec classification données sensibles patients (LINDDUN-L), EDR comportemental monitoring anomalies transferts outbound (EBIOS-RM-A3), chiffrement egress",
+        "logging connexion cloud (ISO27001-8.26)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "ISO27001-8.26",
+        "ANSSI-PSSI-134",
+        "LINDDUN-L",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Élevée — Critique — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M114",
+      "actif": "A36 — Attestation de relecture croisée",
+      "menace": "STRIDE-S — Attaque par phishing via le portail VPN (E140)",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Implémentation MFA FIDO2 sur 100% comptes VPN (STRIDE-S), patching CVE-2023-23977 FortiGate via vuln feed (ISO27002-8.5), sensibilisation phishing obligatoire CISO/Lead GRC (EBIOS-RM-A3)"
+      ],
+      "sources": [
+        "ISO27001-8.5",
+        "ANSSI-HYGIENE",
+        "STRIDE-S",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyenne — Critique — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M115",
+      "actif": "A36 — Attestation de relecture croisée",
+      "menace": "LINDDUN-Disclosure — Fuite de données via le Webmail OWA non patché (E201)",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patch rapide Exchange 2016 DMZ (ISO27002-8.5), segment VLAN DMZ pour Webmail avec WAF (ISO27002-8.34), règles iptables blocage campagnes ProxyShell/Spraying, monitoring inbound port 443/80 anomalies (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "ISO27001-8.5",
+        "ISO27002-8.34",
+        "ANSSI-HYGIENE",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Faible — Critique — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M116",
+      "actif": "A37 — CISO / Lead GRC",
+      "menace": "STRIDE-T — Élevaison de privilèges via accès non surveillé aux serveurs legacy (E203)",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Gestion privilégiée MoP (principle least privilege)",
+        "MFA accès serveurs legacy (ANSII-HYGIENE 37), déploiement EDR sur 185 serveurs avec blocage élévation privilèges signatures (ISO27002-8.16)"
+      ],
+      "sources": [
+        "ISO27002-8.2",
+        "ISO27002-8.15",
+        "ISO27002-8.16",
+        "ANSSI-HYGIENE",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Faible — Moyen — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M117",
+      "actif": "A37 — CISO / Lead GRC",
+      "menace": "LINDDUN-Unawareness — Ignorance des protocoles RGPD par le Chef de projet sécurité (E149)",
+      "categorie": "LINDDUN-Unawareness",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire + Accepter",
+      "mesures": [
+        "Programme formation RGPD obligatoire CISO/Lead GRC avec attestation compétence (LINDDUN-Unawareness), audit conformité annuel documenté (ISO27001-8.5, ANSSI-RECYF 1.3.1) — risque résiduel accepté sur non-conformité mineure"
+      ],
+      "sources": [
+        "ISO27001-8.5",
+        "LINDDUN-Unawareness",
+        "EBIOS-RM-A4",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Non documenté — Non documenté — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M118",
+      "actif": "A38 — Blue Team & SOC",
+      "menace": "STRIDE-D — Déni de service via surcharge des serveurs de secours locaux (E201)",
+      "categorie": "STRIDE-D",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire + Accepter",
+      "mesures": [
+        "CDN Cloudflare DDoS mitigation Rate Limiting (ISO27001-8.11), réplication backup cloud offsite multi-régions AWS/Azure (ISO27002-5.19), acceptabilité business impact limité données non critiques"
+      ],
+      "sources": [
+        "ISO27002-5.19",
+        "ISO27001-8.11",
+        "ANSSI-HYGIENE",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Faible — Critique — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M119",
+      "actif": "A38 — Blue Team & SOC",
+      "menace": "LINDDUN-NC — Non-conformité aux standards ISO 27001 pour les analyses de menace (E223)",
+      "categorie": "LINDDUN-NC",
+      "probabilite": "Moyenne",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Réduire + Accepter",
+      "mesures": [
+        "Implémentation processus EBIOS RM 2018 pour analyses menace (EBIOS-RM-2018), certification ISO 27001 audit externe (ISO27002-8.22), mise à jour Plan de Management Sécurité annuel — impact limité certification uniquement"
+      ],
+      "sources": [
+        "EBIOS-RM-2018",
+        "ISO27001-8.5",
+        "ISO27002-8.22"
+      ],
+      "risque_residuel": "Faible — Moyen — Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M120",
+      "actif": "A39 — CTI & OSINT",
+      "menace": "STRIDE-I — Interceptation des flux API Gateway via le VLAN IoT non cloisonné (E205)",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Micro-segmentation VLAN IoT biomédical routage ACL restreint automate (ISO27001-8.13), isolation API Gateway DMZ réseau segmenté VLAN, chiffrement TLS 1.3 flux API",
+        "DDoS protection WAF (ISO27002-5.19)"
+      ],
+      "sources": [
+        "ISO27001-8.13",
+        "ISO27002-5.19",
+        "ANSSI-HYGIENE",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Faible — Critique — Moyenne",
+      "valide_par": null
+    },
+    {
+      "id": "M121",
+      "actif": "A39 — CTI & OSINT",
+      "menace": "LINDDUN-Disclosure — Fuite d'OSINT via les sites web des cliniques hébergés par des prestataires tiers (E201)",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Moyen",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "[ANSSI-HYGIENE-4] Documentation contacts publique sans données sensibles"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE-4"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M122",
+      "actif": "Frontière Internet ↔ VPN_Gateway (FortiGate)",
+      "menace": "STRIDE-S — Portail vpn.santetech-sante.fr expose avec login/mot de passe simple sans MFA sur 60% des comptes [E7][E38][E203] → attaquant réalise brute-force ou credential stuffing pour obtenir accès interne au backbone MPLS.",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-5.15], [ANSSI-HYGIENE-3] MFA FIDO2 sur 60% comptes VPN",
+        "PAM"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3",
+        "ISO27002-5.15",
+        "ANSSI-HYGIENE-3"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M123",
+      "actif": "Frontière Internet ↔ VPN_Gateway (FortiGate)",
+      "menace": "STRIDE-I — Extranet médecins (extranet.santetech-sante.fr) [E32][A7] : authentification faible permet usurpation d'identité soignant pour modifier/falsifier données médicales ou prescriptions.",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-5.15], [EBIOS-RM-A3] IdP Centralisé",
+        "MFA PAM extranet médecins"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3",
+        "ISO27002-5.15",
+        "ANSSI-HYGIENE-4"
+      ],
+      "risque_residuel": "Faible - Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M124",
+      "actif": "Frontière Internet ↔ Portail OWA (Exchange 2016 DMZ)",
+      "menace": "STRIDE-I — Webmail OWA public (webmail.santetech-sante.fr) [E3][E57] : vulnérabilités ProxyShell/CVE-2024 potentielles exposent dossiers patients aux fuites par accès RCE sans filtre SSL.",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-6.3], [ANSSI-HYGIENE-2] Patch CVE-2024-26099",
+        "WAF OWASP SSL filter"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "EBIOS-RM-A3",
+        "ISO27002-5.19",
+        "ISO27002-5.3"
+      ],
+      "risque_residuel": "Moyen - Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M125",
+      "actif": "Frontière DMZ ↔ WAF optionnel (non déployé As-Is)",
+      "menace": "STRIDE-R — WAF/SIEM absent [E36][E271] → attaque DoS direct contre API Gateway/Cloud_HDS possible sans atténuation, paralysant services télémédecine.",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-8.14], [EBIOS-RM-A3] WAF FortiWeb",
+        "SIEM centralisé"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "ANSSI-CARTO-SI",
+        "ISO27002-8.14",
+        "ANSSI-HYGIENE-7"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M126",
+      "actif": "Frontière DMZ ↔ WAF optionnel (non déployé As-Is)",
+      "menace": "STRIDE-T — Site WordPress vitrine [E274][E9] : injection SQL/XSS possible via absence de couche WAF pour compromettre réputation clinique et filer données personnelles exposées.",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-5.4], [ANSSI-CARTO-SI] WAF",
+        "hardening WordPress",
+        "honeypot"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ANSSI-CARTO-SI",
+        "ISO27002-8.8",
+        "ISO27002-5.3"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M127",
+      "actif": "Frontière Réseau Interne ↔ Backbone MPLS (sans micro-segmentation)",
+      "menace": "STRIDE-T — Backbone MPLS centralisé sans isolation logique [E36][E203][E277] → un poste compromis clinique peut communiquer IP directe avec tout réseau interne, accédant serveurs sensibles siège.",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-8.11], [EBIOS-RM-A3] Micro-segmentation VLAN/NAC backbone MPLS"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3",
+        "ISO27002-8.2",
+        "ANSSI-HYGIENE-6"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M128",
+      "actif": "Frontière Réseau Interne ↔ Backbones AD (Forêt unique)",
+      "menace": "STRIDE-S — Forêt Active Directory corp.santetech.local 16 DC/RODC [E2][A7][E277] : absence micro-segmentation permet propagation latérale compromise RODC → forêt principale via Kerberoasting/DCE-RPC.",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-5.15], [ANSSI-HYGIENE-4] PASEO AD isolé",
+        "RODC séparés"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Faible - Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M129",
+      "actif": "Frontière Réseau Interne ↔ Citrix Farm (DPI Nexus)",
+      "menace": "STRIDE-S — Ferme Citrix/RDS Rennes héberge DPI Nexus [E25][E148][A7] : accès RDP interne non contrôlé expose données patients 150k dossiers à extraction par attaquant pivotant via réseaux internes.",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-8.2], [EBIOS-RM-A4] NAC TACACS+",
+        "MFA RDP Gateway Citrix ADC"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A3",
+        "ISO27002-5.19",
+        "ISO27002-6.3"
+      ],
+      "risque_residuel": "Faible - Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M130",
+      "actif": "Frontière VLAN IoT ↔ Core_Net (routage direct)",
+      "menace": "STRIDE-R — VLAN IoT/Biomédical 10.1.30.0/24 routé directement vers automates [E9][A17] : botnets Mirai infecte pompes perfusion/moniteurs non patchables, attaques DoS internes critiques bloques soins vitaux.",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "[ANSSI-HYGIENE-6], [ANSSI-RECYF] VLAN biomédical isolé",
+        "blocage Internet direct"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-6",
+        "ANSSI-RECYF"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M131",
+      "actif": "Frontière VLAN IoT ↔ Core_Net (routage direct)",
+      "menace": "STRIDE-T — VLAN IoT non cloisonné [E9][E277] : compromis device biomédical permet exécution commandes malveillantes sur automates sensibles et fuite logs d'audit.",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ISO27002-8.24], [LINDDUN-D] Isolation VLAN IoT",
+        "EDR légers détection"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "EBIOS-RM-A3",
+        "ISO27002-5.3"
+      ],
+      "risque_residuel": "Faible - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M132",
+      "actif": "Frontière Wi-Fi Invités ↔ Internet (sans SSL filtering)",
+      "menace": "LINDDUN-Disclosure — Wi-Fi patients 10.1.40.0/24 sortant internet sans filtrage SSL [E18][A7] : malware contourne firewall via trafic HTTP non inspecté, vol données sensibles requêtes outbounds.",
+      "categorie": "LINDDUN-Disclosure",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "[ANSSI-HYGIENE-9], [ANSSI-RECYF] SSL filtering proxy",
+        "DNS firewalling Wi-Fi patients"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE-9",
+        "ISO27002-8.5"
+      ],
+      "risque_residuel": "Moyen - Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M133",
+      "actif": "Frontière Wi-Fi Invités ↔ Internet (sans SSL filtering)",
+      "menace": "STRIDE-E — Accès libre sans authentification Wi-Fi patients mobiles [E9] : attaquant établit position de listening sur réseau de confiance pour intercepter sessions et élever privilèges via MITRE T1548.5.",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevé",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Segmentation réseau par VLAN Wi-Fi Invités/Sortie séparé avec règles firewall restrictives [ISO27002-8.11], Authentification Wi-Fi obligatoire pour accès Internet [ANSSI-HYGIENE-4], Chiffrement SSL/TLS obligatoire sur toutes les sessions accessibles aux patients mobiles [ISO27002-5.19]"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-4",
+        "ISO27002-5.19",
+        "ISO27002-8.11"
+      ],
+      "risque_residuel": "Moyen (risque d'interception passif réduit mais non nul pour connexions sans HTTPS résiduel)",
+      "valide_par": null
+    },
+    {
+      "id": "M134",
+      "actif": "Frontière Cloud_HDS ↔ API Gateway (hybride To-Be)",
+      "menace": "STRIDE-S — Migration DPI Nexus vers Cloud HDS [E9][A7] : absence contrôle d'accès API Gateway initial permet intrusions dans infra hébergement hybride et accès non autorisé ressources sensibles.",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Implémentation authentification OAuth2/OIDC obligatoire [ISO27002-5.15], Rate Limiting et WAF en place sur API Gateway hybride CloudHDS [ANSSI-HYGIENE-8], Journalisation centralisée des logs d'authentification API [ISO27002-8.24]"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-CARTO-SI",
+        "ANSSI-HYGIENE-8",
+        "ISO27002-5.15",
+        "ISO27002-8.24"
+      ],
+      "risque_residuel": "Élevé (menace persistante jusqu'à migration complète de l'API Gateway sécurisée dans Cloud HDS)",
+      "valide_par": null
+    },
+    {
+      "id": "M135",
+      "actif": "Frontière Cloud_HDS ↔ API Gateway (hybride To-Be)",
+      "menace": "LINDDUN-L — Exposition contrôlée mais signature SBOM/Docker absente [E16] → fuite données santé via endpoints API non signés ou conteneurs compromis sans attestation d'intégrité.",
+      "categorie": "LINDDUN-L",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Pipeline CI/CD avec signature automatique des images Docker et génération SBOM intégré [LINDDUN-L], Scan continu de vulnérabilités sur conteneurs API non signés [EBIOS-RM-A4], Attestation d'intégrité des images avant déploiement CloudHDS [ISO27002-5.19]"
+      ],
+      "sources": [
+        "LINDDUN-L",
+        "ANSSI-CARTO-SI",
+        "EBIOS-RM-A4",
+        "ISO27002-5.19"
+      ],
+      "risque_residuel": "Élevé (fuites possibles via endpoints API non signés réduites mais signature intégration progressive)",
+      "valide_par": null
+    }
+  ]
+}

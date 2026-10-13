@@ -18,6 +18,8 @@
 | La séparation école / améliorations, par phase | `V2-ameliorations/V2-ameliorations.pdf` |
 | Les explications du projet et les réponses au jury | `V2-ameliorations/EXPLICATIONS-DU-PROJET.pdf` |
 | La soutenance V2 | `V2-ameliorations/Soutenance_E21_V2.pptx` + `PLAN-45MIN-V2.pdf` |
+| Les preuves réelles du projet d'étude SanteTech (livrables, traces, décisions, exports) | `V2-ameliorations/preuves-execution-SanteTech/` |
+| Contrôler chaque chiffre (source + commande) | `V2-ameliorations/FICHE-DE-CONTROLE.pdf` |
 | Les schémas | `V2-ameliorations/diagrammes/` (PNG, SVG, source Mermaid) |
 
 ## Repères Git

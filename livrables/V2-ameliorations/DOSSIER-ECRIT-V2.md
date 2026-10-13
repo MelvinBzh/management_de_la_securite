@@ -313,6 +313,9 @@ Chaque risque se retrouve de bout en bout : de la décision de l'analyste jusqu'
 | Propagation | `PROPAGATION.md` | Lignes réécrites après une décision, avant → après |
 | Mises à jour | `MISE-A-JOUR.md`, `mise-a-jour-journal.json` | Ce qui a été créé, révisé ou laissé, avant → après |
 
+Les pièces réelles de ces traces, pour le projet d'étude SanteTech, sont fournies dans `preuves-execution-SanteTech/` (annexe A) :
+journal brut de la chaîne (161 lignes de pilotage), 13 contrôles numérotés, décisions de l'analyste.
+
 ### 8.3 Le dossier d'analyse complet
 
 La page ③ exporte un dossier unique (HTML avec liens, PDF, ZIP) : sommaire, tous les livrables, une fiche par risque (actif,
@@ -473,7 +476,7 @@ Aucune donnée réelle n'est traitée : le système n'est donc pas présenté co
 |---|---|---|
 | 1 | Chaque risque cite-t-il un actif, une menace, un niveau, une source ? | Oui : colonnes obligatoires, contrôlées par le code |
 | 2 | Le choix du modèle de menaces est-il justifié ? | Oui : étape 2 et `02-methodes.md` ; choix des **modèles d'IA** mesuré (partie 4.4) |
-| 3 | Un humain a-t-il validé chaque risque ? | Le parcours existe et est validé ; sur les projets de test les risques sont « à valider » tant que l'analyste n'a pas décidé |
+| 3 | Un humain a-t-il validé chaque risque ? | **Pas encore sur les projets V2.** Le parcours de validation existe et est validé par l'analyste ; ShoPix (V1) : 14 sur 14 validés. SanteTech : 18 décisions enregistrées (questions, contradictions, étapes), 0 risque décidé sur 135. Nordval : 10 risques décidés sur 151. La validation de chaque risque du projet rendu est à faire par l'analyste |
 | 4 | Comparaison avec votre propre analyse ? | Oui, cas ShoPix (partie 11.1) ; **pas encore** sur Nordval (le corrigé est comparé par l'analyste) |
 | 5 | Test d'une consigne piégée ? | Oui (partie 10.3), avec la limite assumée |
 | 6 | Aucune donnée réelle envoyée à un service externe ? | Oui : données fictives et chaîne locale |
@@ -501,11 +504,28 @@ Aucune donnée réelle n'est traitée : le système n'est donc pas présenté co
 
 ## 15. Annexes
 
+### Annexe A — Preuves d'exécution (projet d'étude SanteTech)
+
+Le projet d'étude SanteTech est le plus complet des cas traités : trois documents, 39 actifs, 135 risques. Ses pièces réelles sont
+fournies dans `preuves-execution-SanteTech/`, sans retouche :
+
+| Pièce | Ce qu'elle montre |
+|---|---|
+| `livrables/` (étapes 1 à 7, registre, synthèse) | L'exemple d'exécution complet sur le cas |
+| `livrables/RAPPORT-CONTROLE.md` | 13 contrôles numérotés par version, avec les points signalés |
+| `traces/chaine-…log` | Le déroulé brut : lots, 12 doublons fusionnés par le code, étape 2 réussie à l'essai 3 sur le modèle de secours |
+| `livrables/validations.json` | 18 décisions de l'analyste : qui, quand, quoi, pourquoi |
+| `exports/dossier-complet.html` (+ PDF, ZIP) | La traçabilité document → preuve → risque → décision |
+
+Le contrôle de ces pièces est détaillé dans `FICHE-DE-CONTROLE.md` (chaque chiffre a sa source et sa commande).
+
 ### 15.1 Où trouver quoi
 
 | Besoin | Chemin |
 |---|---|
 | Livrables école, figés | `V1-ecole/` et tag `ecole-2026-09-24` |
+| Preuves d'exécution réelles | `preuves-execution-SanteTech/` |
+| Contrôle des chiffres | `FICHE-DE-CONTROLE.md` |
 | Liste des améliorations par phase | `V2-ameliorations.md` |
 | Explications et questions du jury | `EXPLICATIONS-DU-PROJET.md` |
 | Soutenance V2 | `Soutenance_E21_V2.pptx`, `PLAN-45MIN-V2.md` |

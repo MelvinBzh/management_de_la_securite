@@ -38,6 +38,23 @@ Quatre garanties, par ordre de solidité :
 | Vérification | `verification.py` | Gemma 4 : 100 % / 100 % (test facile) ; MiniCheck 96 % / 94 % |
 | Connu / partiel / inconnu | `couverture.py` | voir §6 |
 
+### 3 bis. Mesure v3 (2026-10-10, matin) — celle que citent le dossier écrit V2 et la soutenance V2
+
+Même corpus (Nordval, 22 documents ≈ 38,7 Ko, carte de 12 Go libre), après le durcissement de l'extraction (le tableau ci-dessus est la
+mesure v1, antérieure). Le rapport complet de cette mesure est conservé par l'analyste.
+
+| Mesure | Résultat v3 |
+|---|---|
+| Faits à extrait exact (le texte cité est dans le document) | **435 sur 447 (97 %)** |
+| Relations vérifiées | 372 sur 430 (86 %) |
+| Fusion d'alias | 609 noms ramenés à 309 entités |
+| Recherche hybride, 30 questions | rappel@1 76 % · @3 83 % · @5 93 % · @8 **96 %** |
+| Contradictions | 99 signalements en 37 minutes, précision estimée 60 à 70 % |
+| Couverture des besoins d'information | 14 connus · 13 partiels · 4 inconnus (24 à valider, dont 13 contestés) |
+| Extraction | ≈ 14 minutes |
+
+Limites de ces mesures : un seul corpus, une seule exécution, précision des contradictions estimée sur un échantillon relu.
+
 ## 4. Plan de branchement (par étapes, chacune mesurée et validée avant la suivante)
 
 | Étape | Livrable | Critère de réussite |
@@ -161,6 +178,18 @@ proposé mais décoché. Résultat : 13 minutes au lieu de 32, 3 actifs créés 
 **Limites.** Les révisions dépendent du modèle (contrôlées par le code, pas parfaites) ; après plusieurs mises à jour de petites
 dérives sont possibles, « Tout refaire » reste la sortie de secours ; la détection d'un actif nouveau repose sur les entités de
 l'index (une entité mal typée peut être proposée ou manquer).
+
+### 4 sexies. Runs complets de référence (chiffres cités par le dossier écrit V2)
+
+| Run | Mesure |
+|---|---|
+| Nordval, 2026-10-10 (deux reprises par étape) | Indexation ≈ 76 min, chaîne ≈ 2 h ; 8 points signalés restaient 8 d'une version à l'autre : une seule reprise a été conservée |
+| Nordval, 2026-10-11 (production par lots) | Indexation 4 214 s (≈ 70 min) ; 38 actifs ; références et CVE inventées retirées par le code : 15 (étape 3), 13 (étape 5), 1 (étape 7) ; étapes 6 et 7 : 2 min au lieu de 30 par un agent |
+| Nordval, état au 2026-10-12 | 22 documents, **38 actifs, 151 risques** (Critique 72 = 48 %, Élevé 37, Moyen 18, Faible 24) ; 411 points proposés à la validation humaine (151 risques, 6 étapes, 219 lignes, 15 contradictions, 20 questions) |
+| SanteTech, état au 2026-10-12 | 3 documents, **39 actifs, 135 risques** (Critique 75 = 56 %, Élevé 35, Moyen 13, Faible 12) ; traitement : 123 réduire, 7 éviter, 4 accepter, 1 transférer |
+
+Les pièces du run SanteTech (livrables, journal, rapport de contrôle, décisions, exports) sont dans
+`livrables/V2-ameliorations/preuves-execution-SanteTech/`.
 
 ## 5. Règles de conception à ne pas casser
 
