@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>rendu des schémas</title>
+<pre id="res">en cours…</pre>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({
+  startOnLoad: false, securityLevel: 'strict', theme: 'base', htmlLabels: false,
+  flowchart: {htmlLabels: false, curve: 'basis', padding: 14, nodeSpacing: 38, rankSpacing: 46},
+  themeVariables: {
+    fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '15px',
+    primaryColor: '#DDE6F4', primaryBorderColor: '#1F3864', primaryTextColor: '#1F2A44',
+    lineColor: '#2E74B5', secondaryColor: '#EAF1FB', tertiaryColor: '#F7F9FC', clusterBkg: '#F2F6FC', clusterBorder: '#2E74B5'
+  }
+});
+const noms = (new URLSearchParams(location.search).get('n') || 'd1-architecture,d2-chaine,d3-tracabilite,d4-mise-a-jour').split(',');
+const lignes = [];
+for (const nom of noms) {
+  try {
+    const code = await (await fetch(`diag/${nom}.mmd`)).text();
+    const {svg} = await mermaid.render('g_' + nom.replace(/\W/g, '_'), code);
+    // PNG : le SVG sans foreignObject (htmlLabels: false) se dessine sans « tainter » le canvas
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+    const vb = (doc.getAttribute('viewBox') || '0 0 1000 500').split(/\s+/).map(Number);
+    const echelle = 2.5, w = Math.ceil(vb[2] * echelle), h = Math.ceil(vb[3] * echelle);
+    doc.setAttribute('width', w); doc.setAttribute('height', h);
+    const xml = new XMLSerializer().serializeToString(doc);
+    const img = new Image();
+    await new Promise((ok, ko) => { img.onload = ok; img.onerror = () => ko(new Error('image')); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); });
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+    const png = cv.toDataURL('image/png').split(',')[1];
+    await fetch(`/save?name=${nom}.svg`, {method: 'POST', body: svg});
+    await fetch(`/save?name=${nom}.png&b64=1`, {method: 'POST', body: png});
+    lignes.push(`OK ${nom} ${w}x${h}`);
+  } catch (e) { lignes.push(`ERREUR ${nom} : ` + String(e.message || e).split('\n')[0]); }
+}
+document.getElementById('res').textContent = lignes.join('\n');
+document.title = 'termine';
+</script>
