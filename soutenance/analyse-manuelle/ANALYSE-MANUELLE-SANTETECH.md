@@ -125,5 +125,3 @@ Registre des agents : **135 risques** (75 Critique, 35 Élevé, 13 Moyen, 12 Fai
   « non couvert » indique un écart entre deux listes, pas forcément un oubli grave.
 - Le rapprochement (quel risque des agents correspond à quel risque de référence) a été fait par lecture et mots-clés puis jugement,
   sans second relecteur : les identifiants donnés sont les principaux rapprochements.
-- La référence a été rédigée avec un assistant (Claude Sonnet 5.5) qui n'est pas celui des agents (modèles qwen), mais elle n'est
-  pas indépendante du reste du travail : elle part des mêmes pièces du cas et d'une liste de risques classiques fournie par l'analyste.
