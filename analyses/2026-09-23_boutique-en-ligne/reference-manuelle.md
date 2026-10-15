@@ -1,16 +1,21 @@
-# Analyse de risques manuelle — cas ShoPix (référence)
+# Brouillon d'analyse de référence — cas ShoPix (rédigé avec l'assistant IA, NON retenu comme analyse manuelle)
+
+> **Mise au point du 15/10/2026.** Ce document a été rédigé le 04/10/2026 **avec l'assistant IA** (autorisation de l'analyste, issue #17,
+> voir `soutenance/MODIFICATIONS.md` § 3). Il ne constitue **pas** l'analyse de risques manuelle de référence du groupe. Celle-ci a été
+> refaite à la main par le groupe le 15/10/2026 : voir `soutenance/analyse-manuelle/ANALYSE-MANUELLE-SANTETECH.md` et le chapitre 5 du dossier écrit.
+> Ce brouillon est conservé pour la traçabilité.
 
 | Champ | Valeur |
 |---|---|
 | Cas | Boutique en ligne ShoPix (produits imprimés, ~60 commandes/semaine, pic ×3 en nov–déc) |
 | Chantier | #17 — consolidation soutenance |
 | Date | 04/10/2026 |
-| Analyste | Analyste humain (exercice de référence) |
+| Analyste | Brouillon rédigé avec l'assistant IA, validation humaine à l'époque |
 | Méthode | STRIDE pour l'identification, DREAD pour la priorisation, matrice probabilité × impact en appui |
 | Périmètre | Site, back-office, base, fichiers, sauvegardes, secrets, comptes. Hébergeur et prestataires sont des dépendances, pas des composants maîtrisables |
-| Statut | travail manuscrit, non relu par un tiers |
+| Statut | brouillon assisté par IA, non retenu comme analyse manuelle (15/10/2026) |
 
-Note de méthode : la présente analyse a été rédigée de façon autonome sur l'énoncé. Les livrables de la chaîne automatisée (`03-menaces.md`, `04-evaluation.md`, `05-traitement.md`) ont été consultés ensuite, uniquement pour la comparaison du § 7.
+Note de méthode (telle qu'écrite le 04/10) : l'analyse a été rédigée sur l'énoncé. Les livrables de la chaîne automatisée (`03-menaces.md`, `04-evaluation.md`, `05-traitement.md`) ont été consultés ensuite, uniquement pour la comparaison du § 7.
 
 ## 1. Actifs clés
 

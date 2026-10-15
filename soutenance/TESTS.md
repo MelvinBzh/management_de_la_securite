@@ -47,7 +47,7 @@
 
 | Test | Résultat | Trace |
 |---|---|---|
-| Analyse manuelle de référence (jalon 1, `06-plan-de-test.md` § 1) | ✅ **Réalisée le 04/10** — `analyses/2026-09-23_boutique-en-ligne/reference-manuelle.md` : 12 menaces humaines, comparaison IA vs manuel (écarts chiffrés), le registre agents (14 risques) reste cohérent avec les incidents cités dans `etude-de-cas.md` | issue #17 (Done) |
+| Analyse manuelle de référence (jalon 1, `06-plan-de-test.md` § 1) | ⚠️ **Brouillon du 04/10 rédigé avec l'assistant IA** (`analyses/2026-09-23_boutique-en-ligne/reference-manuelle.md`, non retenu comme analyse manuelle) ; ✅ **analyse manuelle refaite par le groupe le 15/10/2026** : `soutenance/analyse-manuelle/ANALYSE-MANUELLE-SANTETECH.md` | issue #17 |
 | `npm audit` complet (32 deps, agent `security`) | 0 vulnérabilité | `AUDIT-SYSTEME.md` § 2.1 |
 | Contrôle de chaque étape de la chaîne (case `e21-controle`) | WARN 0 / REJET 0 bloquant → 7/7 étapes poussées | `analyses/2026-09-23_boutique-en-ligne/RAPPORT-CONTROLE.md` |
 | Décision humaine effective (étape 6) | R-13 **retenu** (rejet initial du 23/09 = essai du circuit, reconsidéré le 24/09), R-14 **modifié** → `valide_par` « Melvin RAIMBAULT · 2026-09-24 » | `06-validation.md` |

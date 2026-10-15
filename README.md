@@ -1,8 +1,99 @@
-# Management de la Sécurité
+# Management de la Sécurité — Projet E21 « Des agents IA pour analyser les risques »
 
-Projet E21 « Des agents IA pour analyser les risques » : système multi-agents opencode (orchestrateur + chaîne d'analyse) qui assiste un analyste de risques, avec suivi via GitHub Projects.
+M2 Cybersécurité — Sup de Vinci Rennes — module « Management de la sécurité ».
+Système multi-agents qui assiste un analyste de risques : l'IA **propose**, le programme **vérifie**, l'humain **décide**.
 
-## Structure
+## Équipe
+
+- **Melvin RAIMBAULT**
+- **Lucas HUARD**
+- **Jérémy LESSA**
+- **David AMARO MONTEIRO**
+
+Le **rendu école** est un travail de groupe (jusqu'au 24/09/2026). Les **améliorations V2** (depuis le 04/10/2026) sont de
+Melvin RAIMBAULT, faites hors cours à partir du projet de groupe.
+
+## École et V2 : où est quoi
+
+| | Rendu école (groupe) | Améliorations V2 (hors cours) |
+|---|---|---|
+| Période | 23 et 24 septembre 2026 | 4 au 15 octobre 2026 |
+| État figé | tag Git `ecole-2026-09-24` (commit `b7f3155`) | branche `main` |
+| Cas traité | ShoPix, boutique en ligne : 14 risques validés | SanteTech (cas d'étude du cours) ; Nordval Logistique (passage à l'échelle) |
+| Nature | Agents opencode pilotés par consignes | Application : ingestion, site, pilote, connaissance, validation, exports |
+| Livrables | `livrables/V1-ecole/` | `livrables/V2-ameliorations/` |
+
+Comparaison : https://github.com/MelvinBzh/management_de_la_securite/compare/ecole-2026-09-24...main
+
+## Lancement rapide
+
+**Avec Docker** (tout est embarqué, y compris opencode) :
+
+```bash
+git clone https://github.com/MelvinBzh/management_de_la_securite.git
+cd management_de_la_securite
+docker compose up -d --build        # puis http://localhost:8501
+```
+
+**Sans Docker** (Ubuntu / Debian) : voir « Déploiement » plus bas, en bref :
+
+```bash
+pip install --break-system-packages -r requirements.txt
+make studio-init
+make web                            # http://localhost:8501
+```
+
+**Modèles locaux** (Ollama, carte graphique 12 Go) :
+
+```bash
+ollama pull qwen3.5:9b && ollama pull qwen3:8b && ollama pull gemma4:12b && ollama pull nomic-embed-text
+```
+
+puis choisir le profil « Ollama » dans la page « Réglages modèles » du site.
+
+**Parcours** : ① déposer des documents → ② lancer l'analyse → ③ lire les résultats et exporter → ④ valider les risques.
+En ligne de commande, la chaîne se lance avec `python -m web.chaine <cas> <dossier-analyse> auto`
+(options : `--reprendre`, `--synthese`, `--maj` pour la mise à jour incrémentale).
+
+## Exemples d'exécution
+
+| Cas | Où |
+|---|---|
+| ShoPix (école) | `analyses/2026-09-23_boutique-en-ligne/` : étapes 00 à 06, registre de 14 risques validés, synthèse |
+| SanteTech (V2) | `livrables/V2-ameliorations/preuves-execution-SanteTech/` : livrables, journal, contrôles, décisions, dossier complet exporté |
+
+## Traces des échanges entre agents
+
+| Trace | Où |
+|---|---|
+| Rapport de contrôle à chaque étape (ShoPix) | `analyses/2026-09-23_boutique-en-ligne/RAPPORT-CONTROLE.md` |
+| Journal brut de la chaîne et 13 contrôles numérotés (SanteTech) | `livrables/V2-ameliorations/preuves-execution-SanteTech/traces/` et `livrables/RAPPORT-CONTROLE.md` |
+| Test d'injection de prompt | `soutenance/tests/injection/` (`rapport.md`, `resultats/`) |
+
+## Tests
+
+```bash
+python3 soutenance/tests/verification.py     # suite de référence (T-01 à T-20)
+make tests                                   # tous les tests hermétiques (35 fichiers)
+```
+
+## Outils d'IA utilisés
+
+| Outil | Rôle |
+|---|---|
+| **Claude Sonnet 5.5** (Anthropic, via Claude Code) | Mise en place de la solution : code, tests, documentation, livrables |
+| **opencode « Big Pickle »** (`opencode/big-pickle`) | Mise en place de la solution et exécution des agents de la V1 (modèle hébergé, gratuit) |
+| **qwen3.5:9b** (Ollama, local) | Agents : rédaction des livrables d'analyse, extraction des faits des documents |
+| **qwen3:8b** (Ollama, local) | Modèle de secours des agents |
+| **gemma4:12b** (Ollama, local) | Contrôle : juge d'une autre famille que le rédacteur |
+| **nomic-embed-text** (Ollama, local) | Indexation des documents (vecteurs, recherche par le sens) |
+| **bespoke-minicheck** (Ollama, local) | Second avis de vérification des faits |
+
+Les données traitées sont **fictives** ; la chaîne V2 est entièrement locale (aucune donnée n'est envoyée à un service externe).
+
+---
+
+## Structure du dépôt
 
 - `.opencode/agents` — agents (orchestrateur E21, chaîne `e21-*`, github-manager, research, security)
 - `.opencode/skills/*/SKILL.md` — skills (analyse-risques, frameworks STRIDE/LINDDUN/EBIOS-RM…, garde-fous-ia, registre, schémas)
