@@ -30,8 +30,8 @@ La V2 répond à presque chacune d'elles.
 | Modèle cloud uniquement, local « en roadmap » | **Fait** : chaîne 100 % locale avec Ollama sur une carte graphique 12 Go, un modèle par rôle | `web/chaine.py`, `web/reglages.py` |
 | EBIOS RM seulement « documenté » | **Fait** : EBIOS RM (ateliers A1–A5), PASTA (7 étapes), LINDDUN (7 fiches), validateur STRIDE | `tools/methodes/` (#28) |
 | Pas de volet détection / inventaire | **Fait** (local, opt-in) : inventaire anonymisé, 12 règles MITRE ATT&CK | `tools/reseau/` (#29) |
-| Analyse manuelle de référence à produire (#17) | **Fait** le 04/10 : 12 menaces manuelles comparées à la chaîne, 9 retrouvées | `analyses/…/reference-manuelle.md` |
-| Test d'injection réel non exécuté (T-11) | **Fait** le 04/10 : exécution archivée, 11 contrôles, aucune consigne exécutée *(sans appel du modèle en direct : voir limites)* | `soutenance/tests/injection/resultats/` |
+| Analyse manuelle de référence à produire (#17) | **Fait le 15/10** sur SanteTech : 30 risques classiques comparés aux 135 des agents (16 couverts, 7 partiels, 7 non couverts), **à relire et valider par l'analyste**. Le brouillon ShoPix du 04/10 (12 menaces, 9 retrouvées) a été rédigé avec l'assistant et n'est pas retenu comme analyse manuelle | `soutenance/analyse-manuelle/ANALYSE-MANUELLE-SANTETECH.xlsx` ; `analyses/…/reference-manuelle.md` |
+| Test d'injection réel non exécuté (T-11) | **Fait** le 04/10 : exécution archivée, 11 contrôles, aucune consigne exécutée (sans appel du modèle) ; **rejoué le 15/10 avec le modèle en direct** sur la chaîne complète : 116 risques, aucune consigne exécutée | `soutenance/tests/injection/resultats/` ; `soutenance/tests/injection/resultats-live-2026-10-15/` |
 | Pas de CI | **Fait** : suite de référence rejouée sur chaque push/PR | `.github/workflows/suite.yml` |
 | Pas de supervision continue | **Partiel** : la mise à jour incrémentale suit les changements de documents ; pas de supervision temps réel | `web/miseajour.py` |
 | Pas de scan réseau actif | **Inchangé volontairement** : jamais de scan externe ni automatique | — |
@@ -51,7 +51,7 @@ La semaine d'amélioration planifiée (issues #25 à #31) est exécutée le 4 oc
 | 04/10 | **Interface web** locale + **exports** PDF/HTML/MD/JSON | #26, #27 · `bc0d82c` |
 | 04/10 | **Méthodes opérationnelles** : EBIOS RM, PASTA, LINDDUN, STRIDE | #28 · `54bfaf8` |
 | 04/10 | **Détection amont** + inventaire local anonymisé (12 règles ATT&CK) | #29 · `91f10f8` |
-| 04/10 | **Consolidation** : test d'injection réel archivé (T-11), analyse manuelle de référence, discours honnête, arbitrage budgétaire | #30 · `62d4576` |
+| 04/10 | **Consolidation** : test d'injection réel archivé (T-11), brouillon d'analyse de référence ShoPix (rédigé avec l'assistant), discours honnête, arbitrage budgétaire | #30 · `62d4576` |
 | 04/10 | **CI** GitHub Actions, revue de cohérence, clôture de la semaine (19 tests PASS) | `5abe860`, `6b6082d`, `411e194` |
 | 04/10 | Lancement de la chaîne **depuis le site** (commande fixe, aucune donnée utilisateur dans la commande), test « aucune donnée privée dans Git » (T-19) | `050d3a4` |
 | 04/10 | **Studio E21** : base SQLite source de vérité des agents et skills, édition web, état Ollama (T-20) | `4e73fcc` |

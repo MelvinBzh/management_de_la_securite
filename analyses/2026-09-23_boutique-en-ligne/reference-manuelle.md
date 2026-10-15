@@ -1,8 +1,8 @@
 # Brouillon d'analyse de référence — cas ShoPix (rédigé avec l'assistant IA, NON retenu comme analyse manuelle)
 
 > **Mise au point du 15/10/2026.** Ce document a été rédigé le 04/10/2026 **avec l'assistant IA** (autorisation de l'analyste, issue #17,
-> voir `soutenance/MODIFICATIONS.md` § 3). Il ne constitue **pas** l'analyse de risques manuelle de référence du groupe. Celle-ci a été
-> refaite à la main par le groupe le 15/10/2026 : voir `soutenance/analyse-manuelle/ANALYSE-MANUELLE-SANTETECH.md` et le chapitre 5 du dossier écrit.
+> voir `soutenance/MODIFICATIONS.md` § 3). Il ne constitue **pas** l'analyse de risques de référence retenue. L'analyse de référence
+> retenue a été établie le 15/10/2026 sur SanteTech : voir `soutenance/analyse-manuelle/ANALYSE-MANUELLE-SANTETECH.md` et le chapitre 5 du dossier écrit.
 > Ce brouillon est conservé pour la traçabilité.
 
 | Champ | Valeur |

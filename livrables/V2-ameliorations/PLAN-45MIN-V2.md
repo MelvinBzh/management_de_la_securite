@@ -65,7 +65,7 @@
 | # | Slide | Message | Min |
 |---|---|---|---|
 | 24 | **Résultats** | Nordval 151 risques, SanteTech 135 ; niveaux à relire | 2 |
-| 25 | Injection de prompt (retouchée) | T-11 exécuté, limite : pas de modèle en direct | 2 |
+| 25 | Injection de prompt (retouchée) | T-11 (04/10) puis chaîne complète avec le modèle en direct (15/10) : aucune consigne exécutée ; limite : un seul essai | 2 |
 | 26 | **Ce qui ne marche pas** | Six limites avec leur chiffre | 2 |
 | 27 | **Sécurité du système** | Ce qui est traité, ce qui ne l'est pas | 2 |
 
@@ -97,13 +97,13 @@
 | Le dossier complet exporté en HTML, sur le poste | Plan B sans serveur |
 | Un document « à ajouter » prêt, et le résultat de sa mise à jour déjà calculé | Montrer `MISE-A-JOUR.md` sans attendre 13 minutes |
 | La carte graphique libre | Évite une lenteur imprévue |
-| Le document piégé et la commande de test d'injection (si on tente la démo en direct) | Combler la limite de la slide 25 |
+| Le rapport du test en direct du 15/10 (`soutenance/tests/injection/resultats-live-2026-10-15/RAPPORT.md`) | Répondre aux questions sur la slide 25 sans relancer 1 h 53 de calcul |
 | Les chiffres de la partie 9 de `EXPLICATIONS-DU-PROJET.md` relus | Citer sans hésiter |
 
 ## 5. Pièges à éviter à l'oral
 
 - Ne pas dire « l'IA analyse les risques » : dire « le système **prépare, vérifie et trace**, l'analyste **décide** ».
-- Ne pas affirmer que le test d'injection a été fait avec le modèle en direct : il a été fait sur l'ingestion et la commande, **sans appel du modèle**.
+- Ne pas généraliser le test d'injection : le 15/10 la chaîne complète a été jouée **une fois**, avec le modèle en direct, sur un cas (aucune consigne exécutée) ; le contrôle porte sur les sorties.
 - Ne pas présenter les niveaux de risque comme fiables : ils sont **à relire**.
 - Ne pas laisser croire que le site est sécurisé.
 - Ne pas attribuer à la V2 ce qui est de la V1, ni l'inverse : la frontière est le 24 septembre.

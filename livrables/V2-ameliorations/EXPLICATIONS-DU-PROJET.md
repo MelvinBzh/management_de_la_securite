@@ -81,23 +81,8 @@ mise à jour en 13 minutes sans toucher à l'existant ; export du dossier comple
 
 **Ne marche pas encore** : trop de risques « Critique » (48 à 56 %) ; quelques doublons d'actifs ; des citations qui n'existent
 pas (détectées, pas toutes corrigées) ; validation humaine lourde (plusieurs centaines de points sur un gros cas) ; **le site
-n'est pas sécurisé** (pas d'authentification) ; pas de test d'injection archivé avec le modèle en direct.
+n'est pas sécurisé** (pas d'authentification) ; un seul essai d'injection en direct avec le modèle (15/10), à répéter sur d'autres cas.
 
-## 7. Démonstration conseillée (8 à 10 minutes)
-
-Principe : **ne rien lancer en direct qui dure plus de quelques secondes**. La carte graphique est lente et peut être occupée.
-Préparer un projet déjà analysé.
-
-| Min | Montrer | Message |
-|---|---|---|
-| 0–1 | Page ①, documents déjà déposés | Tout format, tout est « donnée » |
-| 1–3 | Page « Connaissances » : un fait, son extrait exact, une contradiction | La preuve existe, le désaccord est visible |
-| 3–5 | Page ③ : le registre, ouvrir une fiche de risque, cliquer sur une preuve | Chaîne document → preuve → risque |
-| 5–7 | Page ④ : décider un risque, une contradiction, une question | L'humain décide, avec le contexte |
-| 7–9 | Page ② : carte « Mise à jour proposée » sur un document ajouté ; montrer `MISE-A-JOUR.md` | Rien n'est cassé : 3 créations, le reste identique |
-| 9–10 | Export du dossier complet (déjà généré) | Traçabilité livrée |
-
-**Plan B si le site ne répond pas** : le dossier complet exporté (HTML) s'ouvre sans serveur, avec tous les liens.
 
 ## 8. Questions probables du jury
 
@@ -112,13 +97,13 @@ Préparer un projet déjà analysé.
 
 ### Sur l'IA
 
-| Question | Réponse |
-|---|---|
-| Votre IA hallucine-t-elle ? | Oui, comme tout modèle. Mesures : preuve citée et vérifiée mot pour mot (97 % de faits exacts), sources et CVE inventées **retirées par le code**, juge d'une autre famille, validation humaine. Reste : des citations inexistantes que le contrôle **signale** sans toutes les corriger. |
-| Pourquoi un petit modèle local plutôt qu'un grand modèle en ligne ? | Confidentialité (aucune donnée ne sort), coût nul, reproductibilité. Prix à payer : qualité de jugement moyenne et lenteur ; c'est pour cela que le code vérifie. |
-| Pourquoi deux modèles différents ? | Un modèle a tendance à approuver ses propres erreurs. Le juge est d'une autre famille. |
-| Qu'est-ce qu'un « dossier de preuves » ? | Au lieu de donner tous les documents à l'agent, on lui donne les passages et faits pertinents pour son étape, chacun numéroté. Il cite ces numéros. |
-| Et si un document contient une consigne piégée ? | Tout document est une **donnée** encadrée par un marqueur ; la phrase piégée est conservée telle quelle, signalée, et n'entre dans aucune consigne. Testé sur une vraie fixture (11 contrôles). **Limite** : pas encore archivé avec le modèle en direct. |
+| Question                                                            | Réponse                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Votre IA hallucine-t-elle ?                                         | Oui, comme tout modèle. Mesures : preuve citée et vérifiée mot pour mot (97 % de faits exacts), sources et CVE inventées **retirées par le code**, juge d'une autre famille, validation humaine. Reste : des citations inexistantes que le contrôle **signale** sans toutes les corriger. |
+| Pourquoi un petit modèle local plutôt qu'un grand modèle en ligne ? | Confidentialité (aucune donnée ne sort), coût nul, reproductibilité. Prix à payer : qualité de jugement moyenne et lenteur ; c'est pour cela que le code vérifie.                                                                                                                         |
+| Pourquoi deux modèles différents ?                                  | Un modèle a tendance à approuver ses propres erreurs. Le juge est d'une autre famille.                                                                                                                                                                                                    |
+| Qu'est-ce qu'un « dossier de preuves » ?                            | Au lieu de donner tous les documents à l'agent, on lui donne les passages et faits pertinents pour son étape, chacun numéroté. Il cite ces numéros.                                                                                                                                       |
+| Et si un document contient une consigne piégée ?                    | Tout document est une **donnée** encadrée par un marqueur ; la phrase piégée est conservée telle quelle, signalée, et n'entre dans aucune consigne. Testé sur une vraie fixture (11 contrôles), puis le 15/10 avec le modèle en direct sur la chaîne complète : aucune consigne exécutée (116 risques, niveaux répartis, tous sourcés). **Limite** : un seul essai.                              |
 
 ### Sur le prototype
 
@@ -136,8 +121,8 @@ Préparer un projet déjà analysé.
 |---|---|
 | Le système est-il sécurisé ? | **Non, pas encore.** Pas d'authentification, SSH root par mot de passe, Ollama exposé au réseau local, conteneur en root. Reporté volontairement ; aucune donnée réelle n'est traitée. Ce serait la première chose à faire avant toute mise en service. |
 | Peut-on lui faire confiance pour décider ? | Non, et ce n'est pas le but : il **prépare, vérifie et trace** ; l'humain décide (`valide_par`). |
-| Qu'est-ce qui reste à faire ? | Fusion des doublons d'actifs, retrait par le code des citations inexistantes, calibrage des niveaux, durcissement du site, test d'injection en direct. |
-| Avez-vous comparé avec une analyse humaine ? | Oui sur ShoPix : la chaîne retrouve 9 de mes 12 menaces, mieux sourcées, mais elle classe moins bien. Sur Nordval, la comparaison avec le corrigé est faite par l'analyste. |
+| Qu'est-ce qui reste à faire ? | Fusion des doublons d'actifs, retrait par le code des citations inexistantes, calibrage des niveaux, durcissement du site, répéter le test d'injection en direct sur d'autres cas. |
+| Avez-vous comparé avec une analyse humaine ? | Oui sur SanteTech, avec une réserve : l'analyse de référence (30 risques classiques) a été établie avec l'assistant IA et **reste à relire et valider par l'analyste**. Les agents en couvrent 16 sur 30, 7 partiellement, 7 pas du tout (sinistres, continuité, organisation) et classent plus haut. Sur ShoPix, un brouillon rédigé avec l'assistant (12 menaces, 9 retrouvées) n'est pas retenu comme analyse manuelle. Sur Nordval, la comparaison avec le corrigé est faite par l'analyste. |
 
 ## 9. Les chiffres à connaître par cœur
 
@@ -150,5 +135,5 @@ Préparer un projet déjà analysé.
 | **13 min** | Ajouter un document à une analyse existante |
 | **2 min** au lieu de 30 | Registre et synthèse établis par le code |
 | **48 à 56 %** | Part de risques « Critique » (trop élevée) |
-| **9 sur 12** | Menaces de l'analyse manuelle retrouvées par la chaîne (ShoPix) |
+| **16 / 7 / 7** | Sur 30 risques de référence (SanteTech) : couverts / partiels / non couverts par les agents |
 | **640 → 22 500** | Lignes de Python entre la V1 et la V2 |

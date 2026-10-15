@@ -35,8 +35,6 @@ Le dépôt complet au tag (sujet PDF compris) est dans `depot-complet-ecole-2026
    relèvent donc de la V2.
 3. **Le modèle utilisé en V1** est un service cloud gratuit (`opencode/big-pickle`) avec des données fictives ; le passage en
    local était une perspective. La V2 l'a réalisé.
-4. **Équipe.** Travail de groupe de 4 : Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro. Le dépôt ne montre que
-   deux identités (`MelvinBzh` pour l'essentiel, un commit de `lucash` : référentiels ANSSI rattachés aux agents) : la répartition
-   détaillée des tâches entre les membres est à donner par l'équipe.
+4. **Équipe.** Travail de groupe de 4 : Melvin Raimbault, Lucas Huard, Jérémy Lessa, David Amaro Monteiro.
 5. **Modification du PPT.** Dans `3-soutenance/Soutenance_E21_Agents_IA.pptx`, seule la slide de titre diffère du fichier du tag :
    les noms des quatre membres y ont été ajoutés (13/10/2026).

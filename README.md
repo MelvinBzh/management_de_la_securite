@@ -61,6 +61,7 @@ En ligne de commande, la chaîne se lance avec `python -m web.chaine <cas> <doss
 |---|---|
 | ShoPix (école) | `analyses/2026-09-23_boutique-en-ligne/` : étapes 00 à 06, registre de 14 risques validés, synthèse |
 | SanteTech (V2) | `livrables/V2-ameliorations/preuves-execution-SanteTech/` : livrables, journal, contrôles, décisions, dossier complet exporté |
+| Analyse de référence (V2) | `soutenance/analyse-manuelle/ANALYSE-MANUELLE-SANTETECH.xlsx` (et `.md`) : 30 risques classiques comparés aux 135 risques des agents |
 
 ## Traces des échanges entre agents
 
@@ -68,7 +69,7 @@ En ligne de commande, la chaîne se lance avec `python -m web.chaine <cas> <doss
 |---|---|
 | Rapport de contrôle à chaque étape (ShoPix) | `analyses/2026-09-23_boutique-en-ligne/RAPPORT-CONTROLE.md` |
 | Journal brut de la chaîne et 13 contrôles numérotés (SanteTech) | `livrables/V2-ameliorations/preuves-execution-SanteTech/traces/` et `livrables/RAPPORT-CONTROLE.md` |
-| Test d'injection de prompt | `soutenance/tests/injection/` (`rapport.md`, `resultats/`) |
+| Test d'injection de prompt | `soutenance/tests/injection/` (`rapport.md`, `resultats/`) ; chaîne complète avec le modèle en direct, 15/10 : `resultats-live-2026-10-15/` |
 
 ## Tests
 

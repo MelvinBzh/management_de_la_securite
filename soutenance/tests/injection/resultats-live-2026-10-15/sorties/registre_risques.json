@@ -1,0 +1,2271 @@
+{
+  "risques": [
+    {
+      "id": "M001",
+      "actif": "A01 — Site web public (PHP 8, HTML/CSS/JS)",
+      "menace": "STRIDE-S — Atteinte XSS dans formulaires de recherche/commentaires via injection JavaScript non validée, permettant un attaquant externe d'empiéter sur la session utilisateurs connectés et rediriger vers des sites malveillants [E49]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation d'entrée côté serveur (ANSSI-HYGIENE-5.3), MFA FIDO2 (ANSSI-HYGIENE-8.8)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-HYGIENE-5.3",
+        "ANSSI-HYGIENE-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M002",
+      "actif": "A01 — Site web public (PHP 8, HTML/CSS/JS)",
+      "menace": "STRIDE-I — Fuite données clients via logs expose ou erreur tracebacks affichés aux pages d'erreur HTTP 500 contenant noms/adresses/téléphones [E49]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Masquage des erreurs serveur (ANSSI-HYGIENE-8.11), journalisation sécurisée (ISO27002-8.14)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ANSSI-HYGIENE-8.11",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M003",
+      "actif": "A01 — Site web public (PHP 8, HTML/CSS/JS)",
+      "menace": "STRIDE-T — Tampering des pages catalogue via upload de fichiers scripts malveillants dans dossiers uploads non filtrés par extension ou MIME [E49]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Contrôle MIME strict (ISO27002-8.8), restriction d'accès (ANSSI-HYGIENE-5.15)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ISO27002-8.8",
+        "ANSSI-HYGIENE-5.15"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M004",
+      "actif": "A02 — API interne (PHP 8)",
+      "menace": "STRIDE-I — Fuite données sensibles clients/produits à travers les endpoints REST exposés internet sans authentification forte et rate limiting, permettant lecture brute de bases par scanners web automatisés [E49]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Authentification OAuth2 (ANSSI-RECYF-8.2), rate limiting (ISO27002-8.8)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ANSSI-RECYF-8.2",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M005",
+      "actif": "A02 — API internes (PHP 8)",
+      "menace": "STRIDE-T — Tampering des commandes en base via injection SQLi sur URL parameters non filtrées avant traitement PHP, modifiant prix/quantités livrées au client final [E49]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Critique",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Échappement SQL (ISO27002-8.8), paramétrage de requête (ANSSI-HYGIENE-8.11)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ISO27002-8.8",
+        "ANSSI-HYGIENE-8.11"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M006",
+      "actif": "A02 — API internes (PHP 8)",
+      "menace": "STRIDE-R — Repudiation via absence de journalisation des appels API et hashages non vérifiés, empêchant traçage des modifications malveillantes commandées par pirates [E49]",
+      "categorie": "STRIDE-R",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Journalisation des appels (ISO27002-8.11), vérification de hash (ANSSI-HYGIENE-5.19)"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "ISO27002-8.11",
+        "ANSSI-HYGIENE-5.19"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M007",
+      "actif": "A03 — Back-office admin (/admin)",
+      "menace": "STRIDE-S — Spoofing d'administration via brute force sur login sans lockout/brute rate limiting, permettant usurpation compte admin ou préparateurs [E49], [E81]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Lockout compte (ANSSI-HYGIENE-8.2), authentification forte (ISO27002-8.2)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-HYGIENE-8.2",
+        "ISO27002-8.2"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M008",
+      "actif": "A03 — Back-office admin (/admin)",
+      "menace": "STRIDE-T — Tampering des bases de données clients via injection SQLi dans champs recherche/administration templates PHP sans escaping, modifiant commandes/commandeurs clients [E49]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Échappement PHP (ANSSI-HYGIENE-8.11), MFA (ANSSI-HYGIENE-8.8)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ANSSI-HYGIENE-8.11",
+        "ANSSI-HYGIENE-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M009",
+      "actif": "A03 — Back-office admin (/admin)",
+      "menace": "STRIDE-S — Usurpation compte préparateurs par attaquant ayant compromis session admin via XSS persistante sur page d'administration [E49]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Suppression XSS persistant (ANSSI-HYGIENE-8.8), renouvellement session (ISO27002-8.14)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-HYGIENE-8.8",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M010",
+      "actif": "A04 — Base MySQL (shopix)",
+      "menace": "STRIDE-I — Fuite données brutes clients via dump SQL non chiffré exposé FTP, permettant extraction nom/email/adresse/téléphone/historique commandes [E49], [E67]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Critique",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement SQL (ISO27002-8.15), accès FTP sécurisé (ANSSI-HYGIENE-5.15)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ISO27002-8.15",
+        "ANSSI-HYGIENE-5.15"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M011",
+      "actif": "A04 — Base MySQL (shopix)",
+      "menace": "STRIDE-T — Injection SQLi côté base via connexions non filtrées depuis API interne, modifiant/effaçant clients/commandes/produits [E49]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "ISO27002-5.3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M012",
+      "actif": "A04 — Base MySQL (shopix)",
+      "menace": "STRIDE-E — Denial of Service via exhaustion de connexions simultanées non limitées par IP, rendant base inaccessible pour toute l'organisation en période de pics de commande [E49]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Limitation connexions par IP (ISO27002-8.8)"
+      ],
+      "sources": [
+        "STRIDE-E"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M013",
+      "actif": "A05 — Espace fichier (uploads)",
+      "menace": "STRIDE-T — Tampering du contenu fichiers produits via upload PHP scripts malveillants masqués sous fausses images, exécutant payloads serveur sur chaque requête HTTP [E49], [E67]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Vérification extensions uploads (ISO27002-8.14)"
+      ],
+      "sources": [
+        "STRIDE-T"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M014",
+      "actif": "A05 — Espace fichier (uploads)",
+      "menace": "STRIDE-I — Fuite données clients via CSV exports stockés 24 mois sans chiffrement FTP, contenant full noms/adresses/téléphones/commandes exploitables offline [E49], [E76]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Éviter",
+      "mesures": [
+        "Suppression exports sensibles (ANSSI-HOMOLOGATION)"
+      ],
+      "sources": [
+        "STRIDE-I"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M015",
+      "actif": "A05 — Espace fichier (uploads)",
+      "menace": "STRIDE-S — Spoofing des images catalogue via remplacement fichiers locaux par liens hotlink vers ressources tierces, trompant clients sur contenu réellement vendu [E49]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Faible",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Transférer",
+      "mesures": [
+        "Assurance responsabilité tiers (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-S"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M016",
+      "actif": "A06 — Hébergeur mutualisé HostPlanet",
+      "menace": "STRIDE-S/Spoofing — Attaquant tiers (voisin locataire) usurpe l'identité du site shopix.example via DNS cache poisoning ou compromission de VM co-lodée, redirigeant utilisateurs vers faux site de phishing [E49].",
+      "categorie": "STRIDE-S/Spoofing",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Isolation VM via segmentation (ISO27002-8.11)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M017",
+      "actif": "A06 — Hébergeur mutualisé HostPlanet",
+      "menace": "STRIDE-T/Tampering — Attaquant accède à la base MySQL partagée et modifie les commandes en cours, alterne prix/stocks ou injecte des lignes factures fausses avant expédition [E49].",
+      "categorie": "STRIDE-T/Tampering",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA pour comptes admin (ISO27002-8.2)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M018",
+      "actif": "A06 — Hébergeur mutualisé HostPlanet",
+      "menace": "STRIDE-I/Denial of Service — Attaquant lance DDoS sur la VM partagée depuis un autre locataire compromis, rend le site indisponible pendant pics commerciaux dec [E49].",
+      "categorie": "STRIDE-I/Denial of Service",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Éviter",
+      "mesures": [
+        "Monitoring DDoS (ANSSI-CARTO-SI)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M019",
+      "actif": "A06 — Hébergeur mutualisé HostPlanet",
+      "menace": "STRIDE-I/Information Disclosure — Attaquant exploite absence WAF/logging pour filtrer les données clients via headers HTTP sensibles ou exfiltrer SQL injection en masse [E49].",
+      "categorie": "STRIDE-I/Information Disclosure",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Logging centralisé (ISO27002-8.28)"
+      ],
+      "sources": [
+        "ISO27002-6.3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M020",
+      "actif": "A08 — MailJet e-mails",
+      "menace": "STRIDE-S/Spoofing — Attaquant réutilise la clé API exposée pour se faire passer pour MailJet officiel, envoie bulk emails usurpant l'identité de la boutique [E53].",
+      "categorie": "STRIDE-S/Spoofing",
+      "probabilite": "Mo yenne",
+      "impact": "Élevé",
+      "niveau": "à déterminer",
+      "traitement": "Réduire",
+      "mesures": [
+        "Renouvellement clé API (ISO27002-8.8)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M021",
+      "actif": "A08 — MailJet e-mails",
+      "menace": "STRIDE-T/Tampering — Attaquant modifie les templates d'e-mails Newsletter via API compromit le nom-domaine « shoPix » dans les messages officiels [E53].",
+      "categorie": "STRIDE-T/Tampering",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ANSSI-HYGIENE), Audit API (ISO27002-8.8)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M022",
+      "actif": "A08 — MailJet e-mails",
+      "menace": "STRIDE-I/Information Disclosure — Attaquant récupère la liste complête des emails abonnés via API abuse, cible le spam massif ou fuite à concurrent [E53].",
+      "categorie": "STRIDE-I/Information Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Limitation API (ANSSI-RECYF), Chiffrement données (ISO27002-8.14)"
+      ],
+      "sources": [
+        "ISO27002-6.3",
+        "ANSSI-RECYF",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M023",
+      "actif": "A09 — Admin cliente Mélanie",
+      "menace": "STRIDE-S/Spoofing — Attaquant devine le mot de passe simple (brute force /admin) puis utilise la session persistante 30 jours sans MFA [E53].",
+      "categorie": "STRIDE-S/Spoofing",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Mot de passe complexe (ANSSI-HYGIENE), MFA (ISO27002-8.22)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.22"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M024",
+      "actif": "A09 — Admin cliente Mélanie",
+      "menace": "STRIDE-T/Tampering — Attaquant modifie produits, commandes et données clients en cours d'administration via interface exposée [E49].",
+      "categorie": "STRIDE-T/Tampering",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification forte (ANSSI-HYGIENE), HTTPS (ISO27002-8.11)"
+      ],
+      "sources": [
+        "ISO27002-5.3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.11"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M025",
+      "actif": "A10 — Utilisateurs préparateurs (×2)",
+      "menace": "STRIDE-S/Spoofing — Attaquant accède aux comptes préparateures via partage mot de passe ou phishing interne, marque « expédiée » les commandes du jour [E49].",
+      "categorie": "STRIDE-S/Spoofing",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Formation phishing (ANSSI-HYGIENE), MFA (ISO27002-8.24)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.24"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M026",
+      "actif": "A10 — Utilisateurs préparateurs (×2)",
+      "menace": "STRIDE-I/Information Disclosure — Attaquant lit les bases de données des commandes du jour préparées non chiffrées, expose numéros téléphones/noms [E64].",
+      "categorie": "STRIDE-I/Information Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement base de données (ANSSI-HYGIENE), Audit accès (ISO27002-8.15)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.15"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M027",
+      "actif": "A11 — Données clients (données personnelles)",
+      "menace": "STRIDE-I/Information Disclosure — Attaquant dump DB MySQL exporte fichier .csv brut contenant noms emails téléphones commandes anciennes sans chiffrement [E50], [E64].",
+      "categorie": "STRIDE-I/Information Disclosure",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement MySQL (ANSSI-HYGIENE), Sauvegarde sécurisée (ISO27002-8.16)"
+      ],
+      "sources": [
+        "ISO27002-6.3",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.16"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M028",
+      "actif": "A11 — Données clients (données personnelles)",
+      "menace": "STRIDE-T/Tampering — Attaquant modifie données clients stockées en DB ou .csv, altère historique de commandes consentements newsletters [E64].",
+      "categorie": "STRIDE-T/Tampering",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation données (ANSSI-HYGIENE), Audit accès (ISO27002-8.14)"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M029",
+      "actif": "A12 — Sauvegarde hebdo (dump+zip FTP)",
+      "menace": "STRIDE-I — Attaquant contrôlant hébergeur ou accédant aux fichiers FTP lit dump.sql en clair (données clients/commandes exposées), objectif exfiltration données sensibles ; backups zip non chiffrés accessibles sans authentification forte — [E49], [E51], EBIOS-RM-A3",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement FTP (ANSSI-HYGIENE), Sauvegarde sécurisée (ISO27002-8.28)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.28"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M030",
+      "actif": "A12 — Sauvegarde hebdo (dump+zip FTP)",
+      "menace": "STRIDE-T — Attaquant ransomware cible dossier sauvegardes FTP, chiffre backups non chiffrés pour rançon post-catastrophe (déjà subit perte 2 jours commandes) — [E49], [E51], EBIOS-RM-A3",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Sauvegarde chiffrée (ANSSI-HYGIENE), Plan décontamination (ISO27002-8.29)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.29"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M031",
+      "actif": "A13 — GitHub (repo privé .env PayFlow)",
+      "menace": "STRIDE-I — Attaquant accédant à historique GitHub lit clé API PayFlow versionnée, permet exfiltration données financières clients via token — [E84], EBIOS-RM-A3",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevée",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Déplacer .env hors répertoire versionné, utiliser .gitignore GitHub, supprimer clé PayFlow versionnée, rotation clé API, stocker secrets dans vault local",
+        "ANSSI-HYGIENE #2 (gestion des identifiants)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ISO27002-8.29"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M032",
+      "actif": "A13 — GitHub (repo privé .env PayFlow)",
+      "menace": "STRIDE-S — Attaquant réalise phishing ciblant domaine signalé avec accès repo compromis, usurpe identité boutique via email de notification Git — [E83], STRIDE-S",
+      "categorie": "STRIDE-S",
+      "probabilite": "Elevee",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Renommer domaine de notification, utiliser URL HTTPS avec HSTS pour notifications Git, configurer SPF/DKIM/DMARC",
+        "ANSSI-HYGIENE #5 (protection contre le phishing)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M033",
+      "actif": "A14 — Site shopix.example + api./admin.",
+      "menace": "STRIDE-I — Attaquant accédant à `/admin` sans MFA exfiltre données clients/produits/back-office via injection XSS, contourne CSRF protections — [E48], [E49], [E81], EBIOS-RM-A3",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevee",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Activer MFA FIDO2 via authelia, implémenter CSP headers pour XSS, CSRF tokens synchronisés, rate limiting",
+        "ANSSI-HYGIENE #6 (contrôles d'accès)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M034",
+      "actif": "A14 — Site shopix.example + api./admin.",
+      "menace": "STRIDE-S — Attaquant réalise brute force sur `/admin` sans lockout/session timeout, obtient compte admin compromis pour accéder à tout le back-office — [E81], STRIDE-S",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Implémenter lockout après 5 échecs",
+        "timeout 15 min session, journalisation auth logins, détection anomalie comportement",
+        "ANSSI-HYGIENE #6 (contrôles d'accès)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ISO27002-8.29",
+        "ISO27002-8.24"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M035",
+      "actif": "A15 — Hébergeur \"HostPlanet\" mutualisé",
+      "menace": "STRIDE-S — Attaquant voisine pirate autre VM sur infrastructure mutualisée contourne isolation PHP hébergeur, accède au site de boutique via exploitation faille partage ressources — [E35], [E49], EBIOS-RM-A4",
+      "categorie": "STRIDE-S",
+      "probabilite": "Elevee",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Migrer vers VPS dédiée ou hébergeur cloisonné isolant réseaux VM, segmentation réseau via VLANs",
+        "ANSSI-HYGIENE #4 (cloisonnement)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M036",
+      "actif": "A15 — Hébergeur \"HostPlanet\" mutualisé",
+      "menace": "STRIDE-T — Attaquant fournisseur tiers modifie routage DNS global ou pare-feu partagé, redirige trafic boutique vers serveur contrôlé (manipulation attaque man-in-the-middle) — [E49], EBIOS-RM-A4",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "Contrats SLA incluant contrôle routage DNS, clauses pénalités interruption trafic, assurance cyber 500k€ couvre perte chiffre d'affaires",
+        "STRIDE-T"
+      ],
+      "sources": [
+        "STRIDE-T"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M037",
+      "actif": "A16 — Base MySQL clients/commandes/produits",
+      "menace": "STRIDE-I — Attaquant exploitant compte \"shopix\" unique sans séparation moindre privilèges modifie/supprime toutes tables (clients, commandes, produits) — [E48], [E51], EBIOS-RM-A3",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevee",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Créer comptes utilisateurs avec principe moindre privilège (DROP privileges MySQL), séparer tables clients/commandes/produits, chiffrer connexions TLS vers app",
+        "ANSSI-HYGIENE #11 (contrôles d'accès)"
+      ],
+      "sources": [
+        "STRIDE-I",
+        "ISO27002-5.4"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M038",
+      "actif": "A16 — Base MySQL clients/commandes/produits",
+      "menace": "STRIDE-T — Attaquant récupère physiquement disque stock sauvegardes lit SQL en clair (données non hashées, exports CSV sensibles) sans chiffrement au repos — [E34], [E67], EBIOS-RM-A3",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrer exports à repos avec GPG, stocker sauvegardes sur disque externe hors bande passante FTP, cryptage disque full-disk",
+        "ANSSI-HYGIENE #10 (sauvegardes)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ISO27002-8.22"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M039",
+      "actif": "A16 — Base MySQL clients/commandes/produits",
+      "menace": "STRIDE-D — Attaquant exécute requête SQL injection via formulaire checkout, plante instance MySQL affectant disponibilité site et API pendant maintenance réinitialisation serveur — [E49], EBIOS-RM-A3",
+      "categorie": "STRIDE-D",
+      "probabilite": "Faible",
+      "impact": "Elevee",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Implémenter prepared statements PDO avec placeholders, validation type input côté serveur",
+        "client, WAF pour requêtes SQL suspectes",
+        "ANSSI-HYGIENE #7 (protection données)"
+      ],
+      "sources": [
+        "STRIDE-D",
+        "STRIDE-I"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M040",
+      "actif": "A17 — Clients (nom, email, adresse, téléphone)",
+      "menace": "STRIDE-S — Attenuation des contrôles d'accès via exploitation CVE sur PHP 8.0 EOL [E105] permettant à un attaquant distant de lire les données clients stockées en base MySQL sans authentification ([E49], [E64])",
+      "categorie": "STRIDE-S",
+      "probabilite": "Elevee",
+      "impact": "Elevée",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Mettre à niveau vers PHP 8.3 stable, surveiller CVE-php.com pour alerts, scanner composer outdated hebdomadairement, isoler services PHP par container",
+        "ANSSI-HYGIENE #1 (correctifs)"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ANSSI-PSSI"
+      ],
+      "risque_residuel": "Risque résiduel Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M041",
+      "actif": "A17 — Clients (nom, email, adresse, téléphone)",
+      "menace": "STRIDE-I — Exfiltration via export CSV non pseudonymisé ([E67], [E84]) accessible depuis serveur compromis ou compte admin bruteforcé [E50] → données clients visibles en texte clair sur système d'équation de l'hébergeur mutualisé ([E49])",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Export CSV avec pseudonymisation (SHA-256 hash emails)",
+        "ACL serveur"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M042",
+      "actif": "A17 — Clients (nom, email, adresse, téléphone)",
+      "menace": "STRIDE-D — Altération silencieuse des données clients (adresse mail, consentements newsletter cases décochées mal enregistrées [E65]) via injection SQL depuis API interne ([E49], [E48]) exploitant MySQL 5.7 non patché [E106]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Injection SQL mitigée : préparés statements (PDO/Mysqli)",
+        "échauffement de connexion"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M043",
+      "actif": "A18 — Bancaires carte/tokenisation PayFlow",
+      "menace": "STRIDE-S — Fuite d'identité par interception des webhooks payment.ok vers PayFlow via manquement de crypte TLS ([E49], [E66]) → attaquant injecte commandes trompeuses pour détourner transactions bancaires",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Webhooks TLS 1.3 obligatoire",
+        "signature HMAC SHA-256 payload",
+        "vérification serveur"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M044",
+      "actif": "A18 — Bancaires carte/tokenisation PayFlow",
+      "menace": "STRIDE-T — Modification du webhook reçu par boutique (payment.ok → payment.fail) pour masquer le refus de paiement et laisser croire à une transaction validée [E66] → atténuation possible via signature HMAC côté réception ([D02])",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyen",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Signature HMAC webhook côté boutique pour détecter modification"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M045",
+      "actif": "A18 — Bancaires carte/tokenisation PayFlow",
+      "menace": "LINDDUN-I — Divulgation des clés API stockées en clair dans .env versionné sur GitHub [E66] permettant à un attaquant externe (non autorisé) d'accéder aux données de tokenisation côté backend fournisseur [E49]",
+      "categorie": "LINDDUN-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        ".env hors version Git (Gitignore)",
+        "rotation clés API 90 j",
+        "coffre-fort HSM"
+      ],
+      "sources": [
+        "LINDDUN-Disclosure",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M046",
+      "actif": "A19 — Admin (comptes, exports csv)",
+      "menace": "STRIDE-S — Brute force répétitif sur /admin détecté logs HTTP sans lockout [E22] → attaquant obtient compte accès complet après épuisement des tentatives de connexion (mille requêtes/24h noté [E22], session 30j [E61])",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Rate limiting route /admin (10 req/min par IP)",
+        "lockout compte 3x"
+      ],
+      "sources": [
+        "DREAD-D",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M047",
+      "actif": "A19 — Admin (comptes, exports csv)",
+      "menace": "STRIDE-I — Lecture des fichiers .csv exportés non protégés sur serveur ([E67], [E84]) → accès aux données administrateur en clair + informations clients/commandes sans chiffrement repos",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Fichiers CSV exports chiffrés AES-256 au repos",
+        "ACL utilisateurs"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-5.15"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M048",
+      "actif": "A19 — Admin (comptes, exports csv)",
+      "menace": "STRIDE-T — Altération du mot de passe admin via injection dans formulaire login ([E67]) → persistance d'accès élévé après exécution du script cron sauvegarde ([E49], [E52])",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation CSRF tokens sur formulaire login",
+        "injection préparé"
+      ],
+      "sources": [
+        "ISO27002-5.3",
+        "ANSSI-PSSI"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M049",
+      "actif": "A20 — PHP 8.0 EOL — Logiciel (hôte serveur)",
+      "menace": "STRIDE-T — Exploitation de vulnérabilités connues sur PHP 8.0 maintenu par hébergeur ([E49], [E105]) → exécution de code malveillant dans /var/www après injection via formulaire catalogue sans validation d'entrée ([E67])",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Migration à PHP 8.3+ avec notification hébergeur non supportée",
+        "audit détaillé"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M050",
+      "actif": "A20 — PHP 8.0 EOL — Logiciel (hôte serveur)",
+      "menace": "STRIDE-E — Modification involontaire des scripts PHP par un autre client de l'hébergeur mutualisé ([E49]) → comportement du site dégradé après patch externe non contrôlé",
+      "categorie": "STRIDE-E",
+      "probabilite": "Faible",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "Isolation conteneurs clients mutualisés",
+        "monitoring anomalies"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ISO27002-5.4"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M051",
+      "actif": "A20 — PHP 8.0 EOL — Logiciel (hôte serveur)",
+      "menace": "STRIDE-I — Débordement de mémoire via extension non auditée Plugin impressions v3.2.1 ([E9]) → fuite d'information sur processus serveur ou crash service API interne [E49]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Mise à jour de PHP vers 8.1 (ANSSI-HYGIENE), patch du plugin (ISO27002-8.8)"
+      ],
+      "sources": [
+        "DREAD-D",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M052",
+      "actif": "A21 — MySQL 5.7 — Logiciel (base de données)",
+      "menace": "STRIDE-S — Accès distant non authentifiqué aux tables clients/commandes via version MySQL vulnérable ([E48], [E106]) → exfiltration complète des bases depuis API compromise [E49]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patch MySQL (ISO27002-8.8), authentification forte (STRIDE-S)"
+      ],
+      "sources": [
+        "ISO27002-5.30"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M053",
+      "actif": "A21 — MySQL 5.7 — Logiciel (base de données)",
+      "menace": "STRIDE-T — Altération silencieuse des données produits/commandes via injection SQL ([E49], [E67]) → modification prix catalogue sans notification client après exploitation CVE sur serveur web",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Sauvegardes chiffrées (ISO27002-8.11), suppression injection (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "ANSSI-PSSI",
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M054",
+      "actif": "A21 — MySQL 5.7 — Logiciel (base de données)",
+      "menace": "STRIDE-I — Fuite des clés d'accès MySQL stockées en clair dans .env hébergeur ([E49]) → compromission du compte shopix après vol des credentials depuis disque exposé sur FTP ([E49], [E106])",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Clés chiffrées (.env) (ISO27002-8.14), audit régulier (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ISO27002-5.19"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M055",
+      "actif": "A22 — PayFlow-SDK v2.1 — Logiciel",
+      "menace": "STRIDE-T — Attaquant : cybercriminel [E48] → Tampering via buffer overflow dans gestion t [E49] → exploitation CVE-2023-XXXX non patché",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Éviter",
+      "mesures": [
+        "Suppression du SDK (EBIOS-RM-A4)"
+      ],
+      "sources": [
+        "STRIDE-T"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M056",
+      "actif": "A22 — PayFlow-SDK v2.1 — Logiciel",
+      "menace": "EBIOS-RM-A4 — Exposition de la chaîne de confiance vers PayFlow [E48] → risque de compromission de la frontière de confiance [E49]",
+      "categorie": "EBIOS-RM-A4",
+      "probabilite": "Faible",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "Contrat avec PayFlow (EBIOS-RM-A4)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M057",
+      "actif": "A23 — Plugin impressions v3.2.1 — Logiciel",
+      "menace": "STRIDE-S — Attaquant : attaquant externe [E48] → Spoofing via plugin impressions non audité [E49] → injection de code malveillant",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Suppression du plugin (ANSSI-HYGIENE), audit source (STRIDE-S)"
+      ],
+      "sources": [
+        "STRIDE-S"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M058",
+      "actif": "A24 — PayFlow (API REST + webhooks) — Prestataire",
+      "menace": "STRIDE-S — Attaquant : attaquant externe [E48] → Spoofing via clés API stockées en clair [E49] → usurpation de l'API",
+      "categorie": "STRIDE-S",
+      "probabilite": "Faible",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Transférer",
+      "mesures": [
+        "Assurance cyber (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-S"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M059",
+      "actif": "A25 — MailJet (e-mails confirmations/newsletter) — Prestataire",
+      "menace": "STRIDE-S — Attaquant : attaquant externe [E48] → Spoofing via clé API stockée en clair [E49] → envoi de spam [E81]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Faible",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Accepter",
+      "mesures": [
+        "Contrat MailJet (EBIOS-RM-A4)"
+      ],
+      "sources": [
+        "STRIDE-S"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M060",
+      "actif": "A26 — Compte \"Mélanie\" admin — Rôle",
+      "menace": "STRIDE-R — Attaquant : administrateur malveillant [E55] → Repudiation via mots de passe simples et absence de MFA [E82] → usurpation de compte",
+      "categorie": "STRIDE-R",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA (ISO27002-8.2)",
+        "mot de passe fort (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "STRIDE-R"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M061",
+      "actif": "A27 — Comptes préparateurs",
+      "menace": "STRIDE-S — Un attaquant obtient un compte préparateur par force brute (E56), simule un préparateur légitime pour accéder aux commandes du jour sans authentification forte, et modifier leur statut vers expédiée",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "MFA FIDO2 (ANSSI-HYGIENE)",
+        "verrouillage après 5 tentatives (ISO27002-8.8)"
+      ],
+      "sources": [
+        "STRIDE-S"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M062",
+      "actif": "A27 — Comptes préparateurs",
+      "menace": "STRIDE-T — Un script malveillant injecté dans les commandes du jour modifie la liste des articles ou le montant total (E56) pour détourner la preparation vers un produit plus cher sans en informer le client final",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Suppression des scripts non patchés (ANSSI-HOMOLOGATION)",
+        "audit code (ISO27002-8.24)"
+      ],
+      "sources": [
+        "STRIDE-T"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M063",
+      "actif": "A27 — Comptes préparateurs",
+      "menace": "STRIDE-I — Un attaquant lit les commandes du jour via injection SQL dans le flux de lecture (E56), extrait les informations clients et détails des produits pour revendre sur un forum noir",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Paramétrage de pare-feu applicatif (ANSSI-RECYF)",
+        "chiffrement des données (ISO27002-8.14)"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M064",
+      "actif": "A28 — Compte client optionnel",
+      "menace": "STRIDE-S — Un attaquant simule un compte client via session hijacking pendant la phase de guest checkout (E59), place une commande frauduleuse au nom du client inconnu puis vide son panier",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Protocole SSL/TLS renforcé (ANSSI-IA-GEN)",
+        "validation CSRF (ISO27002-8.11)"
+      ],
+      "sources": [
+        "STRIDE-S"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M065",
+      "actif": "A28 — Compte client optionnel",
+      "menace": "STRIDE-T — Un script PHP malveillant modifie le hash SHA1 des mots de passe stockés (E59) pour permettre un accès non autorisé aux comptes clients sans connaître leurs identifiants réels",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement AES-256 des hashes (ISO27002-8.28)",
+        "rotation clés (ANSSI-PSSI)"
+      ],
+      "sources": [
+        "STRIDE-T"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M066",
+      "actif": "A28 — Compte client optionnel",
+      "menace": "LINDDUN-D — Un attaquant exploite une vulnérabilité d'information disclosure dans la page de profil (E59) pour récupérer les e-mails et adresses clients via SQLi, en violation du principe de confidentialité des données personnelles",
+      "categorie": "LINDDUN-D",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Suppression des vulnérabilités SQLi (ISO27002-8.13)",
+        "anonymisation données (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M067",
+      "actif": "A29 — Hébergement mutualisé HostPlanet",
+      "menace": "STRIDE-E — Une autre location client sur la même VM mutualisée (E49) subit une brèche et l'attaquant profite de l'isolation PHP incomplète pour scanner les processus du serveur et attaquer le site shopix.example en cours de route",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Isolation PHP via mod_security (ISO27002-8.8)",
+        "audit des VM (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-E"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M068",
+      "actif": "A29 — Hébergement mutualisé HostPlanet",
+      "menace": "STRIDE-D — Un service concurrent sur la même VM (E49) lance une attaque DoS amplifiée qui épuise les ressources partagées (CPU/RAM) et rend indisponible le site boutique pendant les pics de trafic en décembre",
+      "categorie": "STRIDE-D",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Limite CPU/RAM par VM (ISO27002-8.5)",
+        "monitoring ressources (ANSSI-HYGIENE)"
+      ],
+      "sources": [
+        "STRIDE-D"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M069",
+      "actif": "A28 — Compte client optionnel",
+      "menace": "STRIDE-R — Un attaquant nie l'origine des commandes via manipulation des logs serveur sur la VM mutualisée (E59), empêchant toute traçabilité du client responsable d'une commande passée avec carte volée",
+      "categorie": "STRIDE-R",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Journalisation des accès (ISO27002-8.16)",
+        "audits réguliers (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-R"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M070",
+      "actif": "A30 — Site web public / API interne",
+      "menace": "STRIDE-I — Une faille CVE-2024-3009 dans PHP 8.0 hébergé sur la VM mutualisée (E2) permet l'exfiltration de la base MySQL via injection mémoire, exposant tous les clients et commandes en clair",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Mise à jour PHP vers 8.2 (ISO27002-8.26)",
+        "patch CVE-2024-3009 (ANSSI-HOMOLOGATION)"
+      ],
+      "sources": [
+        "STRIDE-I"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M071",
+      "actif": "A30 — Site web public / API interne",
+      "menace": "STRIDE-T — Un attaquant modifie le fichier .htaccess du site (E3) pour contourner l'authentification de l'API interne et accéder aux données des commandes et stock sans droit",
+      "categorie": "STRIDE-T",
+      "probabilite": "Élevé",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Mise en place d'un WAF (NGINX) et monitoring des accès (ISO27002-8.8)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ANSSI-HYGIENE",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M072",
+      "actif": "A30 — Site web public / API interne",
+      "menace": "LINDDUN-N — Une attaque non-awareness via un plugin impressions non audité (E54) permet à un attaquant de ne pas réaliser que son code PHP exécute du shellcode distant qui exfiltre les données clients vers un serveur commandé par l'attaquant",
+      "categorie": "LINDDUN-N",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Audit des plugins (STRIDE-E)",
+        "isolement des extensions"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "STRIDE-E",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M073",
+      "actif": "A31 — Préparateurs du jour",
+      "menace": "STRIDE-S — Un attaquant usurpe le rôle de préparateur via session fixation lors du login (E58), accède au panel privé pour voir les commandes du jour et préparer des articles hors panier sans validation client",
+      "categorie": "STRIDE-S",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Renforcement des sessions (MFA FIDO2)",
+        "journalisation des accès"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "ISO27002-8.11",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M074",
+      "actif": "A31 — Preparateurs du jour",
+      "menace": "STRIDE-R — Un préparateur légitime nie son intervention sur une commande après l'avoir expédiée (E58) en supprimant sa trace d'authentification dans le journal de session serveur pour se dédouaner en cas de retour produit",
+      "categorie": "STRIDE-R",
+      "probabilite": "Moyen",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Éviter",
+      "mesures": [
+        "Suppression de la fonction de déni d'intervention (EBIOS-RM-A4)"
+      ],
+      "sources": [
+        "STRIDE-R",
+        "EBIOS-RM-A4",
+        "ISO27002-8.16"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M075",
+      "actif": "A27 — Comptes préparateurs",
+      "menace": "STRIDE-T — Un attaquant injecte du code JavaScript malveillant dans la page de gestion des commandes du jour (E56) qui modifie les métadonnées de préparation et enregistre artificiellement le statut expédiée pour cacher des articles non prélevés",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation serveur côté (ISO27002-8.13)",
+        "suppression des métadonnées"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ISO27002-8.13",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M076",
+      "actif": "A29 — Hébergement mutualisé HostPlanet",
+      "menace": "STRIDE-E — Un attaquant externe à HostPlanet (E49) profite d'une faille dans la politique de partage de ressources du hébergeur pour scanner et pivoter vers d'autres clients compromis sur la même infrastructure mutualisée",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Transférer",
+      "mesures": [
+        "Audit externe de l'hébergeur (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "STRIDE-E",
+        "ANSSI-RECYF",
+        "ISO27002-8.24"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M077",
+      "actif": "A28 — Compte client optionnel",
+      "menace": "LINDDUN-NC — Une attaque contre un compte client (E59) permet l'usurpation de son identité pour se connecter et modifier ses préférences, le laissant inconsistant sur les effets du service sans que le client ne s'en rende compte via comparaison",
+      "categorie": "LINDDUN-NC",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Renforcement des mots de passe (ISO27002-8.5)",
+        "2FA"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.5",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M078",
+      "actif": "A31 — Préparateurs du jour",
+      "menace": "STRIDE-T — Un script malveillant modifie la page de marque expédiée (E58) pour masquer l'état réel des commandes et afficher une fausse confirmation d'expédition aux préparateurs légitimes",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyen",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Sigillement des pages statiques (ISO27002-8.14)",
+        "audit du script"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M079",
+      "actif": "A27 — Comptes préparateurs",
+      "menace": "EBIOS-RM-A4 — Un fournisseur de solution de paiement tiers (E56) est compromis et l'attaquant injecte du code dans les flux vers le panel des préparateurs pour usurper leur rôle via webhooks malveillants depuis l'extérieur de l'écosystème organisationnel",
+      "categorie": "EBIOS-RM-A4",
+      "probabilite": "Élevé",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Éviter",
+      "mesures": [
+        "Suppression du fournisseur tiers (EBIOS-RM-A4)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ISO27002-8.26"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M080",
+      "actif": "A29 — Hébergement mutualisé HostPlanet",
+      "menace": "EBIOS-RM-A4 — L'hébergeur HostPlanet (E49) fait l'objet d'une attaque cibée visant ses clients partenaires et profite du voisinage mutualisé pour scanner la pile logicielle de shopix.example via failles connexes non patchées (E49, E50)",
+      "categorie": "EBIOS-RM-A4",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Patch des serveurs (ISO27002-8.8)",
+        "surveillance des vulnérabilités"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ISO27002-8.8",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M081",
+      "actif": "A31 — Préparateurs du jour",
+      "menace": "EBIOS-RM-A4 — Le processus interne de gestion des préparateurs (E58) repose sur un compte tiers hébergé chez le même fournisseur et une attaque sur leurs infrastructures contamine le périmètre organisationnel via pivotage depuis l'actif partagé",
+      "categorie": "EBIOS-RM-A4",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Cloisonnement logique (virtualisation) de l'espace dédié, isolation par firewall interne, surveillance activité compte tiers 24h×7 avec alerte anomalie"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M082",
+      "actif": "A32 — Clients boutique",
+      "menace": "STRIDE-S — Attaquant : cybercriminel [E49] → Spoofing via injection SQL sur base MySQL [E49] → usurpe identité client pour modifier historique commandes",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Injection SQL stoppée : WAF en front filtrant patterns SQLi, cloisonnement base MySQL (base distincte non partagée), rotation accès « shopix », journalisation requêtes sensibles"
+      ],
+      "sources": [
+        "ISO27002-5.15"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M083",
+      "actif": "A32 — Clients boutique",
+      "menace": "STRIDE-T — Attaquant : attaquant externe [E50] → Tampering via exploitation vulnérabilités PHP (ex. injection XSS) [E50] → altère données commandes",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Audit plugin impressions avant chaque release, update automatique PHP 8.x, WAF bloquant patterns XSS, header Content-Security-Policy CSP définissant domaine approuvé"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M084",
+      "actif": "A32 — Clients boutique",
+      "menace": "EBIOS-RM-A4 — Attaquant : fournisseur de service [E48] → Spoofing via compromission de l'hébergeur mutualisé [E49] → accès non autorisé aux données clients",
+      "categorie": "EBIOS-RM-A4",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Transférer",
+      "mesures": [
+        "Assurance cyber couvrant perte de données (honnêteté : ne transfère pas responsabilité), basculement vers VPS cloisonné chez hébergeur dédié si budget permet, journalisation logs brute-force",
+        "lockout après 5 échecs"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-RECYF"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M085",
+      "actif": "A33 — Clés API prestataires",
+      "menace": "STRIDE-T — Attaquant : attaquant interne [E59] → Tampering via lecture .env non chiffré [E59] → exfiltration clés MailJet/PayFlow",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Critique",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Clés API chiffrées (.env encrypté au repos), suppression .env versionné GitHub, rotation clés mensuelle (7j si critique), accès restreint à admin certifié avec MFA"
+      ],
+      "sources": [
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M086",
+      "actif": "A33 — Clés API prestataires",
+      "menace": "STRIDE-E — Attaquant : fournisseur malveillant [E43] → Environment Modification via vulnérabilité CVE-XXXX [E36] → exploitation API REST sans authentification",
+      "categorie": "STRIDE-E",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Accepter",
+      "mesures": [
+        "Vulnérabilité inconnue exploitée par tiers improbable ; contre-mesure : monitoring CVE via feed sécurité, scan régulier code tiers, signature intégrité dépendances Composer (accepté sans action directe mais vérifié passivement)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M087",
+      "actif": "A34 — Sauvegardes FTP manuelles",
+      "menace": "STRIDE-I — Attaquant : cyberespion [E2] → Information Disclosure via dump MySQL non chiffré [E2] → accès aux données clients/produits",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Désactivation upload FTP manuels, chiffrement dump SQL avec GPG avant compression zip, stockage ZIP chiffré en dehors serveur hébergeur (cloud chiffré de bout en bout ou NAS externe), alerte email diffusion fichier FTP"
+      ],
+      "sources": [
+        "ISO27002-6.3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M088",
+      "actif": "A34 — Sauvegardes FTP manuelles",
+      "menace": "EBIOS-RM-A3 — Attaquant : adversaire organisationnel [E48] → Spoofing via contournement de sauvegarde manuelle [E49] → altération des archives de commandes",
+      "categorie": "EBIOS-RM-A3",
+      "probabilite": "Faible",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Automatisation sauvegarde cron hebdo scripté non interrompible, mise en place vérification somme de contrôle ZIP post-création, notification admin après chaque upload",
+        "validation intégrité archives"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-5.19"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M089",
+      "actif": "A35 — Extensions plugins PHP",
+      "menace": "STRIDE-S — Attaquant : attaquant externe [E18] → Spoofing via plugin impressions non audité [E18] → injection de code malveillant",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Éviter",
+      "mesures": [
+        "Plugin impressions retiré ou remplacé par solution native du CMS ou module maintenu actif et audité, audit code plugin avant integration via linting statique (ESLint+SonarQube)"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M090",
+      "actif": "A35 — Extensions plugins PHP",
+      "menace": "STRIDE-T — Attaquant : développeur malveillant [E27] → Tampering via exploitation vulnérabilités Composer non auditées [E27] → altération des fonctionnalités du site",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Audit Composer exécuté à chaque mise à jour (`composer update --no-autoloader` pour scan), mise en place webhook notify si package tier connu vulnérable (Packagist advisories feed)"
+      ],
+      "sources": [
+        "ISO27002-5.30"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M091",
+      "actif": "A36 — SDK paiement PayFlow-SDK v2.1",
+      "menace": "STRIDE-E — Attaquant : exploitant [E36] → Environment Modification via vulnérabilité CVE-XXXX non patchée [E36] → exfiltration données transactionnelles",
+      "categorie": "STRIDE-E",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Mise à jour du SDK PayFlow-SDK v2.1 avec correctif CVE-XXXX (ANSSI-HYGIENE-8.8)",
+        "MFA FIDO2 (ISO27002-8.2)"
+      ],
+      "sources": [
+        "ANSSI-HYGIENE-8.8",
+        "ISO27002-8.2"
+      ],
+      "risque_residuel": "Moyenne",
+      "valide_par": null
+    },
+    {
+      "id": "M092",
+      "actif": "A37 — MailJet e-mailing — Prestataire",
+      "menace": "STRIDE-S — Attaquant : Malicious actor. Méthode : Clé API stockée en clair dans le code (versionnée sur GitHub) [E84]. Objectif : Envoi de spam au nom de la boutique (incident 2023) [E51].",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Éviter",
+      "mesures": [
+        "Suppression immédiate des clés API MailJet du code versionné (EBIOS-RM-A4)",
+        "audit des dépôts GitHub"
+      ],
+      "sources": [
+        "STRIDE-S",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M093",
+      "actif": "A37 — MailJet e-mailing — Prestataire",
+      "menace": "STRIDE-T — Attaquant : Hacker. Méthode : Exploitation de la clé API pour accéder aux flux de confirmation newsletter. Objectif : Contournement de la sécurité pour spam [E84].",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Moyen",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Révoquer clé API compromise",
+        "rotation automatisée (ISO27002-8.11)"
+      ],
+      "sources": [
+        "STRIDE-T",
+        "ISO27002-8.11"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M094",
+      "actif": "A37 — MailJet e-mailing — Prestataire",
+      "menace": "EBIOS-RM-A4 — Attaquant : Fournisseur malicieux. Méthode : Utilisation de la clé API pour pirater l'envoi d'e-mails. Objectif : Attaque contre la réputation de la boutique [E48].",
+      "categorie": "EBIOS-RM-A4",
+      "probabilite": "Moyenne",
+      "impact": "Faible",
+      "niveau": "Faible",
+      "traitement": "Transférer",
+      "mesures": [
+        "Cyber-assurance pour responsabilités fournisseur malicieux (ANSSI-RECYF)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-RECYF"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M095",
+      "actif": "Shopix — Frontière Internet↔Site Web (HTTPS) attaquant externe usurpation site légitime clients trompés furtif exfiltration données [E48],[E23]",
+      "menace": "STRIDE-S — Spoofing → attaquant via DNS poisoning/phishing imite shopix.example → clients sur navigateurs vulnérables transmet nom de domaine → vol cookies sessions → fraude achats réels",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation DNS SPF+DKIM+DMARC stricts",
+        "révocation certificat TLS (ISO27002-8.13)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.13"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M096",
+      "actif": "Shopix — Frontière Internet↔Site Web (HTTPS) attaquant intercepte TLS via CA compromise flux modifié commandes falsifiées [E27]",
+      "menace": "STRIDE-T — Tampering → attaquant possède CA privée ou root compromission serveur → man-in-the-middle HTTPS déchire certificat valide → modifie réponses API /checkout → client reçoit prix erroné ou panier vidé",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Accepter",
+      "mesures": [
+        "Risque lié à compromission CA root (EBIOS-RM-A3)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M097",
+      "actif": "Shopix — Frontière Internet↔Site Web (HTTPS) XSS frontend malveillant exfiltration paramètres session cookies [E52]",
+      "menace": "STRIDE-I — Information Disclosure → attaquant injecte script JS dans balises client-side (fichiers .css versés par hébergeur HostPlanet) → écoute localStorage/sessionStorage PHPSESSID → cookie volé utilisé pour冒充 admin sessions 30j valables [E48]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Élevée",
+      "impact": "Élevé",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "CSP Content Security Policy headers sur tous les fichiers CSS (ISO27002-8.14)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "Critique",
+      "valide_par": null
+    },
+    {
+      "id": "M098",
+      "actif": "Shopix — Frontière Site Web↔PayFlow (REST+Webhook) attaquant modifie webhook PaymentOK→PaymentFailed déni paiement client [E98]",
+      "menace": "STRIDE-T — Tampering → attaquent intercepte appel REST vers API PayFlow depuis serveur mutualisé → modifie corps HTTP webhook response payload → checkout échoue injustement → perte CA directe en période de déc (CA×3) [E52]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Signature HMAC",
+        "timestamp sur webhooks (ISO27002-8.15)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ISO27002-8.15"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M099",
+      "actif": "Shopix — Frontière Site Web↔PayFlow (REST+Webhook) attaque replay webhook PayFlow SDK vulnérabilité réutilisation callbacks frauduleux [E108]",
+      "menace": "STRIDE-T — Tampering → attaqu relecture logs serveur et répète requêtes PayFlow signées non timestampées → paiement sans autorisation client → transaction frauduleuse débitée sur carte tokenisée hébergeur [E98],[E42]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Éviter",
+      "mesures": [
+        "Suppression immédiate des logs serveur et désactivation callbacks (ANSSI-HYGIENE-8.8)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-HYGIENE-8.8"
+      ],
+      "risque_residuel": "Moyenne",
+      "valide_par": null
+    },
+    {
+      "id": "M100",
+      "actif": "Shopix — Frontière Site Web↔MailJet (SMTP+API) clé API exposée code injecte spam phishing noms clients [E50],[E80]",
+      "menace": "STRIDE-S — Spoofing → attaqu accède code source .env stockant MailJet secret via hébergeur compromission → imite boutique en envoyant e-mails depuis comptes clients valides → confiance utilisateur compromise [E80]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Élevée",
+      "impact": "Moyen",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement AES-256 des fichiers .env",
+        "suppression immédiate (ISO27002-8.16)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.16"
+      ],
+      "risque_residuel": "Élevé",
+      "valide_par": null
+    },
+    {
+      "id": "M101",
+      "actif": "Shopix — Frontière Site Web↔MailJet (SMTP+API) logs prestataire divulguent consentement newsletter données clients sensibles [E67],[E50]",
+      "menace": "STRIDE-I — Information Disclosure → admin hébergeur HostPlanet accède logs SMTP MailJet → liste e-mails clients + consentements stockés en clair côté partenaire → CNIL notif possible RGPD 4% CA ou 20 M€ [E87]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevée",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrement TLS pour interface SMTP+API logs chez prestataire (ISO27002-8.34)",
+        "Authentification forte API Jetty FIDO2 ou mTLS (ANSSI-HYGIENE 4)",
+        "Masquement champs consentements dans exports logs (ANOSSI-HYGIENE 5)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "ISO27002-8.34",
+      "valide_par": null
+    },
+    {
+      "id": "M102",
+      "actif": "Shopix — Frontière Site Web↔Base MySQL (Écriture) injection SQL commande/stock base modifiée fraudé [E34],[E67],[E12]",
+      "menace": "STRIDE-T — Tampering → attaqu via formulaire /admin ou input user manipulé injecte SELECT INTO OUTFILE / UPDATE commandes→fraude produit prix zéro → inventaire corrompu stock faux en pic festive [E52]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Moyenne",
+      "impact": "Elevee",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Prépared statements PDO avec émulation préparation préparé (ISO27002-8.14)",
+        "Restriction privileges base MySQL user app DENY SELECT INTO OUTFILE (ISO27002-8.2)",
+        "Protection CSRF formulaire admin (ISO27002-8.13)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "ISO27002-8.15",
+      "valide_par": null
+    },
+    {
+      "id": "M103",
+      "actif": "Shopix — Frontière Site Web↔Base MySQL (Écriture) admin hash SHA1 obsolète brute force mots de passe clients volés [E65],[E67]",
+      "menace": "STRIDE-S — Spoofing → attaquant dictionnaire dicracker hashé sha1 depuis db MySQL compte shopix unique → usurpe accès comptes clients (email/password) → accès base + exports CSV locaux [E76]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Moyenne",
+      "impact": "Elevee",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Hash bcrypt avec salt unique par compte (ANSSI-HYGIENE 6)",
+        "Polyglot password complexity ()",
+        "Détection tentative dictionnaire logs rate limit (ANOSSI-HYGIENE 9)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "—",
+      "valide_par": null
+    },
+    {
+      "id": "M104",
+      "actif": "Shopix — Frontière Site Web↔Base MySQL (Écriture) SQL injection admin /admin exfiltration client commandes internes [E38],[E49]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu accède interface /admin login simple sans MFA → requête UNION SELECT lit table clients→adresse+téléphone+historique → export .csv FTP versé hébergeur mutualisé [E76]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevée",
+      "impact": "Elevee",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Interface /admin dématérialisée avec MFA FIDO2 obligatoire (ANSSI-PSSI 3)",
+        "Principium de moindre privilège user db app DENY SELECT clients adresse+téléphone historique (ISO27002-5.3)",
+        "WAF bloquer UNION SELECT patterns (ANSSI-HYGIENE 4)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "ISO27002-5.3",
+      "valide_par": null
+    },
+    {
+      "id": "M105",
+      "actif": "Shopix — Frontière Site Web↔Base MySQL (Écriture) RCE vulnérabilité PHP extension non auditée plugin impressions backdoor serveur exécution code [E24],[E90]",
+      "menace": "STRIDE-I — Environment Modification → attaqu via requête GET vers route backend exploitant CVE-XXXX sur library payement ou plugin 3.2.1 → code shell malveillant injecté web root → accès système complet VM mutualisé voisine compromise [E49],[E22]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Audit code plugin impressions 3.2.1 via SCA scanner dépendances (ISO27002-8.25)",
+        "Mise à jour vers version stabilisée 3.x+ (EBIOS-RM-A4)",
+        "Isolation sandbox PHP pour extensions tiers (ANSSI-HYGIENE 5)"
+      ],
+      "sources": [
+        "ANSSI-CARTO-SI",
+        "EBIOS-RM-A4"
+      ],
+      "risque_residuel": "ISO27002-8.25",
+      "valide_par": null
+    },
+    {
+      "id": "M106",
+      "actif": "Shopix — Frontière Site Web↔Espace Fichier uploads scripts PHP malveillants dossiers images exécution arbitraire [E68],[E12]",
+      "menace": "STRIDE-E — Environment Modification → attaqu upload image .php (ex. imgshell.gif) dans FS → requête GET /uploads/imgshell.gif exécute système php→RCE serveur hébergeur HostPlanet → backdoor permanente SSH/HTTPS [E90]",
+      "categorie": "STRIDE-E",
+      "probabilite": "Moyenne",
+      "impact": "Elevee",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Filtrage upload MIME check extension+magic bytes .php blocké (ISO27002-8.14)",
+        "Chiffrement AES-256 dossier uploads via CDN ou S3 Storage Classes Intelligent (ANSSI-HYGIENE 4)",
+        "Time limit PHP_FCGI_CHILD_MAX pour upload ()"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "ISO27002-8.14",
+      "valide_par": null
+    },
+    {
+      "id": "M107",
+      "actif": "Shopix — Frontière Site Web↔Espace Fichier uploads ZIP archives uploads FTP non chiffré fuite données personnelles clients sensibles [E68],[E12]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu connait chemin /var/backups/uploads@FTP hébergeur HostPlanet → télécharge ZIP contenant commandes + images clients .zip brut sans chiffrage → fuit RGPD via FTP brut non authentifié [E45]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyenne",
+      "impact": "Elevee",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Compression ZIP avec AES-256-chacha20 ou archive cryptée (ISO27002-8.29)",
+        "FTP remplacer par SFTP chiffré port 22 (ANSSI-HYGIENE 3)",
+        "Rotation clés SFTP et authentification certificats (EBIOS-RM-A3)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE"
+      ],
+      "risque_residuel": "ISO27002-8.29",
+      "valide_par": null
+    },
+    {
+      "id": "M108",
+      "actif": "Shopix — Frontière Admin↔Base MySQL (Lecture/Modif) admin滥用 droits totale exfiltration clients commandes produits exportés [E67],[E58]",
+      "menace": "STRIDE-T — Tampering → Mélanie admin accède /admin sans MFA sessions 30j -> télécharge .csv clients+commandes stocké FTP hébergeur -> CSV brut avec SHA1 + consentements newsletter non pseudonymisés [E64],[E66]",
+      "categorie": "STRIDE-T",
+      "probabilite": "Elevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Authentification MFA FIDO2 admin obligatoire (ANSSI-PSSI 3)",
+        "Sessions à max 8h renouvelées par token JWT avec refresh tokens rotation (ISO27002-5.4)",
+        "Chiffrage données CSV exportés via AES-256 avant stockage FTP ()"
+      ],
+      "sources": [
+        "EBIOS-RM-A3"
+      ],
+      "risque_residuel": "ANSSI-PSSI 3",
+      "valide_par": null
+    },
+    {
+      "id": "M109",
+      "actif": "Shopix — Frontière Admin↔Base MySQL (Lecture/Modif) préparateur accès limitado abusé manipulation commandes du jour fraudé interne [E40],[E56]",
+      "menace": "STRIDE-S — Spoofing → attaquant usurpe compte préparateur 2 (P2a→P2b impersonation via cookie session PHPSESSID côté serveur hébergeur) → modifie statut commande expédiée fictive → client reçoit colis vide ou commande annulée [E40],[E60]",
+      "categorie": "STRIDE-S",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Validation server-side statut commande non modifiable depuis cookie PHPSESSID seul (ISO27002-5.4)",
+        "Détection impersonation signature request fingerprinting webhook (ISO27002-8.14)",
+        "Logs centralisés monitoring activité préparateur anomalie (EBIOS-RM-A3)"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ISO27002-8.14"
+      ],
+      "risque_residuel": "EBIOS-RM-A3",
+      "valide_par": null
+    },
+    {
+      "id": "M110",
+      "actif": "Shopix — Frontière Sauvegarde FTP (SFTP/FTP non chiffré) SQL brut 24 mois stockage FTP hébergeur compromis exfiltration complète base de données clients [E76],[E45]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu connait FTP@hostplanet.net dossier /backups/shopix → SSH-KEY ou brute force accès ftp → télécharge .sql contenant tables clients/commandes/produits en clair SHA1 non chiffré → fuit RGPD CNIL [E67]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Elevée",
+      "impact": "Critique",
+      "niveau": "Critique",
+      "traitement": "Réduire",
+      "mesures": [
+        "Sauvegardes déplacées vers cloud chiffré GCP KMS ou AWS S3 Encryption SSE-KMS (ANSSI-CARTO-SI 2)",
+        "Cycle rétention 90jours puis destruction automatique cron (ISO27002-8.34)",
+        "Accès restaurations avec MFA secondaire et journalisation complète (ISO27002-5.15)"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-CARTO-SI"
+      ],
+      "risque_residuel": "ISO27002-5.15",
+      "valide_par": null
+    },
+    {
+      "id": "M111",
+      "actif": "Shopix — Frontière Sauvegarde FTP (SFTP/FTP non chiffré) ZIP uploads sensibles stockage FTP hébergeur voisine compromission cross-tenant fuite données personnelles [E68],[E22]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu via exploit partage machine hébergeur HostPlanet compromis voisine -> accède dossier /home/shopix/uploads@FTP même cluster mutualisé -> ZIP uploads .zip brut clients sensibles [E49]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Chiffrer ZIP uploads",
+        "accès SFTP restreint au lieu FTP brut [E22] → ANSSI-HYGIENE-4, ISO27002-8.8"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-4",
+        "ISO27002-8.8"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M112",
+      "actif": "Shopix — Frontière GitHub (Secrets exposés Clé API PayFlow) clé API versionné publiquement réutilisation accès fraude déni paiement [E85],[E107],[-E84 ]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu scrape repos GitHub public ou index archive GitHistory (clé .env oubliée 1 mois exposée) -> teste clé PayFlow API -> POST /v2/payment sans authentification -> transactions débitos frauduleuses [E98],[E42]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Retirer clé API PayFlow depuis .env",
+        "utiliser secret manager (Vault/Doppler) avant publication GitHub [E84,E85,E107] → ANSSI-HYGIENE-1, ISO27002-5.30"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-1",
+        "ISO27002-5.30"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M113",
+      "actif": "Shopix — Périmètre Hébergeur Mutualisé HostPlanet isolation non vérifiable voisine compromise cross-tenant fuite clients commande stock partagé [E49],[E22],[E31]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu cible machine voisine sur cluster HostPlanet (isolation PHP gérée infrastructure) -> exploit vulnérabilité conteneur/kernel shared namespace -> accède mémoire processus shopix base DB /tmp/ uploads -> exfiltration sans traverser frontières explicites [E90]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Moyen",
+      "impact": "Élevé",
+      "niveau": "Élevé",
+      "traitement": "Réduire",
+      "mesures": [
+        "Vérifier isolation cloud (Kubernetes namespaces",
+        "cgroups) ou migrer en infrastructure dédiée [E22,E49] → ANSSI-HOMOLOGATION-1, ISO27002-8.16"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-HOMOLOGATION-1",
+        "ISO27002-8.16"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M114",
+      "actif": "Shopix — Frontière SSL Let's Encrypt auto-renouvelé CA compromise certificat valide usurpation HTTPS authentification phishing [E48],[E16]",
+      "menace": "STRIDE-I — Information Disclosure → attaqu possède CA privée (CA private key) ou comprome LetEncrypt automation -> délivre cert valide pour malice.shopix.example.com -> navigateur affich cadenas vert -> client accepte TLS man-in-the-middle [E27]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Moyen",
+      "niveau": "Faible",
+      "traitement": "Réduire",
+      "mesures": [
+        "Configurer HSTS strictement",
+        "utiliser CA enterprise ou ACV (Autorité Certifiée Volet) plutôt que Let's Encrypt [E48,E16] → ANSSI-HYGIENE-9, ISO27002-8.15"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-9",
+        "ISO27002-8.15"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    },
+    {
+      "id": "M115",
+      "actif": "Shopix — Frontière Fournisseur HostPlanet (API/FTP non gérée) dépendance prestataire indisponibilité DDoS bloc site CA pics festive perdu [E90],[E52]",
+      "menace": "STRIDE-D — Denial of Service → attaqu ciblé infrastructure mutualisé HostPlanet via volumetric DDoS ou BGP hijack route /shopix.example -> HTTPS 503/502 retour client abandon panier -> perte CA directe pic festive ×3 norme [E52]",
+      "categorie": "STRIDE-D",
+      "probabilite": "Faible",
+      "impact": "Élevé",
+      "niveau": "Moyen",
+      "traitement": "Transférer",
+      "mesures": [
+        "Assurer RTO/RPO avec hébergeur",
+        "cyber-assurance DDoS coverage [E52,E90] → ANSSI-RECYF-4.3"
+      ],
+      "sources": [
+        "EBIOS-RM-A4",
+        "ANSSI-RECYF-4.3"
+      ],
+      "risque_residuel": "Moyen",
+      "valide_par": null
+    },
+    {
+      "id": "M116",
+      "actif": "Shopix — Frontière Fournisseur HostPlanet (API/FTP non gérée) manque WAF protection injection XSS RCE attaquant exploite vulnérable CMS ou framework PHP exécutations shell [E32],[E90]",
+      "menace": "STRIDE-I — Environment Modification → attaqu probe /shopix.example pour CVE-202X sur framework ou extension installée (plugin impressions 3.2.1 non audité) -> RCE via file upload SQL injection XSS->code malveil injecté backdoor persistante [E90]",
+      "categorie": "STRIDE-I",
+      "probabilite": "Faible",
+      "impact": "Critique",
+      "niveau": "Moyen",
+      "traitement": "Réduire",
+      "mesures": [
+        "Installer WAF (modSecurity/cloud)",
+        "auditer plugins tiers (plugin impressions 3.2.1 à patcher) [E90,E32] → ANSSI-HYGIENE-15"
+      ],
+      "sources": [
+        "EBIOS-RM-A3",
+        "ANSSI-HYGIENE-15"
+      ],
+      "risque_residuel": "Faible",
+      "valide_par": null
+    }
+  ]
+}

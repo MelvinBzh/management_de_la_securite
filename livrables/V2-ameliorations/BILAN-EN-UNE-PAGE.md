@@ -21,15 +21,15 @@
 
 | Point ouvert | État |
 |---|---|
-| Analyse manuelle de référence (#17) | **Fait** (04/10) : 9 menaces sur 12 retrouvées par la chaîne |
-| Test d'injection réel (T-11) | **Fait** (04/10) : 11 contrôles, aucune consigne exécutée ; sans appel du modèle en direct |
+| Analyse manuelle de référence (#17) | **Fait** (15/10, SanteTech) : 30 risques de référence, 16 couverts par les agents, 7 partiels, 7 non couverts ; à relire et valider par l'analyste |
+| Test d'injection réel (T-11) | **Fait** (04/10) : 11 contrôles, aucune consigne exécutée ; **rejoué le 15/10 avec le modèle en direct** sur la chaîne complète : 116 risques, aucune consigne exécutée |
 | Tests pérennes (P2) | **Fait** : 35 fichiers de tests |
 | Arbitrage budgétaire (#20) | Documenté (04/10) ; décision de l'analyste à confirmer |
 | Base de connaissances par thématique | Non fait |
 
 **Ce qui reste à faire, dit sans détour** : sécuriser le site (authentification, SSH, Ollama, conteneur) · trop de risques « Critique »
 (48 à 56 %) · doublons d'actifs et citations inexistantes · valider les risques (SanteTech 0 sur 135, Nordval 10 sur 151) ·
-test d'injection en direct avec le modèle local · fusion de la branche V2 dans `main`.
+relire et valider l'analyse de référence SanteTech (30 risques) · répéter le test d'injection en direct sur d'autres cas.
 
 **Pour le prouver** : `03-DOSSIER-ECRIT-V2.pdf` (explications) · `06-PREUVES-TESTS-IA-LOCALE/` (livrables réels, journal, décisions,
 exports) · `07-CONTROLE-DES-CHIFFRES.pdf` (chaque chiffre avec sa source et sa commande) · tag `ecole-2026-09-24` sur GitHub.
